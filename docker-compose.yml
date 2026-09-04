@@ -1,0 +1,9 @@
+services:
+  itmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: itmanager-web
+    ports:
+      - "8080:80"
+    restart: unless-stopped
