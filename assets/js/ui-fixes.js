@@ -38,8 +38,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
   },true);
 
-  // Semantic filter options. The previous implementation rewrote select.innerHTML on every DOM mutation,
-  // which caused a MutationObserver feedback loop and froze pages containing filter bars.
+  // Semantic filter options.
   const options={
     inventory:{'Cihaz Tipi':['Laptop','Masaüstü Bilgisayar','Monitör','Yazıcı','El Terminali','Telefon','Kamera','Sunucu','Network Cihazı','Diğer'],'Marka':['Dell','HP','Lenovo','Asus','Acer','Canon','Kyocera','Xerox','Hikvision','Aruba','Samsung','Zebra','Diğer'],'Model':['Latitude 5440','Latitude 5550','OptiPlex 7010','P2422H','M5526cdw','B3150','DS-2CD2143G2','Aruba 6000','Diğer'],'Durum':['Aktif','IT Stoğu','Bakımda','Serviste','Arızalı','Hurda']},
     licenses:{'Durum':['Aktif','Boş','Süresi Yaklaşıyor','Süresi Dolmuş'],'Firma':['Microsoft','Adobe','Autodesk','Kaspersky','VMware','Fortinet','Diğer'],'Süre':['Süresiz','30 Gün','90 Gün','6 Ay','1 Yıl','3 Yıl']},
@@ -68,8 +67,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     }finally{normalizing=false;}
   };
   normalizeFilters();
-  // Guarded observer: it only reacts when navigation replaces the page and does not rewrite identical selects.
-  if(content)new MutationObserver(()=>normalizeFilters()).observe(content,{childList:true,subtree:true});
+  // Observe only direct page replacement. Changes inside selects are not observed.
+  if(content)new MutationObserver(()=>normalizeFilters()).observe(content,{childList:true});
 
   // Small modal forms for primary actions.
   const style=document.createElement('style');
