@@ -3,8 +3,10 @@ import sys
 from pathlib import Path
 
 import pytest
+from flask_migrate import downgrade, upgrade
 
 ROOT = Path(__file__).resolve().parents[2]
+MIGRATIONS_DIR = ROOT / "backend" / "migrations"
 sys.path.insert(0, str(ROOT))
 
 # Config is evaluated when backend.app is imported. In CI/test runs, point
@@ -33,22 +35,21 @@ def app():
 
     application = create_app(TestConfig)
     with application.app_context():
-        db.drop_all()
-        db.create_all()
+        upgrade(directory=str(MIGRATIONS_DIR))
         yield application
         db.session.remove()
-        db.drop_all()
+        downgrade(directory=str(MIGRATIONS_DIR), revision="base")
 
 
 @pytest.fixture()
 def clean_db(app):
     with app.app_context():
         db.session.remove()
-        db.drop_all()
-        db.create_all()
+        downgrade(directory=str(MIGRATIONS_DIR), revision="base")
+        upgrade(directory=str(MIGRATIONS_DIR))
         yield
         db.session.remove()
-        db.drop_all()
+        downgrade(directory=str(MIGRATIONS_DIR), revision="base")
 
 
 @pytest.fixture()
