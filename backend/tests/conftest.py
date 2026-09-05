@@ -7,6 +7,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+# Config is evaluated when backend.app is imported. In CI/test runs, point
+# the required production-style DATABASE_URL setting at the isolated test DB.
+os.environ.setdefault("DATABASE_URL", os.environ.get("TEST_DATABASE_URL", ""))
+os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-long-enough-123456")
+
 from backend.app import create_app
 from backend.app.extensions import db
 
@@ -43,6 +48,7 @@ def clean_db(app):
         db.create_all()
         yield
         db.session.remove()
+        db.drop_all()
 
 
 @pytest.fixture()
