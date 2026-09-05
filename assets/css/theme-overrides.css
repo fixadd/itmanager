@@ -1,0 +1,23 @@
+/* Final shell theme normalization: sidebar stays dark and controls remain readable in both themes. */
+.sidebar{background:#0b1220!important;color:#9aa8bb}
+.sidebar .brand{background:#0b1220!important;border-bottom-color:#1c293b!important}
+.sidebar .nav-section{color:#64748b!important}
+.sidebar .nav-link{color:#9aa8bb!important;background:transparent}
+.sidebar .nav-link i{color:#718096!important}
+.sidebar .nav-link:hover{background:#172236!important;color:#fff!important}
+.sidebar .nav-link:hover i{color:#9cc5ff!important}
+.sidebar .nav-link.active{background:#1d3150!important;color:#fff!important;box-shadow:inset 3px 0 #3b82f6,0 5px 14px rgba(0,0,0,.12)!important}
+.sidebar .nav-link.active i{color:#60a5fa!important}
+.sidebar .admin-submenu{background:#101a2a!important;border-left-color:#26364d!important}
+.sidebar .admin-submenu-link{color:#8fa0b5!important;background:transparent!important}
+.sidebar .admin-submenu-link:hover{background:#19263a!important;color:#fff!important}
+.sidebar .admin-submenu-link.active{background:#1d3150!important;color:#fff!important}
+.sidebar .admin-submenu-link i{color:#647b96!important}
+.sidebar .admin-submenu-link:hover i,.sidebar .admin-submenu-link.active i{color:#60a5fa!important}
+.sidebar .brand strong,.sidebar .sidebar-user strong{color:#fff!important}
+.sidebar .brand span,.sidebar .sidebar-user span{color:#64748b!important}
+.top-user-menu{background:var(--panel)!important;color:var(--text)!important;border-color:var(--border)!important}
+.top-user-menu button{color:var(--text)!important;background:transparent!important}
+.top-user-menu button:hover{background:var(--panel2)!important;color:var(--text)!important}
+.top-user-menu button[data-user-menu=logout]{color:#dc2626!important}
+html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca5a5!important}
