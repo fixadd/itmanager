@@ -189,6 +189,21 @@ class PurchaseRequestItem(TimestampMixin, db.Model):
     request = db.relationship("PurchaseRequest", back_populates="items")
 
 
+class KnowledgeArticle(TimestampMixin, db.Model):
+    __tablename__ = "knowledge_articles"
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(240), nullable=False)
+    slug = db.Column(db.String(260), unique=True, nullable=False)
+    category = db.Column(db.String(120), nullable=False, default="Genel")
+    summary = db.Column(db.String(500))
+    content = db.Column(db.Text, nullable=False)
+    tags = db.Column(db.String(500))
+    status = db.Column(db.String(30), nullable=False, default="draft")
+    author_id = db.Column(db.Integer, db.ForeignKey("personnel.id"))
+    view_count = db.Column(db.Integer, nullable=False, default=0)
+    author = db.relationship("Personnel")
+
+
 class AssignmentHistory(TimestampMixin, db.Model):
     __tablename__ = "assignment_history"
     id = db.Column(db.Integer, primary_key=True)
