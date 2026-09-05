@@ -36,5 +36,15 @@ def app():
 
 
 @pytest.fixture()
-def client(app):
+def clean_db(app):
+    with app.app_context():
+        db.session.remove()
+        db.drop_all()
+        db.create_all()
+        yield
+        db.session.remove()
+
+
+@pytest.fixture()
+def client(app, clean_db):
     return app.test_client()
