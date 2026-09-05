@@ -1,13 +1,30 @@
 document.addEventListener('DOMContentLoaded',()=>{
-const root=document.documentElement,content=document.querySelector('#pageContent'),themeToggle=document.querySelector('#themeToggle');
-const applyTheme=t=>{const dark=t==='dark';root.setAttribute('data-bs-theme',dark?'dark':'light');root.classList.toggle('dark-mode',dark);document.body.classList.toggle('dark-mode',dark);const i=themeToggle?.querySelector('i');if(i)i.className=`ti ${dark?'ti-sun':'ti-moon'}`};
-let theme=localStorage.getItem('itmanager-theme')||'dark';if(!['dark','light'].includes(theme))theme='dark';applyTheme(theme);themeToggle?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();theme=root.classList.contains('dark-mode')?'light':'dark';localStorage.setItem('itmanager-theme',theme);applyTheme(theme)});
-const options={inventory:{'Cihaz Tipi':['Laptop','Masaüstü Bilgisayar','Monitör','Yazıcı','El Terminali','Telefon','Kamera','Sunucu','Network Cihazı','Diğer'],'Marka':['Dell','HP','Lenovo','Asus','Acer','Canon','Kyocera','Xerox','Hikvision','Aruba','Samsung','Zebra','Diğer'],'Model':['Latitude 5440','Latitude 5550','OptiPlex 7010','P2422H','M5526cdw','B3150','DS-2CD2143G2','Aruba 6000','Diğer']},licenses:{'Durum':['Aktif','Boş','Süresi Yaklaşıyor','Süresi Dolmuş'],'Firma':['Microsoft','Adobe','Autodesk','Kaspersky','VMware','Fortinet','Diğer'],'Süre':['Süresiz','30 Gün','90 Gün','6 Ay','1 Yıl','3 Yıl']},stock:{'Kategori':['Aksesuar','Kablo','Sarf','Enerji','Depolama','Temizlik','Yedek Parça','Diğer'],'Durum':['Normal','Kritik','Tükendi','Arızalı'],'Lokasyon':['Merkez Depo','Fabrika 1','Fabrika 2','Baylan Electric','Baylan Water Meters','Bilgi İşlem']},maintenance:{'Durum':['Yeni','Bakım Bekliyor','İşlemde','Serviste','Parça Bekliyor','Tamamlandı','Hurda']},requests:{'Talep Tipi':['Envanter','Lisans','Stok / Sarf'],'Durum':['Yeni','Onay Bekliyor','Onaylandı','Satın Alma Bekliyor','Ürün Bekleniyor','Ürün Geldi','Tamamlandı','Reddedildi'],'Öncelik':['Düşük','Normal','Yüksek','Acil']},people:{'Departman':['Bilgi İşlem','Üretim','Finans','İnsan Kaynakları','Satın Alma','Muhasebe','Kalite','Bakım'],'Fabrika':['Merkez','Fabrika 1','Fabrika 2','Baylan Electric','Baylan Water Meters'],'Durum':['Aktif','İzinli','Ayrıldı']}};
-let busy=false;const normalize=()=>{if(busy)return;const page=document.querySelector('.nav-link.active')?.dataset.page,map=options[page];if(!map)return;busy=true;document.querySelectorAll('#pageContent .filter-bar select').forEach(s=>{const key=s.options[0]?.textContent?.trim(),vals=map[key];if(!vals)return;const cur=s.value;s.innerHTML=`<option value="">${key}</option>`+vals.map(v=>`<option value="${v}">${v}</option>`).join('');if(vals.includes(cur))s.value=cur});busy=false};normalize();if(content)new MutationObserver(normalize).observe(content,{childList:true,subtree:true});
-const closeMenus=()=>document.querySelectorAll('.row-operation-menu').forEach(x=>x.remove());
-document.addEventListener('click',e=>{const user=e.target.closest('#topUserBtn');if(user){e.preventDefault();e.stopImmediatePropagation();const m=document.getElementById('topUserMenu');if(m){m.hidden=!m.hidden;user.setAttribute('aria-expanded',String(!m.hidden))}return}if(!e.target.closest('.top-user-wrap')){const m=document.getElementById('topUserMenu');if(m)m.hidden=true}
-const admin=e.target.closest('a[data-page="admin"]');if(admin){e.preventDefault();e.stopImmediatePropagation();const m=document.getElementById('adminSubmenu');const open=!m?.classList.contains('open');m?.classList.toggle('open',open);admin.setAttribute('aria-expanded',String(open));if(location.hash!=='#admin')location.hash='#admin';else window.IT_ADMIN?.render?.();return}
-const add=e.target.closest('#pageContent .page-actions .btn.btn-primary');if(add){e.preventDefault();e.stopImmediatePropagation();if(window.ITUI?.openModal)window.ITUI.openModal(location.hash.slice(1));return}
-if(e.target.closest('[data-admin-view]')){const b=e.target.closest('[data-admin-view]');document.querySelectorAll('[data-admin-view]').forEach(x=>x.classList.remove('active'));b.classList.add('active');return}
-if(!e.target.closest('.row-operation-menu'))closeMenus();},true);
+  const root=document.documentElement;
+  const themeToggle=document.querySelector('#themeToggle');
+  const applyTheme=t=>{const dark=t==='dark';root.setAttribute('data-bs-theme',dark?'dark':'light');root.classList.toggle('dark-mode',dark);document.body.classList.toggle('dark-mode',dark);const i=themeToggle?.querySelector('i');if(i)i.className=`ti ${dark?'ti-sun':'ti-moon'}`};
+  let theme=localStorage.getItem('itmanager-theme')||'dark';
+  if(!['dark','light'].includes(theme))theme='dark';
+  applyTheme(theme);
+  themeToggle?.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();theme=root.classList.contains('dark-mode')?'light':'dark';localStorage.setItem('itmanager-theme',theme);applyTheme(theme)});
+
+  const menu=document.getElementById('topUserMenu');
+  document.addEventListener('click',e=>{
+    const user=e.target.closest('#topUserBtn');
+    if(user){
+      e.preventDefault();e.stopImmediatePropagation();
+      if(menu){menu.hidden=!menu.hidden;user.setAttribute('aria-expanded',String(!menu.hidden));}
+      return;
+    }
+    const profile=e.target.closest('[data-user-menu="profile"]');
+    if(profile){
+      e.preventDefault();e.stopImmediatePropagation();
+      if(menu)menu.hidden=true;
+      if(typeof window.IT_NAV_GO==='function') window.IT_NAV_GO('profile');
+      else { location.hash='#profile'; window.dispatchEvent(new HashChangeEvent('hashchange')); }
+      return;
+    }
+    if(e.target.closest('[data-user-menu="password"]')){e.preventDefault();e.stopImmediatePropagation();if(menu)menu.hidden=true;return;}
+    if(e.target.closest('[data-user-menu="logout"]')){e.preventDefault();e.stopImmediatePropagation();if(menu)menu.hidden=true;return;}
+    if(!e.target.closest('.top-user-wrap')&&menu)menu.hidden=true;
+  },true);
 });
