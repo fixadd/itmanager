@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       const p=page();
       const labels=p.includes('inventory')?['Envanter No','Cihaz Tipi','Marka','Model','Seri No','Personel','Lokasyon','Durum']:p.includes('licenses')?['Yazılım','Lisans Tipi','Firma','Lisans Anahtarı','Kapasite','Bitiş Tarihi','Durum']:p.includes('stock')?['Stok No','Ürün','Kategori','Miktar','Birim','Kritik Seviye','Lokasyon','Durum']:p.includes('maintenance')?['Envanter No','Personel','Arıza','Teknisyen','Başlangıç','Sonuç','Durum']:p.includes('people')?['Ad Soyad','Sicil No','Departman','Fabrika','Pozisyon','Durum']:['Başlık','Kategori','Açıklama','Durum'];
       const fields=labels.map(x=>({label:x,value:x==='Durum'?'Yeni':'—'}));
-      modal(title,fields,[{id:'save',text:'Kaydet',icon:'device-floppy',class:'btn-primary'},{id:'cancel',text:'Vazgeç',icon:'x',class:'btn-light'}]);
+      if(window.ITUI){ const form='<div class="row g-3">'+labels.map(x=>'<div class="col-md-6"><label class="form-label">'+esc(x)+'</label>'+(x==='Durum'?'<select class="form-select"><option>Yeni</option><option>Aktif</option></select>':'<input class="form-control" placeholder="'+esc(x)+'">')+'</div>').join('')+'</div>'; ITUI.modal(title,form,{size:p.includes('inventory')?'modal-xl':'modal-lg'}); } else { modal(title,fields,[{id:'save',text:'Kaydet',icon:'device-floppy',class:'btn-primary'},{id:'cancel',text:'Vazgeç',icon:'x',class:'btn-light'}]); }
     }
   },true);
 });
