@@ -1,23 +1,33 @@
 document.addEventListener('DOMContentLoaded',()=>{
-const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-const page=()=>location.hash.slice(1)||'dashboard';
-const people=['Ahmet Yılmaz','Mehmet Kaya','Ayşe Demir','IT Stok'];
-const details={inventory:[['Envanter No','BLN-IT-001245'],['Bilgisayar Adı','AHMET-PC'],['Fabrika','Merkez'],['Departman','Bilgi İşlem'],['Donanım Tipi','Laptop'],['Marka','Dell'],['Model','Latitude 5440'],['Seri No','ABC123XYZ'],['Bağlı Makina No','—'],['IFS No','IFS-45821'],['Sorumlu Personel','Ahmet Yılmaz'],['Durum','Aktif'],['Açıklama','Kurumsal kullanım']],licenses:[['Lisans Adı','Microsoft 365'],['Lisans Tipi','Abonelik'],['Lisans Anahtarı','••••••M365'],['E-posta','ahmet@baylan.com.tr'],['Bitiş','01.02.2027'],['Durum','Aktif'],['Not','Kurumsal lisans']],people:[['Ad Soyad','Ahmet Yılmaz'],['Sicil No','10024'],['Departman','Bilgi İşlem'],['Fabrika','Merkez'],['Pozisyon','IT Uzmanı'],['Durum','Aktif']]};
-function operationMenu(type){const a=type==='inventory'?['Arızalı İşaretle','Atama Yap','Bilgi İşleme Gir','Hurdaya Ayır']:type==='licenses'||type==='stock'?['Atama Yap','Bilgi İşleme Gir','Hurdaya Ayır']:[];return `<div class="row-operation-menu" hidden>${a.map(x=>`<button type="button" data-op="${esc(x)}"><i class="ti ti-chevron-right"></i>${x}</button>`).join('')}</div>`}
-function detailRow(tr,type){const old=tr.nextElementSibling;if(old?.classList.contains('inline-detail')){old.remove();return}const data=details[type]||details.inventory;const cells=data.map(([k,v])=>`<div class="detail-field"><span>${esc(k)}</span><strong data-value>${esc(v)}</strong></div>`).join('');let extra='';if(type==='people')extra=`<div class="detail-section"><h4>Üzerindeki Varlıklar</h4><div class="table-responsive"><table class="table table-sm"><thead><tr><th>VARLIK</th><th>TÜR</th><th>DURUM</th><th>AKSİYON</th></tr></thead><tbody><tr><td>BLN-IT-001245</td><td>Dell Latitude 5440</td><td>Aktif</td><td><button class="btn btn-sm btn-outline-primary transfer-asset">Başkasına Aktar</button></td></tr><tr><td>M365-00421</td><td>Microsoft 365</td><td>Aktif</td><td><button class="btn btn-sm btn-outline-primary transfer-asset">Başkasına Aktar</button></td></tr></tbody></table></div></div><div class="detail-section"><h4>Geçmiş Verilenler</h4><p class="text-muted mb-0">04.09.2026 · Dell Latitude 5440 zimmeti verildi<br>12.03.2026 · Microsoft 365 atandı</p></div>`;const d=document.createElement('tr');d.className='inline-detail';d.innerHTML=`<td colspan="99"><div class="inline-detail-box"><div class="inline-detail-head"><div><strong>${esc(data[0][1])}</strong><span>Detay Bilgileri</span></div><div><button class="btn btn-sm btn-primary detail-edit">Düzenle</button><button class="btn btn-sm btn-outline-secondary detail-close ms-1">Kapat</button></div></div><div class="detail-grid">${cells}</div>${extra}</div></td>`;tr.after(d)}
-function editDetail(detail){detail.querySelectorAll('[data-value]').forEach(el=>{const v=el.textContent.trim();el.outerHTML=`<input class="form-control form-control-sm detail-edit-input" value="${esc(v==='—'?'':v)}">`});const b=detail.querySelector('.detail-edit');b.textContent='Kaydet';b.classList.replace('btn-primary','btn-success');b.classList.add('detail-save')}
-function op(type,action){if(action==='Atama Yap'){const host=document.createElement('div');host.className='it-action-popover';host.innerHTML=`<div class="it-action-card"><h4>Atama Yap</h4><p>Personel seçin.</p><select class="form-select"><option>Seçiniz</option>${people.map(x=>`<option>${x}</option>`).join('')}</select><div class="mt-3 text-end"><button class="btn btn-primary save-op">Kaydet</button></div></div>`;document.body.appendChild(host);host.onclick=e=>{if(e.target===host)host.remove();if(e.target.closest('.save-op')){host.remove();window.itToast?.('Atama kaydedildi.')}};return}window.itToast?.(`${action} işlemi açıldı.`)}
-function masterAction(label){const d=window.IT_MASTER?.load?.();if(!d)return;let key=label.includes('Fabrika')?'factories':label.includes('Departman')?'departments':label.includes('Donanım')?'inventoryTypes':label.includes('Marka')?'brands':label.includes('Lisans')?'licenses':null;if(label.includes('Model')){const brand=prompt('Model hangi markaya bağlı?');if(!brand)return;const model=prompt(`${brand} için model adı:`);if(!model)return;(d.models[brand]||(d.models[brand]=[])).push(model);window.IT_MASTER.save(d);window.IT_NAV?.go();window.itToast?.('Model eklendi.');return}if(!key)return;const value=prompt(`${label.replace(' Ekle','')} adı:`);if(!value)return;if(!d[key].includes(value))d[key].push(value);window.IT_MASTER.save(d);window.IT_NAV?.go();window.itToast?.(`${value} eklendi.`)}
-document.addEventListener('click',e=>{
- const eye=e.target.closest('.row-eye');if(eye){e.preventDefault();e.stopImmediatePropagation();detailRow(eye.closest('tr'),eye.closest('tr').dataset.recordType);return}
- const actions=e.target.closest('.row-actions');if(actions){e.preventDefault();e.stopImmediatePropagation();const tr=actions.closest('tr');document.querySelectorAll('.row-operation-menu').forEach(x=>x.hidden=true);let menu=tr.querySelector('.row-operation-menu');if(!menu){tr.querySelector('.action-cell').insertAdjacentHTML('beforeend',operationMenu(tr.dataset.recordType));menu=tr.querySelector('.row-operation-menu')}menu.hidden=!menu.hidden;return}
- const opb=e.target.closest('[data-op]');if(opb){e.preventDefault();e.stopImmediatePropagation();op(opb.closest('.row-operation-menu').closest('tr').dataset.recordType,opb.dataset.op);opb.closest('.row-operation-menu').hidden=true;return}
- const edit=e.target.closest('.detail-edit');if(edit&&!edit.classList.contains('detail-save')){editDetail(e.target.closest('.inline-detail'));return}
- const save=e.target.closest('.detail-save');if(save){const d=e.target.closest('.inline-detail');d.querySelectorAll('.detail-edit-input').forEach(i=>{const s=document.createElement('strong');s.dataset.value='';s.textContent=i.value||'—';i.replaceWith(s)});save.textContent='Düzenle';save.classList.remove('detail-save');save.classList.replace('btn-success','btn-primary');window.itToast?.('Kayıt güncellendi.');return}
- const close=e.target.closest('.detail-close');if(close){close.closest('.inline-detail').remove();return}
- const transfer=e.target.closest('.transfer-asset');if(transfer){const host=document.createElement('div');host.className='it-action-popover';host.innerHTML=`<div class="it-action-card"><h4>Varlığı Başkasına Aktar</h4><select class="form-select">${people.filter(x=>x!=='Ahmet Yılmaz').map(x=>`<option>${x}</option>`).join('')}</select><div class="mt-3 text-end"><button class="btn btn-primary save-op">Aktar</button></div></div>`;document.body.appendChild(host);host.onclick=x=>{if(x.target===host)host.remove();if(x.target.closest('.save-op')){host.remove();window.itToast?.('Varlık aktarıldı.')}};return}
- const master=e.target.closest('.master-setting .btn');if(master){e.preventDefault();e.stopImmediatePropagation();masterAction(master.textContent.trim());return}
- const adminManage=e.target.closest('.panel .btn');if(adminManage&&adminManage.textContent.trim()==='Yönet'){location.hash='settings';return}
-},true);
-document.addEventListener('click',e=>{const b=e.target.closest('.page-actions .btn-primary');if(!b)return;const p=page();if(!['inventory','licenses','stock','requests','people','knowledge'].includes(p))return;e.preventDefault();e.stopImmediatePropagation();if(window.ITUI&&window.IT_FORM_RENDER)ITUI.modal(b.textContent.trim(),IT_FORM_RENDER(p),{size:p==='inventory'?'modal-xl':'modal-lg'});},true);
+  const page=()=>location.hash.slice(1).split('?')[0]||'dashboard';
+
+  // Module files own row/detail/action behavior. This shell file only handles
+  // cross-page actions that are not tied to a specific database record.
+  document.addEventListener('click',e=>{
+    const master=e.target.closest('.master-setting .btn');
+    if(master){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const label=master.textContent.trim();
+      if(window.IT_MASTER?.openEditor){window.IT_MASTER.openEditor(label);}
+      return;
+    }
+
+    const adminManage=e.target.closest('.panel .btn');
+    if(adminManage && adminManage.textContent.trim()==='Yönet'){
+      location.hash='settings';
+    }
+  },true);
+
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('.page-actions .btn-primary');
+    if(!b)return;
+    const p=page();
+    if(!['inventory','licenses','stock','maintenance','requests','people','knowledge'].includes(p))return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if(window.ITUI && window.IT_FORM_RENDER){
+      window.ITUI.modal(b.textContent.trim(),window.IT_FORM_RENDER(p),{size:p==='inventory'?'modal-xl':'modal-lg'});
+    }
+  },true);
 });
