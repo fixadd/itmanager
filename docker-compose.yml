@@ -1,4 +1,34 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: itmanager-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-itmanager}
+      POSTGRES_USER: ${POSTGRES_USER:-itmanager}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-password}
+    volumes:
+      - itmanager_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: itmanager-api
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-itmanager}:${POSTGRES_PASSWORD:-change-this-password}@postgres:5432/${POSTGRES_DB:-itmanager}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
   itmanager:
     build:
       context: .
@@ -6,4 +36,9 @@ services:
     container_name: itmanager-web
     ports:
       - "8080:80"
+    depends_on:
+      - backend
     restart: unless-stopped
+
+volumes:
+  itmanager_pgdata:
