@@ -16,9 +16,10 @@ from .api.log_routes import logs_bp
 from .api.license_owner_routes import license_owner_bp
 from .api.data_routes import data_bp
 from .api.knowledge_attachment_routes import attachments_bp
+from .api.connection_routes import connections_bp
 def create_app(config_class=Config):
  app=Flask(__name__);app.config.from_object(config_class);db.init_app(app);migrate.init_app(app,db,compare_type=True)
- for bp in (api_bp,stock_bp,auth_bp,maintenance_bp,requests_bp,personnel_bp,knowledge_bp,attachments_bp,scrap_bp,reports_bp,settings_bp,logs_bp,license_owner_bp,data_bp):app.register_blueprint(bp,url_prefix="/api")
+ for bp in (api_bp,stock_bp,auth_bp,maintenance_bp,requests_bp,personnel_bp,knowledge_bp,attachments_bp,scrap_bp,reports_bp,settings_bp,logs_bp,license_owner_bp,data_bp,connections_bp):app.register_blueprint(bp,url_prefix="/api")
  @app.before_request
  def require_api_authentication():
   if not request.path.startswith('/api/') or request.path in {'/api/auth/login','/api/health/db'} or request.method=='OPTIONS':return None
@@ -38,7 +39,7 @@ def create_app(config_class=Config):
   elif path.startswith('/api/knowledge') and method in {'POST','PUT','PATCH','DELETE'}:permission='knowledge.manage'
   elif path.startswith('/api/scrap') and method in {'POST','PUT','PATCH','DELETE'}:permission='scrap.manage'
   elif path.startswith('/api/reports'):permission='reports.view'
-  elif path.startswith('/api/settings') or path.startswith('/api/data'):permission='settings.manage'
+  elif path.startswith('/api/settings') or path.startswith('/api/data') or path.startswith('/api/connections'):permission='settings.manage'
   if permission and not user.has_permission(permission):return jsonify({'error':'forbidden','permission':permission}),403
  @app.get('/health')
  def health():return jsonify({'status':'ok','service':'itmanager-api'})
