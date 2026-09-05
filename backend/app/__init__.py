@@ -5,6 +5,7 @@ from .api import api_bp, stock_bp
 from .api.maintenance_routes import maintenance_bp
 from .api.request_routes import requests_bp
 from .api.personnel_routes import personnel_bp
+from .api.knowledge_routes import knowledge_bp
 
 
 def create_app(config_class=Config):
@@ -16,6 +17,7 @@ def create_app(config_class=Config):
     app.register_blueprint(maintenance_bp, url_prefix="/api")
     app.register_blueprint(requests_bp, url_prefix="/api")
     app.register_blueprint(personnel_bp, url_prefix="/api")
+    app.register_blueprint(knowledge_bp, url_prefix="/api")
 
     @app.get("/health")
     def health():
