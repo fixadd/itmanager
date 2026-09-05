@@ -13,10 +13,11 @@ from .api.scrap_routes import scrap_bp
 from .api.report_routes import reports_bp
 from .api.settings_routes import settings_bp
 from .api.log_routes import logs_bp
+from .api.license_owner_routes import license_owner_bp
 
 def create_app(config_class=Config):
     app=Flask(__name__); app.config.from_object(config_class); db.init_app(app); migrate.init_app(app,db,compare_type=True)
-    for bp in (api_bp,stock_bp,auth_bp,maintenance_bp,requests_bp,personnel_bp,knowledge_bp,scrap_bp,reports_bp,settings_bp,logs_bp): app.register_blueprint(bp,url_prefix="/api")
+    for bp in (api_bp,stock_bp,auth_bp,maintenance_bp,requests_bp,personnel_bp,knowledge_bp,scrap_bp,reports_bp,settings_bp,logs_bp,license_owner_bp): app.register_blueprint(bp,url_prefix="/api")
     @app.before_request
     def require_api_authentication():
         if not request.path.startswith('/api/') or request.path in {'/api/auth/login','/api/health/db'} or request.method=='OPTIONS': return None
@@ -28,6 +29,7 @@ def create_app(config_class=Config):
         method=request.method.upper(); path=request.path; permission=None
         if path.startswith('/api/inventory') and method in {'POST','PUT','PATCH','DELETE'}: permission='inventory.manage'
         elif path.startswith('/api/licenses') and method in {'POST','PUT','PATCH','DELETE'}: permission='licenses.manage'
+        elif path.startswith('/api/license-owners') and method in {'POST','PUT','PATCH','DELETE'}: permission='licenses.manage'
         elif path.startswith('/api/stock') and method in {'POST','PUT','PATCH','DELETE'}: permission='stock.manage'
         elif path.startswith('/api/maintenance') and method in {'POST','PUT','PATCH','DELETE'}: permission='maintenance.manage'
         elif path.startswith('/api/requests') and method in {'POST','PUT','PATCH','DELETE'}: permission='requests.manage'
