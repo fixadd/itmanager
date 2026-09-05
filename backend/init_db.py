@@ -1,6 +1,9 @@
+import os
+
 from .app import create_app
 from .app.extensions import db
-from .app.models import Brand, Department, Factory, LicenseName, ProductType
+from .app.models import Brand, Department, Factory, LicenseName, Permission, ProductType, Role, User
+from werkzeug.security import generate_password_hash
 
 DEFAULTS = {
     Factory: ["Merkez", "Fabrika 1", "Fabrika 2"],
@@ -10,6 +13,23 @@ DEFAULTS = {
     LicenseName: ["Windows 11 Pro", "Office 2021", "Microsoft 365", "Adobe Creative Cloud", "AutoCAD", "Antivirus", "VPN", "Diğer"],
 }
 
+PERMISSIONS = [
+    ("dashboard.view", "Dashboard Görüntüleme"),
+    ("inventory.manage", "Envanter Yönetimi"),
+    ("licenses.manage", "Lisans Yönetimi"),
+    ("stock.manage", "Stok Yönetimi"),
+    ("maintenance.manage", "Bakım Yönetimi"),
+    ("requests.manage", "Satın Alma Talepleri"),
+    ("people.manage", "Personel Yönetimi"),
+    ("knowledge.manage", "Bilgi Bankası"),
+    ("scrap.manage", "Hurda Yönetimi"),
+    ("reports.view", "Rapor Görüntüleme"),
+    ("users.manage", "Kullanıcı Yönetimi"),
+    ("roles.manage", "Rol ve Yetki Yönetimi"),
+    ("settings.manage", "Sistem Ayarları"),
+    ("logs.view", "Kayıtları Görüntüleme"),
+]
+
 
 def seed(model, names):
     existing = {row.name for row in model.query.all()}
@@ -18,14 +38,36 @@ def seed(model, names):
             db.session.add(model(name=name))
 
 
+def seed_auth():
+    for key, name in PERMISSIONS:
+        if not Permission.query.filter_by(key=key).first():
+            db.session.add(Permission(key=key, name=name))
+    db.session.flush()
+
+    admin = Role.query.filter_by(name="Sistem Yöneticisi").first()
+    if not admin:
+        admin = Role(name="Sistem Yöneticisi", description="Tüm sistem yetkilerine sahip yönetici rolü")
+        db.session.add(admin)
+        db.session.flush()
+    admin.permissions = Permission.query.all()
+
+    username = os.environ.get("ADMIN_USERNAME", "admin").strip() or "admin"
+    password = os.environ.get("ADMIN_PASSWORD", "Admin@12345")
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        user = User(username=username, password_hash=generate_password_hash(password), role=admin, active=True)
+        db.session.add(user)
+
+
 def bootstrap(app):
     with app.app_context():
         db.create_all()
         for model, names in DEFAULTS.items():
             seed(model, names)
+        seed_auth()
         db.session.commit()
 
 
 if __name__ == "__main__":
     bootstrap(create_app())
-    print("IT Manager PostgreSQL tabloları ve temel master verileri hazır.")
+    print("IT Manager PostgreSQL tabloları, master veriler ve varsayılan yönetici hazır.")
