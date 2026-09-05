@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 from .config import Config
 from .extensions import db
 from .api import api_bp, stock_bp
+from .api.maintenance_routes import maintenance_bp
 
 
 def create_app(config_class=Config):
@@ -10,6 +11,7 @@ def create_app(config_class=Config):
     db.init_app(app)
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(stock_bp, url_prefix="/api")
+    app.register_blueprint(maintenance_bp, url_prefix="/api")
 
     @app.get("/health")
     def health():
