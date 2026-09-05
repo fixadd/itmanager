@@ -55,6 +55,12 @@ def seed_auth():
         db.session.flush()
     admin.permissions = Permission.query.all()
 
+    # Login is intentionally disabled during UI development. In this mode
+    # there is no reason to require or create an admin password yet.
+    auth_disabled = os.environ.get("AUTH_DISABLED", "false").strip().lower() == "true"
+    if auth_disabled:
+        return
+
     username = os.environ.get("ADMIN_USERNAME", "admin").strip() or "admin"
     password = os.environ.get("ADMIN_PASSWORD", "").strip()
     if not password or len(password) < 12:
