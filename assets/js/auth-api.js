@@ -10,9 +10,7 @@
     return data;
   }
 
-  function initials(name) {
-    return String(name || 'IT').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase() || 'IT';
-  }
+  function initials(name) { return String(name || 'IT').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase() || 'IT'; }
 
   function syncUser(user) {
     me = user;
@@ -45,8 +43,7 @@
       error.classList.add('d-none'); button.disabled = true;
       try {
         const data = await request('/auth/login', { method: 'POST', body: JSON.stringify({ username: form.username.value, password: form.password.value }) });
-        syncUser(data.user); el.remove();
-        window.location.hash = '#dashboard';
+        syncUser(data.user); el.remove(); window.location.hash = '#dashboard'; window.location.reload();
       } catch (err) { error.textContent = err.message; error.classList.remove('d-none'); }
       finally { button.disabled = false; }
     });
@@ -54,15 +51,12 @@
 
   async function logout() {
     try { await request('/auth/logout', { method: 'POST' }); } catch (_) {}
-    me = null;
-    showLogin();
+    me = null; window.IT_AUTH_USER = null; showLogin();
   }
 
   async function init() {
-    try {
-      const data = await request('/auth/me');
-      syncUser(data.user);
-    } catch (_) { showLogin(); }
+    try { const data = await request('/auth/me'); syncUser(data.user); }
+    catch (_) { showLogin(); }
   }
 
   document.addEventListener('click', e => {
