@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-itmanager}
       POSTGRES_USER: ${POSTGRES_USER:-itmanager}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes:
       - itmanager_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,10 +21,12 @@ services:
       dockerfile: backend/Dockerfile
     container_name: itmanager-api
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-itmanager}:${POSTGRES_PASSWORD:-change-this-password}@postgres:5432/${POSTGRES_DB:-itmanager}
-      SECRET_KEY: ${SECRET_KEY:-change-this-secret-in-production}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-itmanager}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-itmanager}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@12345}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-Strict}
     depends_on:
       postgres:
         condition: service_healthy
