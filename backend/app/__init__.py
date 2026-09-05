@@ -10,6 +10,7 @@ from .api.knowledge_routes import knowledge_bp
 from .api.scrap_routes import scrap_bp
 from .api.report_routes import reports_bp
 from .api.settings_routes import settings_bp
+from .api.log_routes import logs_bp
 
 
 def create_app(config_class=Config):
@@ -26,6 +27,7 @@ def create_app(config_class=Config):
     app.register_blueprint(scrap_bp, url_prefix="/api")
     app.register_blueprint(reports_bp, url_prefix="/api")
     app.register_blueprint(settings_bp, url_prefix="/api")
+    app.register_blueprint(logs_bp, url_prefix="/api")
 
     @app.before_request
     def require_api_authentication():
