@@ -1,86 +1,54 @@
 from datetime import datetime, timezone
 from .extensions import db
 
-
-def utcnow():
-    return datetime.now(timezone.utc)
-
-
-role_permissions = db.Table("role_permissions", db.Column("role_id", db.Integer, db.ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True), db.Column("permission_id", db.Integer, db.ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True))
-
+def utcnow(): return datetime.now(timezone.utc)
+role_permissions=db.Table("role_permissions",db.Column("role_id",db.Integer,db.ForeignKey("roles.id",ondelete="CASCADE"),primary_key=True),db.Column("permission_id",db.Integer,db.ForeignKey("permissions.id",ondelete="CASCADE"),primary_key=True))
 class TimestampMixin:
-    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
-
-class Role(TimestampMixin, db.Model):
-    __tablename__ = "roles"
-    id = db.Column(db.Integer, primary_key=True); name = db.Column(db.String(80), unique=True, nullable=False); description = db.Column(db.String(255)); active = db.Column(db.Boolean, default=True, nullable=False)
-    permissions = db.relationship("Permission", secondary=role_permissions, back_populates="roles", lazy="selectin")
-
-class Permission(TimestampMixin, db.Model):
-    __tablename__ = "permissions"
-    id = db.Column(db.Integer, primary_key=True); key = db.Column(db.String(120), unique=True, nullable=False); name = db.Column(db.String(160), nullable=False); description = db.Column(db.String(255))
-    roles = db.relationship("Role", secondary=role_permissions, back_populates="permissions")
-
-class User(TimestampMixin, db.Model):
-    __tablename__ = "users"
-    id = db.Column(db.Integer, primary_key=True); username = db.Column(db.String(80), unique=True, nullable=False); email = db.Column(db.String(255), unique=True); password_hash = db.Column(db.String(255), nullable=False); role_id = db.Column(db.Integer, db.ForeignKey("roles.id")); personnel_id = db.Column(db.Integer, db.ForeignKey("personnel.id")); active = db.Column(db.Boolean, default=True, nullable=False); last_login_at = db.Column(db.DateTime(timezone=True)); role = db.relationship("Role", backref=db.backref("users", lazy="dynamic")); personnel = db.relationship("Personnel")
-    def has_permission(self, key): return bool(self.role and self.role.active and any(p.key == key for p in self.role.permissions))
-
-class Factory(TimestampMixin, db.Model):
-    __tablename__ = "factories"
-    id = db.Column(db.Integer, primary_key=True); name = db.Column(db.String(120), unique=True, nullable=False); active = db.Column(db.Boolean, default=True, nullable=False)
-class Department(TimestampMixin, db.Model):
-    __tablename__ = "departments"
-    id = db.Column(db.Integer, primary_key=True); name = db.Column(db.String(120), unique=True, nullable=False); active = db.Column(db.Boolean, default=True, nullable=False)
-class Personnel(TimestampMixin, db.Model):
-    __tablename__ = "personnel"
-    id = db.Column(db.Integer, primary_key=True); employee_no = db.Column(db.String(50), unique=True); name = db.Column(db.String(160), nullable=False); email = db.Column(db.String(255)); department_id = db.Column(db.Integer, db.ForeignKey("departments.id")); active = db.Column(db.Boolean, default=True, nullable=False); department = db.relationship("Department")
-class ProductType(TimestampMixin, db.Model):
-    __tablename__ = "product_types"
-    id = db.Column(db.Integer, primary_key=True); name = db.Column(db.String(120), unique=True, nullable=False); active = db.Column(db.Boolean, default=True, nullable=False)
-class Brand(TimestampMixin, db.Model):
-    __tablename__ = "brands"
-    id = db.Column(db.Integer, primary_key=True); name = db.Column(db.String(120), unique=True, nullable=False); active = db.Column(db.Boolean, default=True, nullable=False)
-class ProductModel(TimestampMixin, db.Model):
-    __tablename__ = "product_models"
-    id = db.Column(db.Integer, primary_key=True); name = db.Column(db.String(160), nullable=False); brand_id = db.Column(db.Integer, db.ForeignKey("brands.id"), nullable=False); product_type_id = db.Column(db.Integer, db.ForeignKey("product_types.id")); active = db.Column(db.Boolean, default=True, nullable=False); brand = db.relationship("Brand"); product_type = db.relationship("ProductType"); __table_args__ = (db.UniqueConstraint("brand_id", "name", name="uq_product_model_brand_name"),)
-class LicenseName(TimestampMixin, db.Model):
-    __tablename__ = "license_names"
-    id = db.Column(db.Integer, primary_key=True); name = db.Column(db.String(160), unique=True, nullable=False); active = db.Column(db.Boolean, default=True, nullable=False)
-
-class Inventory(TimestampMixin, db.Model):
-    __tablename__ = "inventory"
-    id = db.Column(db.Integer, primary_key=True); inventory_no = db.Column(db.String(80), unique=True, nullable=False); computer_name = db.Column(db.String(120)); serial_no = db.Column(db.String(160), unique=True); machine_no = db.Column(db.String(120)); ifs_no = db.Column(db.String(120)); note = db.Column(db.Text); status = db.Column(db.String(30), default="active", nullable=False); factory_id = db.Column(db.Integer, db.ForeignKey("factories.id"), nullable=False); department_id = db.Column(db.Integer, db.ForeignKey("departments.id"), nullable=False); product_type_id = db.Column(db.Integer, db.ForeignKey("product_types.id"), nullable=False); brand_id = db.Column(db.Integer, db.ForeignKey("brands.id"), nullable=False); model_id = db.Column(db.Integer, db.ForeignKey("product_models.id")); personnel_id = db.Column(db.Integer, db.ForeignKey("personnel.id")); factory = db.relationship("Factory"); department = db.relationship("Department"); product_type = db.relationship("ProductType"); brand = db.relationship("Brand"); model = db.relationship("ProductModel"); personnel = db.relationship("Personnel")
-
-class License(TimestampMixin, db.Model):
-    __tablename__ = "licenses"
-    id = db.Column(db.Integer, primary_key=True); license_name_id = db.Column(db.Integer, db.ForeignKey("license_names.id"), nullable=False); license_type = db.Column(db.String(30), nullable=False, default="subscription"); license_key = db.Column(db.Text); email = db.Column(db.String(255)); password = db.Column(db.Text); expires_at = db.Column(db.Date); note = db.Column(db.Text); status = db.Column(db.String(30), default="active", nullable=False); personnel_id = db.Column(db.Integer, db.ForeignKey("personnel.id")); license_name = db.relationship("LicenseName"); personnel = db.relationship("Personnel")
-
-class StockItem(TimestampMixin, db.Model):
-    __tablename__ = "stock_items"
-    id = db.Column(db.Integer, primary_key=True); product_type_id = db.Column(db.Integer, db.ForeignKey("product_types.id"), nullable=False); brand_id = db.Column(db.Integer, db.ForeignKey("brands.id"), nullable=False); model_id = db.Column(db.Integer, db.ForeignKey("product_models.id")); quantity = db.Column(db.Numeric(12,2), default=0, nullable=False); unit = db.Column(db.String(30), default="Adet", nullable=False); note = db.Column(db.Text); status = db.Column(db.String(30), default="available", nullable=False); product_type = db.relationship("ProductType"); brand = db.relationship("Brand"); model = db.relationship("ProductModel")
-class StockMovement(TimestampMixin, db.Model):
-    __tablename__ = "stock_movements"
-    id = db.Column(db.Integer, primary_key=True); stock_item_id = db.Column(db.Integer, db.ForeignKey("stock_items.id"), nullable=False); movement_type = db.Column(db.String(20), nullable=False); quantity = db.Column(db.Numeric(12,2), nullable=False); unit = db.Column(db.String(30), default="Adet", nullable=False); personnel_id = db.Column(db.Integer, db.ForeignKey("personnel.id")); inventory_id = db.Column(db.Integer, db.ForeignKey("inventory.id")); note = db.Column(db.Text); stock_item = db.relationship("StockItem", backref=db.backref("movements", lazy="dynamic")); personnel = db.relationship("Personnel"); inventory = db.relationship("Inventory")
-class MaintenanceRecord(TimestampMixin, db.Model):
-    __tablename__ = "maintenance_records"
-    id = db.Column(db.Integer, primary_key=True); inventory_id = db.Column(db.Integer, db.ForeignKey("inventory.id"), nullable=False); maintenance_type = db.Column(db.String(30), default="internal", nullable=False); fault = db.Column(db.String(255), nullable=False); description = db.Column(db.Text); service = db.Column(db.String(160)); technician = db.Column(db.String(160)); started_at = db.Column(db.DateTime(timezone=True)); completed_at = db.Column(db.DateTime(timezone=True)); status = db.Column(db.String(30), default="pending", nullable=False); cost = db.Column(db.Numeric(12,2)); note = db.Column(db.Text); inventory = db.relationship("Inventory")
-class PurchaseRequest(TimestampMixin, db.Model):
-    __tablename__ = "purchase_requests"
-    id = db.Column(db.Integer, primary_key=True); request_no = db.Column(db.String(50), unique=True, nullable=False); requester_id = db.Column(db.Integer, db.ForeignKey("personnel.id")); department_id = db.Column(db.Integer, db.ForeignKey("departments.id")); factory_id = db.Column(db.Integer, db.ForeignKey("factories.id")); status = db.Column(db.String(30), default="pending", nullable=False); priority = db.Column(db.String(20), default="normal", nullable=False); requested_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False); approved_at = db.Column(db.DateTime(timezone=True)); approved_by = db.Column(db.String(160)); completed_at = db.Column(db.DateTime(timezone=True)); note = db.Column(db.Text); requester = db.relationship("Personnel"); department = db.relationship("Department"); factory = db.relationship("Factory"); items = db.relationship("PurchaseRequestItem", back_populates="request", cascade="all, delete-orphan", order_by="PurchaseRequestItem.id")
-class PurchaseRequestItem(TimestampMixin, db.Model):
-    __tablename__ = "purchase_request_items"
-    id = db.Column(db.Integer, primary_key=True); request_id = db.Column(db.Integer, db.ForeignKey("purchase_requests.id", ondelete="CASCADE"), nullable=False); product_type = db.Column(db.String(120), nullable=False); device_type = db.Column(db.String(120)); brand = db.Column(db.String(120)); model = db.Column(db.String(160)); quantity = db.Column(db.Numeric(12,2), nullable=False, default=1); unit = db.Column(db.String(30), default="Adet", nullable=False); estimated_unit_price = db.Column(db.Numeric(12,2)); description = db.Column(db.Text); request = db.relationship("PurchaseRequest", back_populates="items")
-class KnowledgeArticle(TimestampMixin, db.Model):
-    __tablename__ = "knowledge_articles"
-    id = db.Column(db.Integer, primary_key=True); title = db.Column(db.String(240), nullable=False); slug = db.Column(db.String(260), unique=True, nullable=False); category = db.Column(db.String(120), nullable=False, default="Genel"); summary = db.Column(db.String(500)); content = db.Column(db.Text, nullable=False); tags = db.Column(db.String(500)); status = db.Column(db.String(30), nullable=False, default="draft"); author_id = db.Column(db.Integer, db.ForeignKey("personnel.id")); view_count = db.Column(db.Integer, nullable=False, default=0); author = db.relationship("Personnel")
-class AssignmentHistory(TimestampMixin, db.Model):
-    __tablename__ = "assignment_history"
-    id = db.Column(db.Integer, primary_key=True); personnel_id = db.Column(db.Integer, db.ForeignKey("personnel.id"), nullable=False); asset_type = db.Column(db.String(30), nullable=False); asset_id = db.Column(db.Integer, nullable=False); action = db.Column(db.String(30), nullable=False); note = db.Column(db.Text)
-class ScrapRecord(TimestampMixin, db.Model):
-    __tablename__ = "scrap_records"
-    id = db.Column(db.Integer, primary_key=True); source_type = db.Column(db.String(30), nullable=False); source_id = db.Column(db.Integer, nullable=False); reason = db.Column(db.String(80), nullable=False); note = db.Column(db.Text); scrapped_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+    created_at=db.Column(db.DateTime(timezone=True),default=utcnow,nullable=False); updated_at=db.Column(db.DateTime(timezone=True),default=utcnow,onupdate=utcnow,nullable=False)
+class Role(TimestampMixin,db.Model):
+    __tablename__="roles"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(80),unique=True,nullable=False); description=db.Column(db.String(255)); active=db.Column(db.Boolean,default=True,nullable=False); permissions=db.relationship("Permission",secondary=role_permissions,back_populates="roles",lazy="selectin")
+class Permission(TimestampMixin,db.Model):
+    __tablename__="permissions"; id=db.Column(db.Integer,primary_key=True); key=db.Column(db.String(120),unique=True,nullable=False); name=db.Column(db.String(160),nullable=False); description=db.Column(db.String(255)); roles=db.relationship("Role",secondary=role_permissions,back_populates="permissions")
+class User(TimestampMixin,db.Model):
+    __tablename__="users"; id=db.Column(db.Integer,primary_key=True); username=db.Column(db.String(80),unique=True,nullable=False); email=db.Column(db.String(255),unique=True); password_hash=db.Column(db.String(255),nullable=False); role_id=db.Column(db.Integer,db.ForeignKey("roles.id")); personnel_id=db.Column(db.Integer,db.ForeignKey("personnel.id")); active=db.Column(db.Boolean,default=True,nullable=False); last_login_at=db.Column(db.DateTime(timezone=True)); role=db.relationship("Role",backref=db.backref("users",lazy="dynamic")); personnel=db.relationship("Personnel")
+    def has_permission(self,key): return bool(self.role and self.role.active and any(p.key==key for p in self.role.permissions))
+class Factory(TimestampMixin,db.Model):
+    __tablename__="factories"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(120),unique=True,nullable=False); active=db.Column(db.Boolean,default=True,nullable=False)
+class Department(TimestampMixin,db.Model):
+    __tablename__="departments"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(120),unique=True,nullable=False); active=db.Column(db.Boolean,default=True,nullable=False)
+class Personnel(TimestampMixin,db.Model):
+    __tablename__="personnel"; id=db.Column(db.Integer,primary_key=True); employee_no=db.Column(db.String(50),unique=True); name=db.Column(db.String(160),nullable=False); email=db.Column(db.String(255)); department_id=db.Column(db.Integer,db.ForeignKey("departments.id")); active=db.Column(db.Boolean,default=True,nullable=False); department=db.relationship("Department")
+class ProductType(TimestampMixin,db.Model):
+    __tablename__="product_types"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(120),unique=True,nullable=False); active=db.Column(db.Boolean,default=True,nullable=False)
+class Brand(TimestampMixin,db.Model):
+    __tablename__="brands"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(120),unique=True,nullable=False); active=db.Column(db.Boolean,default=True,nullable=False)
+class ProductModel(TimestampMixin,db.Model):
+    __tablename__="product_models"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(160),nullable=False); brand_id=db.Column(db.Integer,db.ForeignKey("brands.id"),nullable=False); product_type_id=db.Column(db.Integer,db.ForeignKey("product_types.id")); active=db.Column(db.Boolean,default=True,nullable=False); brand=db.relationship("Brand"); product_type=db.relationship("ProductType"); __table_args__=(db.UniqueConstraint("brand_id","name",name="uq_product_model_brand_name"),)
+class LicenseName(TimestampMixin,db.Model):
+    __tablename__="license_names"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(160),unique=True,nullable=False); active=db.Column(db.Boolean,default=True,nullable=False)
+class Inventory(TimestampMixin,db.Model):
+    __tablename__="inventory"; id=db.Column(db.Integer,primary_key=True); inventory_no=db.Column(db.String(80),unique=True,nullable=False); computer_name=db.Column(db.String(120)); serial_no=db.Column(db.String(160),unique=True); machine_no=db.Column(db.String(120)); ifs_no=db.Column(db.String(120)); note=db.Column(db.Text); status=db.Column(db.String(30),default="active",nullable=False); factory_id=db.Column(db.Integer,db.ForeignKey("factories.id"),nullable=False); department_id=db.Column(db.Integer,db.ForeignKey("departments.id"),nullable=False); product_type_id=db.Column(db.Integer,db.ForeignKey("product_types.id"),nullable=False); brand_id=db.Column(db.Integer,db.ForeignKey("brands.id"),nullable=False); model_id=db.Column(db.Integer,db.ForeignKey("product_models.id")); personnel_id=db.Column(db.Integer,db.ForeignKey("personnel.id")); factory=db.relationship("Factory"); department=db.relationship("Department"); product_type=db.relationship("ProductType"); brand=db.relationship("Brand"); model=db.relationship("ProductModel"); personnel=db.relationship("Personnel")
+class License(TimestampMixin,db.Model):
+    __tablename__="licenses"; id=db.Column(db.Integer,primary_key=True); license_name_id=db.Column(db.Integer,db.ForeignKey("license_names.id"),nullable=False); license_type=db.Column(db.String(30),nullable=False,default="subscription"); license_key=db.Column(db.Text); email=db.Column(db.String(255)); password=db.Column(db.Text); expires_at=db.Column(db.Date); note=db.Column(db.Text); status=db.Column(db.String(30),default="active",nullable=False); personnel_id=db.Column(db.Integer,db.ForeignKey("personnel.id")); license_name=db.relationship("LicenseName"); personnel=db.relationship("Personnel")
+class StockItem(TimestampMixin,db.Model):
+    __tablename__="stock_items"; id=db.Column(db.Integer,primary_key=True); product_type_id=db.Column(db.Integer,db.ForeignKey("product_types.id"),nullable=False); brand_id=db.Column(db.Integer,db.ForeignKey("brands.id"),nullable=False); model_id=db.Column(db.Integer,db.ForeignKey("product_models.id")); quantity=db.Column(db.Numeric(12,2),default=0,nullable=False); unit=db.Column(db.String(30),default="Adet",nullable=False); note=db.Column(db.Text); status=db.Column(db.String(30),default="available",nullable=False); product_type=db.relationship("ProductType"); brand=db.relationship("Brand"); model=db.relationship("ProductModel")
+class StockMovement(TimestampMixin,db.Model):
+    __tablename__="stock_movements"; id=db.Column(db.Integer,primary_key=True); stock_item_id=db.Column(db.Integer,db.ForeignKey("stock_items.id"),nullable=False); movement_type=db.Column(db.String(20),nullable=False); quantity=db.Column(db.Numeric(12,2),nullable=False); unit=db.Column(db.String(30),default="Adet",nullable=False); personnel_id=db.Column(db.Integer,db.ForeignKey("personnel.id")); inventory_id=db.Column(db.Integer,db.ForeignKey("inventory.id")); note=db.Column(db.Text); stock_item=db.relationship("StockItem",backref=db.backref("movements",lazy="dynamic")); personnel=db.relationship("Personnel"); inventory=db.relationship("Inventory")
+class MaintenanceRecord(TimestampMixin,db.Model):
+    __tablename__="maintenance_records"; id=db.Column(db.Integer,primary_key=True); inventory_id=db.Column(db.Integer,db.ForeignKey("inventory.id"),nullable=False); maintenance_type=db.Column(db.String(30),default="internal",nullable=False); fault=db.Column(db.String(255),nullable=False); description=db.Column(db.Text); service=db.Column(db.String(160)); technician=db.Column(db.String(160)); started_at=db.Column(db.DateTime(timezone=True)); completed_at=db.Column(db.DateTime(timezone=True)); status=db.Column(db.String(30),default="pending",nullable=False); cost=db.Column(db.Numeric(12,2)); note=db.Column(db.Text); inventory=db.relationship("Inventory")
+class PurchaseRequest(TimestampMixin,db.Model):
+    __tablename__="purchase_requests"; id=db.Column(db.Integer,primary_key=True); request_no=db.Column(db.String(50),unique=True,nullable=False); requester_id=db.Column(db.Integer,db.ForeignKey("personnel.id")); department_id=db.Column(db.Integer,db.ForeignKey("departments.id")); factory_id=db.Column(db.Integer,db.ForeignKey("factories.id")); status=db.Column(db.String(30),default="pending",nullable=False); priority=db.Column(db.String(20),default="normal",nullable=False); requested_at=db.Column(db.DateTime(timezone=True),default=utcnow,nullable=False); approved_at=db.Column(db.DateTime(timezone=True)); approved_by=db.Column(db.String(160)); completed_at=db.Column(db.DateTime(timezone=True)); note=db.Column(db.Text); requester=db.relationship("Personnel"); department=db.relationship("Department"); factory=db.relationship("Factory"); items=db.relationship("PurchaseRequestItem",back_populates="request",cascade="all,delete-orphan",order_by="PurchaseRequestItem.id")
+class PurchaseRequestItem(TimestampMixin,db.Model):
+    __tablename__="purchase_request_items"; id=db.Column(db.Integer,primary_key=True); request_id=db.Column(db.Integer,db.ForeignKey("purchase_requests.id",ondelete="CASCADE"),nullable=False); product_type=db.Column(db.String(120),nullable=False); device_type=db.Column(db.String(120)); brand=db.Column(db.String(120)); model=db.Column(db.String(160)); quantity=db.Column(db.Numeric(12,2),nullable=False,default=1); unit=db.Column(db.String(30),default="Adet",nullable=False); estimated_unit_price=db.Column(db.Numeric(12,2)); description=db.Column(db.Text); request=db.relationship("PurchaseRequest",back_populates="items")
+class KnowledgeArticle(TimestampMixin,db.Model):
+    __tablename__="knowledge_articles"; id=db.Column(db.Integer,primary_key=True); title=db.Column(db.String(240),nullable=False); slug=db.Column(db.String(260),unique=True,nullable=False); category=db.Column(db.String(120),nullable=False,default="Genel"); summary=db.Column(db.String(500)); content=db.Column(db.Text,nullable=False); tags=db.Column(db.String(500)); status=db.Column(db.String(30),nullable=False,default="draft"); author_id=db.Column(db.Integer,db.ForeignKey("personnel.id")); view_count=db.Column(db.Integer,nullable=False,default=0); author=db.relationship("Personnel"); attachments=db.relationship("KnowledgeAttachment",back_populates="article",cascade="all,delete-orphan",order_by="KnowledgeAttachment.id")
+class KnowledgeAttachment(TimestampMixin,db.Model):
+    __tablename__="knowledge_attachments"; id=db.Column(db.Integer,primary_key=True); article_id=db.Column(db.Integer,db.ForeignKey("knowledge_articles.id",ondelete="CASCADE"),nullable=False); original_name=db.Column(db.String(255),nullable=False); stored_name=db.Column(db.String(255),unique=True,nullable=False); mime_type=db.Column(db.String(120),nullable=False); size=db.Column(db.BigInteger,nullable=False); article=db.relationship("KnowledgeArticle",back_populates="attachments")
+class ConnectionSetting(TimestampMixin,db.Model):
+    __tablename__="connection_settings"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(120),unique=True,nullable=False); kind=db.Column(db.String(40),nullable=False); host=db.Column(db.String(255)); port=db.Column(db.Integer); username=db.Column(db.String(255)); secret_encrypted=db.Column(db.Text); options=db.Column(db.JSON,default=dict); active=db.Column(db.Boolean,default=True,nullable=False)
+class AssignmentHistory(TimestampMixin,db.Model):
+    __tablename__="assignment_history"; id=db.Column(db.Integer,primary_key=True); personnel_id=db.Column(db.Integer,db.ForeignKey("personnel.id"),nullable=False); asset_type=db.Column(db.String(30),nullable=False); asset_id=db.Column(db.Integer,nullable=False); action=db.Column(db.String(30),nullable=False); note=db.Column(db.Text)
+class ScrapRecord(TimestampMixin,db.Model):
+    __tablename__="scrap_records"; id=db.Column(db.Integer,primary_key=True); source_type=db.Column(db.String(30),nullable=False); source_id=db.Column(db.Integer,nullable=False); reason=db.Column(db.String(80),nullable=False); note=db.Column(db.Text); scrapped_at=db.Column(db.DateTime(timezone=True),nullable=False,default=utcnow)
 class AuditLog(db.Model):
-    __tablename__ = "audit_logs"
-    id = db.Column(db.BigInteger, primary_key=True); action = db.Column(db.String(80), nullable=False); entity_type = db.Column(db.String(80)); entity_id = db.Column(db.Integer); actor_user_id = db.Column(db.Integer); details = db.Column(db.JSON); created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+    __tablename__="audit_logs"; id=db.Column(db.BigInteger,primary_key=True); action=db.Column(db.String(80),nullable=False); entity_type=db.Column(db.String(80)); entity_id=db.Column(db.Integer); actor_user_id=db.Column(db.Integer); details=db.Column(db.JSON); created_at=db.Column(db.DateTime(timezone=True),default=utcnow,nullable=False)
