@@ -1,11 +1,16 @@
-from logging.config import fileConfig
-
 from alembic import context
 from flask import current_app
 
 config = context.config
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+
+# Flask-Migrate can run with an in-memory Config when the migrations directory
+# is supplied directly. In that mode config_file_name points to a non-existent
+# migrations/alembic.ini, so do not call fileConfig unless the file exists.
+if config.config_file_name:
+    from pathlib import Path
+    from logging.config import fileConfig
+    if Path(config.config_file_name).is_file():
+        fileConfig(config.config_file_name)
 
 
 def get_metadata():
@@ -17,9 +22,8 @@ def get_engine():
 
 
 def run_migrations_offline():
-    url = current_app.config["SQLALCHEMY_DATABASE_URI"]
     context.configure(
-        url=url,
+        url=current_app.config["SQLALCHEMY_DATABASE_URI"],
         target_metadata=get_metadata(),
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
