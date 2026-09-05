@@ -52,7 +52,10 @@ def seed_auth():
     admin.permissions = Permission.query.all()
 
     username = os.environ.get("ADMIN_USERNAME", "admin").strip() or "admin"
-    password = os.environ.get("ADMIN_PASSWORD", "Admin@12345")
+    password = os.environ.get("ADMIN_PASSWORD", "").strip()
+    if not password or len(password) < 12:
+        raise RuntimeError("ADMIN_PASSWORD must be explicitly configured and contain at least 12 characters")
+
     user = User.query.filter_by(username=username).first()
     if not user:
         user = User(username=username, password_hash=generate_password_hash(password), role=admin, active=True)
@@ -70,4 +73,4 @@ def bootstrap(app):
 
 if __name__ == "__main__":
     bootstrap(create_app())
-    print("IT Manager PostgreSQL tabloları, master veriler ve varsayılan yönetici hazır.")
+    print("IT Manager PostgreSQL tabloları, master veriler ve yönetici hazır.")
