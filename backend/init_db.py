@@ -1,4 +1,7 @@
 import os
+from pathlib import Path
+
+from flask_migrate import upgrade
 
 from .app import create_app
 from .app.extensions import db
@@ -63,8 +66,9 @@ def seed_auth():
 
 
 def bootstrap(app):
+    migrations_dir = Path(__file__).resolve().parent / "migrations"
     with app.app_context():
-        db.create_all()
+        upgrade(directory=str(migrations_dir))
         for model, names in DEFAULTS.items():
             seed(model, names)
         seed_auth()
@@ -73,4 +77,4 @@ def bootstrap(app):
 
 if __name__ == "__main__":
     bootstrap(create_app())
-    print("IT Manager PostgreSQL tabloları, master veriler ve yönetici hazır.")
+    print("IT Manager PostgreSQL migrationları, master veriler ve yönetici hazır.")
