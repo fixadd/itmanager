@@ -1,12 +1,26 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy import or_
 
 from ..extensions import db
 from ..models import AuditLog, User
 from .auth_routes import permission_required
 
 logs_bp = Blueprint("logs", __name__)
+
+
+SENSITIVE_DETAIL_KEYS = {
+    "password", "password_hash", "secret", "token", "access_token",
+    "refresh_token", "license_key", "license_password", "api_key",
+}
+
+
+def safe_details(details):
+    if not isinstance(details, dict):
+        return {}
+    return {key: "[REDACTED]" if str(key).lower() in SENSITIVE_DETAIL_KEYS else value
+            for key, value in details.items()}
 
 
 def log_json(log):
@@ -17,7 +31,7 @@ def log_json(log):
         "entity_type": log.entity_type,
         "entity_id": log.entity_id,
         "actor": {"id": actor.id, "username": actor.username} if actor else None,
-        "details": log.details or {},
+        "details": safe_details(log.details),
         "created_at": log.created_at.isoformat() if log.created_at else None,
     }
 
@@ -35,7 +49,7 @@ def list_logs():
     query = AuditLog.query
     if q:
         term = f"%{q}%"
-        query = query.filter(db.or_(AuditLog.action.ilike(term), AuditLog.entity_type.ilike(term)))
+        query = query.filter(or_(AuditLog.action.ilike(term), AuditLog.entity_type.ilike(term)))
     if action:
         query = query.filter(AuditLog.action == action)
     if entity_type:
@@ -49,14 +63,23 @@ def list_logs():
         if date_from:
             query = query.filter(AuditLog.created_at >= datetime.fromisoformat(date_from))
         if date_to:
-            query = query.filter(AuditLog.created_at < datetime.fromisoformat(date_to))
+            # UI sends a calendar date; include the entire selected day.
+            end = datetime.fromisoformat(date_to) + timedelta(days=1)
+            query = query.filter(AuditLog.created_at < end)
     except ValueError:
         return jsonify({"error": "invalid_date"}), 400
 
-    pagination = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    pagination = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
     return jsonify({
         "items": [log_json(x) for x in pagination.items],
-        "pagination": {"page": pagination.page, "per_page": pagination.per_page, "pages": pagination.pages, "total": pagination.total},
+        "pagination": {
+            "page": pagination.page,
+            "per_page": pagination.per_page,
+            "pages": pagination.pages,
+            "total": pagination.total,
+        },
     })
 
 
@@ -73,7 +96,8 @@ def get_log(log_id):
 @permission_required("logs.view")
 def log_meta():
     actions = [x[0] for x in db.session.query(AuditLog.action).distinct().order_by(AuditLog.action).all()]
-    entity_types = [x[0] for x in db.session.query(AuditLog.entity_type).filter(AuditLog.entity_type.isnot(None)).distinct().order_by(AuditLog.entity_type).all()]
+    entity_types = [x[0] for x in db.session.query(AuditLog.entity_type)
+                    .filter(AuditLog.entity_type.isnot(None)).distinct().order_by(AuditLog.entity_type).all()]
     users = User.query.order_by(User.username).all()
     return jsonify({
         "actions": actions,
