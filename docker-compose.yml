@@ -22,6 +22,9 @@ services:
     container_name: itmanager-api
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-itmanager}:${POSTGRES_PASSWORD:-change-this-password}@postgres:5432/${POSTGRES_DB:-itmanager}
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-in-production}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@12345}
     depends_on:
       postgres:
         condition: service_healthy
