@@ -1,8 +1,25 @@
+from datetime import datetime, timezone
+
 from flask import Blueprint, jsonify, request
+
 from ..extensions import db
 from ..models import AuditLog, Inventory, MaintenanceRecord
 
 maintenance_bp = Blueprint("maintenance", __name__)
+
+ALLOWED_STATUS = {"pending", "in_progress", "service", "completed", "cancelled"}
+ALLOWED_TYPES = {"internal", "service", "periodic"}
+
+
+def _dt(value):
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        raise ValueError("Geçersiz tarih formatı")
 
 
 def _dict(x):
@@ -29,6 +46,40 @@ def _audit(action, entity_id, details=None):
     db.session.add(AuditLog(action=action, entity_type="maintenance", entity_id=entity_id, details=details or {}))
 
 
+def _payload(data, existing=None):
+    inventory_id = data.get("inventory_id", existing.inventory_id if existing else None)
+    try:
+        inventory = db.session.get(Inventory, int(inventory_id)) if inventory_id not in (None, "") else None
+    except (TypeError, ValueError):
+        inventory = None
+    if not inventory:
+        raise ValueError("Geçerli bir envanter seçilmelidir")
+
+    status = str(data.get("status", existing.status if existing else "pending")).strip().lower()
+    if status not in ALLOWED_STATUS:
+        raise ValueError("Geçersiz bakım durumu")
+    maintenance_type = str(data.get("type", data.get("maintenance_type", existing.maintenance_type if existing else "internal"))).strip().lower() or "internal"
+    if maintenance_type not in ALLOWED_TYPES:
+        raise ValueError("Geçersiz bakım türü")
+    fault = str(data.get("fault", existing.fault if existing else "")).strip()
+    if not fault:
+        raise ValueError("Arıza / konu zorunludur")
+
+    return {
+        "inventory_id": inventory.id,
+        "maintenance_type": maintenance_type,
+        "fault": fault,
+        "description": data.get("description", existing.description if existing else None),
+        "service": data.get("service", existing.service if existing else None),
+        "technician": data.get("technician", existing.technician if existing else None),
+        "started_at": _dt(data.get("started_at", existing.started_at if existing else None)),
+        "completed_at": _dt(data.get("completed_at", existing.completed_at if existing else None)),
+        "status": status,
+        "cost": data.get("cost", existing.cost if existing else None),
+        "note": data.get("note", existing.note if existing else None),
+    }
+
+
 @maintenance_bp.get("/maintenance")
 def list_maintenance():
     q = MaintenanceRecord.query.join(Inventory)
@@ -53,35 +104,10 @@ def get_maintenance(maintenance_id):
     return jsonify(_dict(x))
 
 
-def _payload(data, existing=None):
-    inventory_id = data.get("inventory_id", existing.inventory_id if existing else None)
-    inventory = db.session.get(Inventory, int(inventory_id)) if inventory_id not in (None, "") else None
-    if not inventory:
-        raise ValueError("Geçerli bir envanter seçilmelidir")
-    status = str(data.get("status", existing.status if existing else "pending")).strip().lower()
-    allowed = {"pending", "in_progress", "service", "completed", "cancelled"}
-    if status not in allowed:
-        raise ValueError("Geçersiz bakım durumu")
-    return {
-        "inventory_id": inventory.id,
-        "maintenance_type": str(data.get("type", data.get("maintenance_type", existing.maintenance_type if existing else "internal"))).strip() or "internal",
-        "fault": str(data.get("fault", existing.fault if existing else "")).strip(),
-        "description": data.get("description", existing.description if existing else None),
-        "service": data.get("service", existing.service if existing else None),
-        "technician": data.get("technician", existing.technician if existing else None),
-        "started_at": data.get("started_at", existing.started_at if existing else None),
-        "completed_at": data.get("completed_at", existing.completed_at if existing else None),
-        "status": status,
-        "cost": data.get("cost", existing.cost if existing else None),
-        "note": data.get("note", existing.note if existing else None),
-    }
-
-
 @maintenance_bp.post("/maintenance")
 def create_maintenance():
-    data = request.get_json(silent=True) or {}
     try:
-        x = MaintenanceRecord(**_payload(data))
+        x = MaintenanceRecord(**_payload(request.get_json(silent=True) or {}))
         db.session.add(x)
         db.session.flush()
         _audit("maintenance.created", x.id, {"inventory_id": x.inventory_id})
@@ -90,9 +116,9 @@ def create_maintenance():
     except ValueError as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({"error": "Bakım kaydı oluşturulamadı", "detail": str(e)}), 409
+        return jsonify({"error": "Bakım kaydı oluşturulamadı"}), 409
 
 
 @maintenance_bp.patch("/maintenance/<int:maintenance_id>")
@@ -111,9 +137,9 @@ def update_maintenance(maintenance_id):
     except ValueError as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({"error": "Bakım kaydı güncellenemedi", "detail": str(e)}), 409
+        return jsonify({"error": "Bakım kaydı güncellenemedi"}), 409
 
 
 @maintenance_bp.post("/maintenance/<int:maintenance_id>/status")
@@ -123,11 +149,10 @@ def change_status(maintenance_id):
     if not x:
         return jsonify({"error": "Bakım kaydı bulunamadı"}), 404
     status = str(data.get("status", "")).strip().lower()
-    if status not in {"pending", "in_progress", "service", "completed", "cancelled"}:
+    if status not in ALLOWED_STATUS:
         return jsonify({"error": "Geçersiz bakım durumu"}), 400
     x.status = status
     if status == "completed" and not x.completed_at:
-        from datetime import datetime, timezone
         x.completed_at = datetime.now(timezone.utc)
     _audit("maintenance.status_changed", x.id, {"status": status, "note": data.get("note")})
     db.session.commit()
