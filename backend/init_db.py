@@ -1,4 +1,5 @@
 import os
+import secrets
 from pathlib import Path
 
 from flask_migrate import stamp, upgrade
@@ -55,13 +56,27 @@ def seed_auth():
         db.session.flush()
     admin.permissions = Permission.query.all()
 
-    # Login is intentionally disabled during UI development. In this mode
-    # there is no reason to require or create an admin password yet.
     auth_disabled = os.environ.get("AUTH_DISABLED", "false").strip().lower() == "true"
+    username = os.environ.get("ADMIN_USERNAME", "admin").strip() or "admin"
+
+    # UI development mode still needs a real database user because the API
+    # session/permission layer uses the current user for every endpoint.
+    # A random password is generated and never exposed while AUTH_DISABLED is on.
     if auth_disabled:
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            user = User(
+                username=username,
+                password_hash=generate_password_hash(secrets.token_urlsafe(32)),
+                role=admin,
+                active=True,
+            )
+            db.session.add(user)
+        elif user.role_id != admin.id or not user.active:
+            user.role = admin
+            user.active = True
         return
 
-    username = os.environ.get("ADMIN_USERNAME", "admin").strip() or "admin"
     password = os.environ.get("ADMIN_PASSWORD", "").strip()
     if not password or len(password) < 12:
         raise RuntimeError("ADMIN_PASSWORD must be explicitly configured and contain at least 12 characters")
@@ -79,8 +94,6 @@ def bootstrap(app):
         has_schema = inspector.has_table("roles")
         has_version_table = inspector.has_table("alembic_version")
 
-        # Existing installations created before Alembic was introduced already
-        # have the baseline schema. Stamp them instead of trying to recreate it.
         if has_schema and not has_version_table:
             stamp(directory=str(migrations_dir), revision="0001_baseline")
         else:
