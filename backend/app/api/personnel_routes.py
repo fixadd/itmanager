@@ -9,57 +9,43 @@ personnel_bp = Blueprint("personnel", __name__)
 
 
 def person_json(p):
-    return {
-        "id": p.id,
-        "employee_no": p.employee_no,
-        "name": p.name,
-        "email": p.email,
-        "active": p.active,
-        "department": {"id": p.department.id, "name": p.department.name} if p.department else None,
-    }
+    return {"id": p.id, "employee_no": p.employee_no, "name": p.name, "email": p.email,
+            "active": p.active, "department": {"id": p.department.id, "name": p.department.name} if p.department else None}
 
 
 def asset_json(p):
     inventory = Inventory.query.filter_by(personnel_id=p.id).order_by(Inventory.id.desc()).all()
-    history = AssignmentHistory.query.filter_by(personnel_id=p.id).order_by(AssignmentHistory.id.desc()).all()
 
-    latest_license_ids = []
-    seen = set()
-    for h in history:
-        if h.asset_type == "license" and h.asset_id not in seen and h.action == "assign":
-            seen.add(h.asset_id)
-            latest_license_ids.append(h.asset_id)
-    licenses = License.query.filter(License.id.in_(latest_license_ids)).all() if latest_license_ids else []
+    # A license has no personnel_id. The latest assignment event for each
+    # license is therefore the source of truth for its current owner.
+    all_license_history = AssignmentHistory.query.filter_by(asset_type="license").order_by(AssignmentHistory.id.desc()).all()
+    latest_owner = {}
+    for h in all_license_history:
+        latest_owner.setdefault(h.asset_id, h.personnel_id)
+    current_license_ids = [license_id for license_id, owner_id in latest_owner.items() if owner_id == p.id]
+    licenses = License.query.filter(License.id.in_(current_license_ids)).all() if current_license_ids else []
     license_map = {x.id: x for x in licenses}
-    licenses = [license_map[x] for x in latest_license_ids if x in license_map]
+    licenses = [license_map[x] for x in current_license_ids if x in license_map]
 
     stock = StockMovement.query.filter_by(personnel_id=p.id).order_by(StockMovement.id.desc()).all()
     return {
-        "inventory": [{
-            "id": x.id, "inventory_no": x.inventory_no, "computer_name": x.computer_name,
-            "serial_no": x.serial_no, "status": x.status,
-            "type": x.product_type.name if x.product_type else None,
-            "brand": x.brand.name if x.brand else None,
-            "model": x.model.name if x.model else None,
-        } for x in inventory],
-        "licenses": [{
-            "id": x.id, "name": x.license_name.name if x.license_name else None,
-            "expires_at": x.expires_at.isoformat() if x.expires_at else None,
-        } for x in licenses],
-        "stock_movements": [{
-            "id": x.id, "stock_item_id": x.stock_item_id, "movement_type": x.movement_type,
-            "quantity": float(x.quantity), "unit": x.unit, "note": x.note,
-            "created_at": x.created_at.isoformat(),
-        } for x in stock],
+        "inventory": [{"id": x.id, "inventory_no": x.inventory_no, "computer_name": x.computer_name,
+                       "serial_no": x.serial_no, "status": x.status,
+                       "type": x.product_type.name if x.product_type else None,
+                       "brand": x.brand.name if x.brand else None,
+                       "model": x.model.name if x.model else None} for x in inventory],
+        "licenses": [{"id": x.id, "name": x.license_name.name if x.license_name else None,
+                      "expires_at": x.expires_at.isoformat() if x.expires_at else None} for x in licenses],
+        "stock_movements": [{"id": x.id, "stock_item_id": x.stock_item_id, "movement_type": x.movement_type,
+                             "quantity": float(x.quantity), "unit": x.unit, "note": x.note,
+                             "created_at": x.created_at.isoformat()} for x in stock],
     }
 
 
 def audit(action, entity_id, details=None):
     actor = current_user()
-    db.session.add(AuditLog(
-        action=action, entity_type="personnel", entity_id=entity_id,
-        actor_user_id=actor.id if actor else None, details=details or {},
-    ))
+    db.session.add(AuditLog(action=action, entity_type="personnel", entity_id=entity_id,
+                            actor_user_id=actor.id if actor else None, details=details or {}))
 
 
 @personnel_bp.get("/personnel")
@@ -81,10 +67,8 @@ def get_personnel(person_id):
     p = db.get_or_404(Personnel, person_id)
     data = person_json(p)
     data["assets"] = asset_json(p)
-    data["history"] = [{
-        "id": h.id, "asset_type": h.asset_type, "asset_id": h.asset_id, "action": h.action,
-        "note": h.note, "created_at": h.created_at.isoformat(),
-    } for h in AssignmentHistory.query.filter_by(personnel_id=p.id).order_by(AssignmentHistory.id.desc()).all()]
+    data["history"] = [{"id": h.id, "asset_type": h.asset_type, "asset_id": h.asset_id, "action": h.action,
+                        "note": h.note, "created_at": h.created_at.isoformat()} for h in AssignmentHistory.query.filter_by(personnel_id=p.id).order_by(AssignmentHistory.id.desc()).all()]
     return jsonify(data)
 
 
