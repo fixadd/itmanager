@@ -6,9 +6,51 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
+role_permissions = db.Table(
+    "role_permissions",
+    db.Column("role_id", db.Integer, db.ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    db.Column("permission_id", db.Integer, db.ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
 class TimestampMixin:
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class Role(TimestampMixin, db.Model):
+    __tablename__ = "roles"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    description = db.Column(db.String(255))
+    active = db.Column(db.Boolean, default=True, nullable=False)
+    permissions = db.relationship("Permission", secondary=role_permissions, back_populates="roles", lazy="selectin")
+
+
+class Permission(TimestampMixin, db.Model):
+    __tablename__ = "permissions"
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(160), nullable=False)
+    description = db.Column(db.String(255))
+    roles = db.relationship("Role", secondary=role_permissions, back_populates="permissions")
+
+
+class User(TimestampMixin, db.Model):
+    __tablename__ = "users"
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(255), unique=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role_id = db.Column(db.Integer, db.ForeignKey("roles.id"))
+    personnel_id = db.Column(db.Integer, db.ForeignKey("personnel.id"))
+    active = db.Column(db.Boolean, default=True, nullable=False)
+    last_login_at = db.Column(db.DateTime(timezone=True))
+    role = db.relationship("Role", backref=db.backref("users", lazy="dynamic"))
+    personnel = db.relationship("Personnel")
+
+    def has_permission(self, key):
+        return bool(self.role and self.role.active and any(p.key == key for p in self.role.permissions))
 
 
 class Factory(TimestampMixin, db.Model):
