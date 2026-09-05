@@ -85,6 +85,12 @@ class Inventory(TimestampMixin, db.Model):
     brand_id = db.Column(db.Integer, db.ForeignKey("brands.id"), nullable=False)
     model_id = db.Column(db.Integer, db.ForeignKey("product_models.id"))
     personnel_id = db.Column(db.Integer, db.ForeignKey("personnel.id"))
+    factory = db.relationship("Factory")
+    department = db.relationship("Department")
+    product_type = db.relationship("ProductType")
+    brand = db.relationship("Brand")
+    model = db.relationship("ProductModel")
+    personnel = db.relationship("Personnel")
 
 
 class License(TimestampMixin, db.Model):
