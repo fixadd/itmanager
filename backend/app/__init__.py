@@ -37,8 +37,39 @@ def create_app(config_class=Config):
             return None
         if request.method == "OPTIONS":
             return None
-        if current_user() is None:
+        user = current_user()
+        if user is None:
             return jsonify({"error": "authentication_required"}), 401
+
+        # Module-level authorization is enforced here as a second layer so a
+        # forgotten route decorator cannot accidentally expose a write API.
+        method = request.method.upper()
+        path = request.path
+        permission = None
+        mutation_methods = {"POST", "PUT", "PATCH", "DELETE"}
+        if path.startswith("/api/inventory") and method in mutation_methods:
+            permission = "inventory.manage"
+        elif path.startswith("/api/licenses") and method in mutation_methods:
+            permission = "licenses.manage"
+        elif path.startswith("/api/stock") and method in mutation_methods:
+            permission = "stock.manage"
+        elif path.startswith("/api/maintenance") and method in mutation_methods:
+            permission = "maintenance.manage"
+        elif path.startswith("/api/requests") and method in mutation_methods:
+            permission = "requests.manage"
+        elif path.startswith("/api/personnel") and method in mutation_methods:
+            permission = "people.manage"
+        elif path.startswith("/api/knowledge") and method in mutation_methods:
+            permission = "knowledge.manage"
+        elif path.startswith("/api/scrap") and method in mutation_methods:
+            permission = "scrap.manage"
+        elif path.startswith("/api/reports"):
+            permission = "reports.view"
+        elif path.startswith("/api/settings"):
+            permission = "settings.manage"
+
+        if permission and not user.has_permission(permission):
+            return jsonify({"error": "forbidden", "permission": permission}), 403
         return None
 
     @app.get("/health")
