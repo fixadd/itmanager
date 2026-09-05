@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from functools import wraps
 
 from flask import Blueprint, jsonify, request, session
+from sqlalchemy import or_
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
@@ -105,7 +106,7 @@ def list_users():
     query = User.query
     if q:
         term = f"%{q}%"
-        query = query.filter(db.or_(User.username.ilike(term), User.email.ilike(term)))
+        query = query.filter(or_(User.username.ilike(term), User.email.ilike(term)))
     return jsonify({"items": [user_json(u) for u in query.order_by(User.username).all()]})
 
 
