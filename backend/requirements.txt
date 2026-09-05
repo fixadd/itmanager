@@ -4,4 +4,5 @@ Flask-Migrate==4.1.0
 psycopg[binary]==3.2.10
 alembic==1.16.5
 python-dotenv==1.1.1
+cryptography==45.0.7
 pytest==8.4.1
