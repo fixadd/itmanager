@@ -1,8 +1,8 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from .config import Config
 from .extensions import db
 from .api import api_bp, stock_bp
-from .api.auth_routes import auth_bp
+from .api.auth_routes import auth_bp, current_user
 from .api.maintenance_routes import maintenance_bp
 from .api.request_routes import requests_bp
 from .api.personnel_routes import personnel_bp
@@ -24,6 +24,18 @@ def create_app(config_class=Config):
     app.register_blueprint(knowledge_bp, url_prefix="/api")
     app.register_blueprint(scrap_bp, url_prefix="/api")
     app.register_blueprint(reports_bp, url_prefix="/api")
+
+    @app.before_request
+    def require_api_authentication():
+        if not request.path.startswith("/api/"):
+            return None
+        if request.path in {"/api/auth/login", "/api/health/db"}:
+            return None
+        if request.method == "OPTIONS":
+            return None
+        if current_user() is None:
+            return jsonify({"error": "authentication_required"}), 401
+        return None
 
     @app.get("/health")
     def health():
