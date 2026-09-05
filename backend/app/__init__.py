@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from .config import Config
-from .extensions import db
+from .extensions import db, migrate
 from .api import api_bp, stock_bp
 from .api.auth_routes import auth_bp, current_user
 from .api.maintenance_routes import maintenance_bp
@@ -17,6 +17,7 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
     db.init_app(app)
+    migrate.init_app(app, db, compare_type=True)
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(stock_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/api")
@@ -41,8 +42,6 @@ def create_app(config_class=Config):
         if user is None:
             return jsonify({"error": "authentication_required"}), 401
 
-        # Module-level authorization is enforced here as a second layer so a
-        # forgotten route decorator cannot accidentally expose a write API.
         method = request.method.upper()
         path = request.path
         permission = None
