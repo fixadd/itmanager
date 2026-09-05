@@ -1,7 +1,9 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
+
 from ..extensions import db
 from ..models import AuditLog, Inventory, License, StockItem, ScrapRecord
+from .auth_routes import permission_required, current_user
 
 scrap_bp = Blueprint("scrap", __name__)
 
@@ -9,15 +11,15 @@ scrap_bp = Blueprint("scrap", __name__)
 def record_json(r):
     source = None
     if r.source_type == "inventory":
-        source = Inventory.query.get(r.source_id)
+        source = db.session.get(Inventory, r.source_id)
         name = source.inventory_no if source else f"Envanter #{r.source_id}"
         detail = " / ".join(filter(None, [source.computer_name, source.serial_no])) if source else ""
     elif r.source_type == "license":
-        source = License.query.get(r.source_id)
+        source = db.session.get(License, r.source_id)
         name = source.license_name.name if source and source.license_name else f"Lisans #{r.source_id}"
-        detail = source.license_key if source else ""
+        detail = "Lisans kaydı" if source else ""
     elif r.source_type == "stock":
-        source = StockItem.query.get(r.source_id)
+        source = db.session.get(StockItem, r.source_id)
         name = " ".join(filter(None, [source.brand.name if source and source.brand else "", source.model.name if source and source.model else ""])) if source else f"Stok #{r.source_id}"
         detail = f"Miktar: {source.quantity}" if source else ""
     else:
@@ -38,7 +40,7 @@ def record_json(r):
 
 @scrap_bp.get("/scrap")
 def list_scrap():
-    q = (request.args.get("q") or "").strip().lower()
+    q = (request.args.get("q") or "").strip()
     source_type = (request.args.get("source_type") or "").strip()
     reason = (request.args.get("reason") or "").strip()
     page = max(request.args.get("page", 1, type=int), 1)
@@ -50,14 +52,12 @@ def list_scrap():
     if reason:
         query = query.filter(ScrapRecord.reason == reason)
     if q:
-        query = query.filter(or_(ScrapRecord.reason.ilike(f"%{q}%"), ScrapRecord.note.ilike(f"%{q}%")))
+        term = f"%{q}%"
+        query = query.filter(or_(ScrapRecord.reason.ilike(term), ScrapRecord.note.ilike(term)))
 
-    pagination = query.order_by(ScrapRecord.scrapped_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
-    items = [record_json(r) for r in pagination.items]
-    if q:
-        items = [x for x in items if q in x["name"].lower() or q in x["detail"].lower() or q in x["reason"].lower() or q in (x["note"] or "").lower()]
+    pagination = query.order_by(ScrapRecord.scrapped_at.desc(), ScrapRecord.id.desc()).paginate(page=page, per_page=per_page, error_out=False)
     return jsonify({
-        "items": items,
+        "items": [record_json(r) for r in pagination.items],
         "pagination": {"page": pagination.page, "per_page": pagination.per_page, "total": pagination.total, "pages": pagination.pages},
     })
 
@@ -74,10 +74,17 @@ def reasons():
 
 
 @scrap_bp.delete("/scrap/<int:scrap_id>")
+@permission_required("scrap.manage")
 def delete_scrap(scrap_id):
     r = db.get_or_404(ScrapRecord, scrap_id)
-    audit = AuditLog(action="scrap_deleted", entity_type="scrap_record", entity_id=r.id, details={"source_type": r.source_type, "source_id": r.source_id})
-    db.session.add(audit)
+    actor = current_user()
+    db.session.add(AuditLog(
+        action="scrap_deleted",
+        entity_type="scrap_record",
+        entity_id=r.id,
+        actor_user_id=actor.id if actor else None,
+        details={"source_type": r.source_type, "source_id": r.source_id},
+    ))
     db.session.delete(r)
     db.session.commit()
     return jsonify({"message": "Hurda kaydı silindi"})
