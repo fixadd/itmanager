@@ -154,6 +154,41 @@ class MaintenanceRecord(TimestampMixin, db.Model):
     inventory = db.relationship("Inventory")
 
 
+class PurchaseRequest(TimestampMixin, db.Model):
+    __tablename__ = "purchase_requests"
+    id = db.Column(db.Integer, primary_key=True)
+    request_no = db.Column(db.String(50), unique=True, nullable=False)
+    requester_id = db.Column(db.Integer, db.ForeignKey("personnel.id"))
+    department_id = db.Column(db.Integer, db.ForeignKey("departments.id"))
+    factory_id = db.Column(db.Integer, db.ForeignKey("factories.id"))
+    status = db.Column(db.String(30), default="pending", nullable=False)
+    priority = db.Column(db.String(20), default="normal", nullable=False)
+    requested_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+    approved_at = db.Column(db.DateTime(timezone=True))
+    approved_by = db.Column(db.String(160))
+    completed_at = db.Column(db.DateTime(timezone=True))
+    note = db.Column(db.Text)
+    requester = db.relationship("Personnel")
+    department = db.relationship("Department")
+    factory = db.relationship("Factory")
+    items = db.relationship("PurchaseRequestItem", back_populates="request", cascade="all, delete-orphan", order_by="PurchaseRequestItem.id")
+
+
+class PurchaseRequestItem(TimestampMixin, db.Model):
+    __tablename__ = "purchase_request_items"
+    id = db.Column(db.Integer, primary_key=True)
+    request_id = db.Column(db.Integer, db.ForeignKey("purchase_requests.id", ondelete="CASCADE"), nullable=False)
+    product_type = db.Column(db.String(120), nullable=False)
+    device_type = db.Column(db.String(120))
+    brand = db.Column(db.String(120))
+    model = db.Column(db.String(160))
+    quantity = db.Column(db.Numeric(12, 2), nullable=False, default=1)
+    unit = db.Column(db.String(30), default="Adet", nullable=False)
+    estimated_unit_price = db.Column(db.Numeric(12, 2))
+    description = db.Column(db.Text)
+    request = db.relationship("PurchaseRequest", back_populates="items")
+
+
 class AssignmentHistory(TimestampMixin, db.Model):
     __tablename__ = "assignment_history"
     id = db.Column(db.Integer, primary_key=True)
