@@ -117,6 +117,24 @@ class StockItem(TimestampMixin, db.Model):
     unit = db.Column(db.String(30), default="Adet", nullable=False)
     note = db.Column(db.Text)
     status = db.Column(db.String(30), default="available", nullable=False)
+    product_type = db.relationship("ProductType")
+    brand = db.relationship("Brand")
+    model = db.relationship("ProductModel")
+
+
+class StockMovement(TimestampMixin, db.Model):
+    __tablename__ = "stock_movements"
+    id = db.Column(db.Integer, primary_key=True)
+    stock_item_id = db.Column(db.Integer, db.ForeignKey("stock_items.id"), nullable=False)
+    movement_type = db.Column(db.String(20), nullable=False)
+    quantity = db.Column(db.Numeric(12, 2), nullable=False)
+    unit = db.Column(db.String(30), default="Adet", nullable=False)
+    personnel_id = db.Column(db.Integer, db.ForeignKey("personnel.id"))
+    inventory_id = db.Column(db.Integer, db.ForeignKey("inventory.id"))
+    note = db.Column(db.Text)
+    stock_item = db.relationship("StockItem", backref=db.backref("movements", lazy="dynamic"))
+    personnel = db.relationship("Personnel")
+    inventory = db.relationship("Inventory")
 
 
 class AssignmentHistory(TimestampMixin, db.Model):
