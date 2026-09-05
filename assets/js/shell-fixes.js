@@ -1,4 +1,4 @@
-/* Stable shell navigation. Module-specific scripts own their table actions. */
+/* Stable shell navigation: admin submenu + profile lives in the sidebar. */
 document.addEventListener('DOMContentLoaded',()=>{
   window.IT_NAV_GO=(page)=>{
     if(!page)return;
@@ -8,13 +8,22 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   document.addEventListener('click',e=>{
     const admin=e.target.closest('.nav-link[data-page="admin"]');
-    if(!admin)return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    const submenu=document.getElementById('adminSubmenu');
-    const open=!submenu?.classList.contains('open');
-    submenu?.classList.toggle('open',open);
-    admin.setAttribute('aria-expanded',String(open));
-    if(location.hash!=='#admin') location.hash='#admin';
+    if(admin){
+      e.preventDefault();e.stopImmediatePropagation();
+      const submenu=document.getElementById('adminSubmenu');
+      const open=!submenu?.classList.contains('open');
+      submenu?.classList.toggle('open',open);
+      admin.setAttribute('aria-expanded',String(open));
+      if(location.hash!=='#admin') location.hash='#admin';
+      return;
+    }
+    const profile=e.target.closest('[data-user-menu="profile"]');
+    if(profile){
+      e.preventDefault();e.stopImmediatePropagation();
+      const sidebarProfile=document.querySelector('.nav-link[data-page="profile"]');
+      if(sidebarProfile) sidebarProfile.click();
+      else window.IT_NAV_GO('profile');
+      return;
+    }
   },true);
 });
