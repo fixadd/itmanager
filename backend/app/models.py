@@ -268,7 +268,7 @@ class ScrapRecord(TimestampMixin, db.Model):
 
 class AuditLog(db.Model):
     __tablename__ = "audit_logs"
-    id = db.Column(db.BigInteger, primary_key=True)
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     action = db.Column(db.String(80), nullable=False)
     entity_type = db.Column(db.String(80))
     entity_id = db.Column(db.Integer)
