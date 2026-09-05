@@ -104,6 +104,7 @@ class License(TimestampMixin, db.Model):
     expires_at = db.Column(db.Date)
     note = db.Column(db.Text)
     status = db.Column(db.String(30), default="active", nullable=False)
+    license_name = db.relationship("LicenseName")
 
 
 class StockItem(TimestampMixin, db.Model):
