@@ -1,7 +1,8 @@
 import os
 from pathlib import Path
 
-from flask_migrate import upgrade
+from flask_migrate import stamp, upgrade
+from sqlalchemy import inspect
 
 from .app import create_app
 from .app.extensions import db
@@ -68,7 +69,17 @@ def seed_auth():
 def bootstrap(app):
     migrations_dir = Path(__file__).resolve().parent / "migrations"
     with app.app_context():
-        upgrade(directory=str(migrations_dir))
+        inspector = inspect(db.engine)
+        has_schema = inspector.has_table("roles")
+        has_version_table = inspector.has_table("alembic_version")
+
+        # Existing installations created before Alembic was introduced already
+        # have the baseline schema. Stamp them instead of trying to recreate it.
+        if has_schema and not has_version_table:
+            stamp(directory=str(migrations_dir), revision="0001_baseline")
+        else:
+            upgrade(directory=str(migrations_dir))
+
         for model, names in DEFAULTS.items():
             seed(model, names)
         seed_auth()
