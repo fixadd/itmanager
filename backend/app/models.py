@@ -137,6 +137,23 @@ class StockMovement(TimestampMixin, db.Model):
     inventory = db.relationship("Inventory")
 
 
+class MaintenanceRecord(TimestampMixin, db.Model):
+    __tablename__ = "maintenance_records"
+    id = db.Column(db.Integer, primary_key=True)
+    inventory_id = db.Column(db.Integer, db.ForeignKey("inventory.id"), nullable=False)
+    maintenance_type = db.Column(db.String(30), default="internal", nullable=False)
+    fault = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    service = db.Column(db.String(160))
+    technician = db.Column(db.String(160))
+    started_at = db.Column(db.DateTime(timezone=True))
+    completed_at = db.Column(db.DateTime(timezone=True))
+    status = db.Column(db.String(30), default="pending", nullable=False)
+    cost = db.Column(db.Numeric(12, 2))
+    note = db.Column(db.Text)
+    inventory = db.relationship("Inventory")
+
+
 class AssignmentHistory(TimestampMixin, db.Model):
     __tablename__ = "assignment_history"
     id = db.Column(db.Integer, primary_key=True)
