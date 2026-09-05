@@ -24,7 +24,8 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-itmanager}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-itmanager}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      AUTH_DISABLED: ${AUTH_DISABLED:-true}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-Strict}
     depends_on:
