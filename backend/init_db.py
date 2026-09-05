@@ -18,10 +18,14 @@ def seed(model, names):
             db.session.add(model(name=name))
 
 
-app = create_app()
-with app.app_context():
-    db.create_all()
-    for model, names in DEFAULTS.items():
-        seed(model, names)
-    db.session.commit()
+def bootstrap(app):
+    with app.app_context():
+        db.create_all()
+        for model, names in DEFAULTS.items():
+            seed(model, names)
+        db.session.commit()
+
+
+if __name__ == "__main__":
+    bootstrap(create_app())
     print("IT Manager PostgreSQL tabloları ve temel master verileri hazır.")
