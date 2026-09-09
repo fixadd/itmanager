@@ -18,6 +18,27 @@ DEFAULTS = {
     LicenseName: ["Windows 11 Pro", "Office 2021", "Microsoft 365", "Adobe Creative Cloud", "AutoCAD", "Antivirus", "VPN", "Diğer"],
 }
 
+# Default brand/type relationships keep the initial catalog usable while still
+# allowing the administrator to change them later from Ürün Ekle.
+DEFAULT_BRAND_TYPES = {
+    "Dell": ["Laptop", "Masaüstü Bilgisayar", "Monitör", "Sunucu"],
+    "HP": ["Laptop", "Masaüstü Bilgisayar", "Monitör", "Yazıcı", "Sunucu"],
+    "Lenovo": ["Laptop", "Masaüstü Bilgisayar", "Monitör", "Sunucu"],
+    "Asus": ["Laptop", "Masaüstü Bilgisayar", "Monitör"],
+    "Acer": ["Laptop", "Masaüstü Bilgisayar", "Monitör"],
+    "Canon": ["Yazıcı"],
+    "Kyocera": ["Yazıcı"],
+    "Xerox": ["Yazıcı"],
+    "Hikvision": ["Kamera"],
+    "Aruba": ["Network Cihazı"],
+    "Samsung": ["Monitör", "Telefon"],
+    "Zebra": ["Yazıcı", "El Terminali"],
+    "Logitech": ["Diğer"],
+    "Ugreen": ["Network Cihazı", "Diğer"],
+    "Microsoft": ["Laptop", "Masaüstü Bilgisayar", "Telefon", "Diğer"],
+    "Diğer": ["Diğer"],
+}
+
 PERMISSIONS = [
     ("dashboard.view", "Dashboard Görüntüleme"),
     ("inventory.manage", "Envanter Yönetimi"),
@@ -43,6 +64,19 @@ def seed(model, names):
             db.session.add(model(name=name))
 
 
+def seed_brand_types():
+    types = {x.name: x for x in ProductType.query.all()}
+    brands = {x.name: x for x in Brand.query.all()}
+    for brand_name, type_names in DEFAULT_BRAND_TYPES.items():
+        brand = brands.get(brand_name)
+        if not brand:
+            continue
+        for type_name in type_names:
+            product_type = types.get(type_name)
+            if product_type and product_type not in brand.product_types:
+                brand.product_types.append(product_type)
+
+
 def seed_auth():
     for key, name in PERMISSIONS:
         if not Permission.query.filter_by(key=key).first():
@@ -59,9 +93,6 @@ def seed_auth():
     auth_disabled = os.environ.get("AUTH_DISABLED", "false").strip().lower() == "true"
     username = os.environ.get("ADMIN_USERNAME", "admin").strip() or "admin"
 
-    # UI development mode still needs a real database user because the API
-    # session/permission layer uses the current user for every endpoint.
-    # A random password is generated and never exposed while AUTH_DISABLED is on.
     if auth_disabled:
         user = User.query.filter_by(username=username).first()
         if not user:
@@ -101,6 +132,8 @@ def bootstrap(app):
 
         for model, names in DEFAULTS.items():
             seed(model, names)
+        db.session.flush()
+        seed_brand_types()
         seed_auth()
         db.session.commit()
 
