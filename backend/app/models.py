@@ -3,6 +3,7 @@ from .extensions import db
 
 def utcnow(): return datetime.now(timezone.utc)
 role_permissions=db.Table("role_permissions",db.Column("role_id",db.Integer,db.ForeignKey("roles.id",ondelete="CASCADE"),primary_key=True),db.Column("permission_id",db.Integer,db.ForeignKey("permissions.id",ondelete="CASCADE"),primary_key=True))
+product_type_brands=db.Table("product_type_brands",db.Column("product_type_id",db.Integer,db.ForeignKey("product_types.id",ondelete="CASCADE"),primary_key=True),db.Column("brand_id",db.Integer,db.ForeignKey("brands.id",ondelete="CASCADE"),primary_key=True))
 class TimestampMixin:
     created_at=db.Column(db.DateTime(timezone=True),default=utcnow,nullable=False); updated_at=db.Column(db.DateTime(timezone=True),default=utcnow,onupdate=utcnow,nullable=False)
 class Role(TimestampMixin,db.Model):
@@ -19,9 +20,9 @@ class Department(TimestampMixin,db.Model):
 class Personnel(TimestampMixin,db.Model):
     __tablename__="personnel"; id=db.Column(db.Integer,primary_key=True); employee_no=db.Column(db.String(50),unique=True); name=db.Column(db.String(160),nullable=False); email=db.Column(db.String(255)); department_id=db.Column(db.Integer,db.ForeignKey("departments.id")); active=db.Column(db.Boolean,default=True,nullable=False); department=db.relationship("Department")
 class ProductType(TimestampMixin,db.Model):
-    __tablename__="product_types"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(120),unique=True,nullable=False); active=db.Column(db.Boolean,default=True,nullable=False)
+    __tablename__="product_types"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(120),unique=True,nullable=False); active=db.Column(db.Boolean,default=True,nullable=False); brands=db.relationship("Brand",secondary=product_type_brands,back_populates="product_types",lazy="selectin")
 class Brand(TimestampMixin,db.Model):
-    __tablename__="brands"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(120),unique=True,nullable=False); active=db.Column(db.Boolean,default=True,nullable=False)
+    __tablename__="brands"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(120),unique=True,nullable=False); active=db.Column(db.Boolean,default=True,nullable=False); product_types=db.relationship("ProductType",secondary=product_type_brands,back_populates="brands",lazy="selectin")
 class ProductModel(TimestampMixin,db.Model):
     __tablename__="product_models"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(160),nullable=False); brand_id=db.Column(db.Integer,db.ForeignKey("brands.id"),nullable=False); product_type_id=db.Column(db.Integer,db.ForeignKey("product_types.id")); active=db.Column(db.Boolean,default=True,nullable=False); brand=db.relationship("Brand"); product_type=db.relationship("ProductType"); __table_args__=(db.UniqueConstraint("brand_id","name",name="uq_product_model_brand_name"),)
 class LicenseName(TimestampMixin,db.Model):
