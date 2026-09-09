@@ -2,8 +2,25 @@ from backend.app.extensions import db
 from backend.app.models import Brand, ProductModel, ProductType
 
 
+def _create_settings_admin(app, username="hierarchy_reader"):
+    from backend.app.models import Permission, Role, User
+    from werkzeug.security import generate_password_hash
+
+    permission = Permission(key="settings.manage", name="settings.manage")
+    role = Role(name=f"HierarchyTestAdmin_{username}", active=True, permissions=[permission])
+    user = User(
+        username=username,
+        password_hash=generate_password_hash("TestPassword123!"),
+        role=role,
+        active=True,
+    )
+    db.session.add_all([permission, role, user])
+    db.session.commit()
+
+
 def test_product_hierarchy_endpoint_exposes_type_brand_model_links(client, app):
     with app.app_context():
+        _create_settings_admin(app)
         product_type = ProductType(name="Laptop")
         brand = Brand(name="TestBrand")
         product_type.brands.append(brand)
@@ -11,6 +28,9 @@ def test_product_hierarchy_endpoint_exposes_type_brand_model_links(client, app):
         db.session.add_all([product_type, brand, model])
         db.session.commit()
         type_id, brand_id, model_id = product_type.id, brand.id, model.id
+
+    login = client.post("/api/auth/login", json={"username": "hierarchy_reader", "password": "TestPassword123!"})
+    assert login.status_code == 200
 
     response = client.get("/api/settings/product-hierarchy")
     assert response.status_code == 200
