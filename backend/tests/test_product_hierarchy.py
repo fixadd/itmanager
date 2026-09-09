@@ -31,7 +31,7 @@ def test_model_creation_rejects_unlinked_brand(client, app):
     from werkzeug.security import generate_password_hash
 
     with app.app_context():
-        permission = Permission(key="settings.manage.test", name="settings.manage.test")
+        permission = Permission(key="settings.manage", name="settings.manage")
         role = Role(name="HierarchyTestAdmin", active=True, permissions=[permission])
         user = User(username="hierarchy_admin", password_hash=generate_password_hash("TestPassword123!"), role=role, active=True)
         first_type = ProductType(name="Notebook")
