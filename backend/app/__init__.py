@@ -19,9 +19,10 @@ from .api.knowledge_attachment_routes import attachments_bp
 from .api.connection_routes import connections_bp
 from .api.product_routes import product_bp
 from .api.catalog_routes import catalog_bp
+from .api.license_catalog_record_routes import license_catalog_record_bp
 def create_app(config_class=Config):
  app=Flask(__name__);app.config.from_object(config_class);db.init_app(app);migrate.init_app(app,db,compare_type=True)
- for bp in (api_bp,stock_bp,auth_bp,maintenance_bp,requests_bp,personnel_bp,knowledge_bp,attachments_bp,scrap_bp,reports_bp,settings_bp,logs_bp,license_owner_bp,data_bp,connections_bp,product_bp,catalog_bp):app.register_blueprint(bp,url_prefix="/api")
+ for bp in (api_bp,stock_bp,auth_bp,maintenance_bp,requests_bp,personnel_bp,knowledge_bp,attachments_bp,scrap_bp,reports_bp,settings_bp,logs_bp,license_owner_bp,data_bp,connections_bp,product_bp,catalog_bp,license_catalog_record_bp):app.register_blueprint(bp,url_prefix="/api")
  @app.before_request
  def require_api_authentication():
   if not request.path.startswith('/api/') or request.path in {'/api/auth/login','/api/health/db'} or request.method=='OPTIONS':return None
@@ -34,6 +35,7 @@ def create_app(config_class=Config):
   if path.startswith('/api/inventory') and method in {'POST','PUT','PATCH','DELETE'}:permission='inventory.manage'
   elif path.startswith('/api/licenses') and method in {'POST','PUT','PATCH','DELETE'}:permission='licenses.manage'
   elif path.startswith('/api/license-owners') and method in {'POST','PUT','PATCH','DELETE'}:permission='licenses.manage'
+  elif path.startswith('/api/license-catalog') and method in {'POST','PUT','PATCH','DELETE'}:permission='licenses.manage'
   elif path.startswith('/api/stock') and method in {'POST','PUT','PATCH','DELETE'}:permission='stock.manage'
   elif path.startswith('/api/maintenance') and method in {'POST','PUT','PATCH','DELETE'}:permission='maintenance.manage'
   elif path.startswith('/api/requests') and method in {'POST','PUT','PATCH','DELETE'}:permission='requests.manage'
