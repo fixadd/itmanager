@@ -1,12 +1,12 @@
 """product type brand hierarchy
 
-Revision ID: 0004_product_type_brand_hierarchy
+Revision ID: 0004_product_brand_hierarchy
 Revises: 0003_management_extensions
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0004_product_type_brand_hierarchy"
+revision = "0004_product_brand_hierarchy"
 down_revision = "0003_management_extensions"
 branch_labels = None
 depends_on = None
