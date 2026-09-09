@@ -2,7 +2,7 @@ from datetime import date
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
-from ..models import AssignmentHistory, AuditLog, Brand, Department, Factory, Inventory, License, LicenseName, Personnel, ProductModel, ProductType, ScrapRecord
+from ..models import AssignmentHistory, AuditLog, Brand, Department, Factory, Inventory, License, LicenseModel, LicenseName, Personnel, ProductModel, ProductType, ScrapRecord
 
 api_bp = Blueprint("api", __name__)
 
@@ -127,12 +127,17 @@ def scrap_inventory(inventory_id):
 
 # -------------------- LICENSE API --------------------
 def _license_dict(x):
-    return {"id":x.id,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_type":x.license_type,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"note":x.note,"status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+    return {"id":x.id,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"note":x.note,"status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 
 def _license_payload(data,x=None):
     name_value=data.get("license_name", x.license_name_id if x else None)
     if name_value in (None,""): raise ValueError("license_name alanı zorunludur")
-    name=_resolve(LicenseName,name_value,"lisans adı"); vals={"license_name_id":name.id}
+    name=_resolve(LicenseName,name_value,"lisans adı")
+    model_value=data.get("license_model_id", data.get("license_model", x.license_model_id if x else None))
+    if model_value in (None,""): raise ValueError("license_model_id alanı zorunludur")
+    model=_resolve(LicenseModel,model_value,"lisans modeli")
+    if model.license_name_id!=name.id: raise ValueError("Lisans modeli, seçilen lisans adına bağlı değil")
+    vals={"license_name_id":name.id,"license_model_id":model.id}
     for key in ("license_type","license_key","email","password","note","status"):
         if key in data: vals[key]=data[key] if data[key] not in ("",None) else None
     if x is None and "license_type" not in vals: vals["license_type"]="subscription"
@@ -144,9 +149,9 @@ def _license_payload(data,x=None):
 
 @api_bp.get("/licenses")
 def list_licenses():
-    q=License.query.join(LicenseName); search=request.args.get("search","").strip(); status=request.args.get("status","").strip(); license_type=request.args.get("license_type","").strip()
+    q=License.query.join(LicenseName).outerjoin(LicenseModel,License.license_model_id==LicenseModel.id); search=request.args.get("search","").strip(); status=request.args.get("status","").strip(); license_type=request.args.get("license_type","").strip()
     if search:
-        term=f"%{search}%"; q=q.filter(or_(LicenseName.name.ilike(term),License.email.ilike(term),License.license_key.ilike(term)))
+        term=f"%{search}%"; q=q.filter(or_(LicenseName.name.ilike(term),LicenseModel.name.ilike(term),License.email.ilike(term),License.license_key.ilike(term)))
     if status:q=q.filter(License.status==status)
     if license_type:q=q.filter(License.license_type==license_type)
     page=max(request.args.get("page",1,type=int),1); per_page=min(max(request.args.get("per_page",25,type=int),1),100); p=q.order_by(License.id.desc()).paginate(page=page,per_page=per_page,error_out=False)
@@ -159,7 +164,7 @@ def get_license(license_id):
 @api_bp.post("/licenses")
 def create_license():
     try:
-        x=License(**_license_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); _audit("license.created","license",x.id,{"license_name_id":x.license_name_id}); db.session.commit(); return jsonify(_license_dict(x)),201
+        x=License(**_license_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); _audit("license.created","license",x.id,{"license_name_id":x.license_name_id,"license_model_id":x.license_model_id}); db.session.commit(); return jsonify(_license_dict(x)),201
     except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
     except Exception as e: db.session.rollback(); return jsonify({"error":"Lisans kaydı oluşturulamadı","detail":str(e)}),409
 
