@@ -77,3 +77,39 @@ def create_model():
             db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES(:t,:id,:scope) ON CONFLICT DO NOTHING"),{"t":et,"id":eid,"scope":scope})
         _audit("settings.catalog_model_created","product_model",obj.id,{"scope":scope,"brand_id":brand.id,"product_type_id":typ.id});db.session.commit();return jsonify(_model(obj)),201
     except IntegrityError: db.session.rollback();return jsonify({"error":"model_exists"}),409
+
+@catalog_bp.get("/settings/license-catalog")
+def list_license_catalog():
+    rows=db.session.execute(text("SELECT ln.id AS license_name_id,ln.name AS license_name,ln.active AS license_name_active,lm.id AS model_id,lm.name AS model_name,lm.active AS model_active FROM license_names ln LEFT JOIN license_models lm ON lm.license_name_id=ln.id ORDER BY ln.name,lm.name" )).mappings().all()
+    items={}
+    for r in rows:
+        item=items.setdefault(r["license_name_id"],{"id":r["license_name_id"],"name":r["license_name"],"active":r["license_name_active"],"models":[]})
+        if r["model_id"] is not None:item["models"].append({"id":r["model_id"],"name":r["model_name"],"active":r["model_active"]})
+    return jsonify({"items":list(items.values())})
+
+@catalog_bp.post("/settings/license-catalog/name")
+@permission_required("settings.manage")
+def create_license_catalog_name():
+    data=request.get_json(silent=True) or {}; name=str(data.get("name") or "").strip()
+    if not name:return jsonify({"error":"name_required"}),400
+    row=db.session.execute(text("SELECT id,name,active FROM license_names WHERE lower(name)=lower(:name)"),{"name":name}).mappings().first()
+    if row:return jsonify(dict(row)),200
+    try:
+        row=db.session.execute(text("INSERT INTO license_names(name,active,created_at,updated_at) VALUES(:name,true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id,name,active"),{"name":name}).mappings().first()
+        _audit("settings.license_name_created","license_name",row["id"],{"name":name});db.session.commit();return jsonify(dict(row)),201
+    except IntegrityError:db.session.rollback();return jsonify({"error":"name_exists"}),409
+
+@catalog_bp.post("/settings/license-catalog/model")
+@permission_required("settings.manage")
+def create_license_catalog_model():
+    data=request.get_json(silent=True) or {}; name=str(data.get("name") or "").strip(); license_name_id=data.get("license_name_id")
+    if not name or not license_name_id:return jsonify({"error":"license_name_and_model_required"}),400
+    try:license_name_id=int(license_name_id)
+    except (TypeError,ValueError):return jsonify({"error":"invalid_license_name"}),400
+    if not db.session.execute(text("SELECT 1 FROM license_names WHERE id=:id AND active=true"),{"id":license_name_id}).first():return jsonify({"error":"invalid_license_name"}),400
+    try:
+        row=db.session.execute(text("SELECT id,name,active FROM license_models WHERE license_name_id=:lid AND lower(name)=lower(:name)"),{"lid":license_name_id,"name":name}).mappings().first()
+        if row:return jsonify(dict(row)),200
+        row=db.session.execute(text("INSERT INTO license_models(license_name_id,name,active,created_at,updated_at) VALUES(:lid,:name,true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id,name,active"),{"lid":license_name_id,"name":name}).mappings().first()
+        _audit("settings.license_model_created","license_model",row["id"],{"license_name_id":license_name_id,"name":name});db.session.commit();return jsonify(dict(row)),201
+    except IntegrityError:db.session.rollback();return jsonify({"error":"model_exists"}),409
