@@ -119,6 +119,24 @@ def update_setting(resource, item_id):
         return jsonify({"error": "name_exists"}), 409
 
 
+@settings_bp.delete("/settings/<string:resource>/<int:item_id>")
+@permission_required("settings.manage")
+def delete_setting(resource, item_id):
+    entry = RESOURCES.get(resource)
+    if not entry:
+        return jsonify({"error": "unknown_resource"}), 404
+    model, _ = entry
+    obj = db.session.get(model, item_id)
+    if not obj:
+        return jsonify({"error": "not_found"}), 404
+    before = _basic(obj)
+    obj.active = False
+    db.session.flush()
+    _audit("settings.deleted", resource, obj.id, {"before": before})
+    db.session.commit()
+    return jsonify({"ok": True, "item": _basic(obj)})
+
+
 @settings_bp.get("/settings/models")
 def list_models():
     query = ProductModel.query
