@@ -25,6 +25,10 @@ def _type(x): return {"id":x.id,"name":x.name,"active":x.active}
 def _brand(x): return {"id":x.id,"name":x.name,"active":x.active,"product_type_ids":[t.id for t in x.product_types if t.active]}
 def _model(x): return {"id":x.id,"name":x.name,"active":x.active,"brand_id":x.brand_id,"product_type_id":x.product_type_id}
 
+def _scoped(entity_type, entity_id, scope):
+    return db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type=:t AND entity_id=:id AND scope=:scope"),
+                              {"t":entity_type,"id":entity_id,"scope":scope}).first() is not None
+
 @catalog_bp.get("/settings/product-catalog")
 def list_catalog():
     scope = _scope(request.args.get("scope"))
@@ -43,9 +47,36 @@ def create_type():
     obj=ProductType.query.filter(db.func.lower(ProductType.name)==name.lower()).first()
     try:
         if not obj: obj=ProductType(name=name,active=True); db.session.add(obj); db.session.flush()
+        obj.active=True
         db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES('type',:id,:scope) ON CONFLICT DO NOTHING"),{"id":obj.id,"scope":scope})
         _audit("settings.catalog_type_created","product_type",obj.id,{"scope":scope,"name":obj.name});db.session.commit();return jsonify(_type(obj)),201
     except IntegrityError: db.session.rollback();return jsonify({"error":"name_exists"}),409
+
+@catalog_bp.patch("/settings/product-catalog/type/<int:type_id>")
+@permission_required("settings.manage")
+def update_type(type_id):
+    scope=_scope(request.args.get("scope")); obj=db.session.get(ProductType,type_id)
+    if not scope:return jsonify({"error":"invalid_scope"}),400
+    if not obj or not _scoped("type",type_id,scope):return jsonify({"error":"not_found"}),404
+    data=request.get_json(silent=True) or {}; name=str(data.get("name") or obj.name).strip()
+    if not name:return jsonify({"error":"name_required"}),400
+    conflict=ProductType.query.filter(db.func.lower(ProductType.name)==name.lower(),ProductType.id!=obj.id).first()
+    if conflict:return jsonify({"error":"name_exists"}),409
+    before=_type(obj);obj.name=name;obj.active=True
+    try:
+        db.session.flush();_audit("settings.catalog_type_updated","product_type",obj.id,{"scope":scope,"before":before,"after":_type(obj)});db.session.commit();return jsonify(_type(obj))
+    except IntegrityError:db.session.rollback();return jsonify({"error":"name_exists"}),409
+
+@catalog_bp.delete("/settings/product-catalog/type/<int:type_id>")
+@permission_required("settings.manage")
+def delete_type(type_id):
+    scope=_scope(request.args.get("scope")); obj=db.session.get(ProductType,type_id)
+    if not scope:return jsonify({"error":"invalid_scope"}),400
+    if not obj or not _scoped("type",type_id,scope):return jsonify({"error":"not_found"}),404
+    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='type' AND entity_id=:id AND scope=:scope"),{"id":type_id,"scope":scope})
+    other=db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type='type' AND entity_id=:id LIMIT 1"),{"id":type_id}).first()
+    if not other:obj.active=False
+    _audit("settings.catalog_type_deleted","product_type",obj.id,{"scope":scope,"name":obj.name});db.session.commit();return jsonify({"ok":True})
 
 @catalog_bp.post("/settings/product-catalog/brand")
 @permission_required("settings.manage")
@@ -53,15 +84,47 @@ def create_brand():
     scope=_scope(request.args.get("scope")); data=request.get_json(silent=True) or {}; name=str(data.get("name") or "").strip(); tid=data.get("product_type_id")
     if not scope or not name or not tid:return jsonify({"error":"scope_name_and_product_type_required"}),400
     typ=db.session.get(ProductType,int(tid))
-    if not typ:return jsonify({"error":"invalid_product_type"}),400
+    if not typ or not _scoped("type",typ.id,scope):return jsonify({"error":"invalid_product_type"}),400
     try:
         obj=Brand.query.filter(db.func.lower(Brand.name)==name.lower()).first()
         if not obj: obj=Brand(name=name,active=True);db.session.add(obj);db.session.flush()
+        obj.active=True
         if typ not in obj.product_types: obj.product_types.append(typ)
         db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES('brand',:id,:scope) ON CONFLICT DO NOTHING"),{"id":obj.id,"scope":scope})
         db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES('type',:id,:scope) ON CONFLICT DO NOTHING"),{"id":typ.id,"scope":scope})
         _audit("settings.catalog_brand_created","brand",obj.id,{"scope":scope,"product_type_id":typ.id});db.session.commit();return jsonify(_brand(obj)),201
     except IntegrityError: db.session.rollback();return jsonify({"error":"name_exists"}),409
+
+@catalog_bp.patch("/settings/product-catalog/brand/<int:brand_id>")
+@permission_required("settings.manage")
+def update_brand(brand_id):
+    scope=_scope(request.args.get("scope")); obj=db.session.get(Brand,brand_id)
+    if not scope:return jsonify({"error":"invalid_scope"}),400
+    if not obj or not _scoped("brand",brand_id,scope):return jsonify({"error":"not_found"}),404
+    data=request.get_json(silent=True) or {};name=str(data.get("name") or obj.name).strip();tid=data.get("product_type_id")
+    if not name:return jsonify({"error":"name_required"}),400
+    conflict=Brand.query.filter(db.func.lower(Brand.name)==name.lower(),Brand.id!=obj.id).first()
+    if conflict:return jsonify({"error":"name_exists"}),409
+    if tid:
+        typ=db.session.get(ProductType,int(tid))
+        if not typ or not _scoped("type",typ.id,scope):return jsonify({"error":"invalid_product_type"}),400
+        if typ not in obj.product_types:obj.product_types.append(typ)
+    before=_brand(obj);obj.name=name;obj.active=True
+    try:
+        db.session.flush();_audit("settings.catalog_brand_updated","brand",obj.id,{"scope":scope,"before":before,"after":_brand(obj)});db.session.commit();return jsonify(_brand(obj))
+    except IntegrityError:db.session.rollback();return jsonify({"error":"name_exists"}),409
+
+@catalog_bp.delete("/settings/product-catalog/brand/<int:brand_id>")
+@permission_required("settings.manage")
+def delete_brand(brand_id):
+    scope=_scope(request.args.get("scope"));obj=db.session.get(Brand,brand_id)
+    if not scope:return jsonify({"error":"invalid_scope"}),400
+    if not obj or not _scoped("brand",brand_id,scope):return jsonify({"error":"not_found"}),404
+    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='brand' AND entity_id=:id AND scope=:scope"),{"id":brand_id,"scope":scope})
+    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='model' AND entity_id IN (SELECT id FROM product_models WHERE brand_id=:id) AND scope=:scope"),{"id":brand_id,"scope":scope})
+    other=db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type='brand' AND entity_id=:id LIMIT 1"),{"id":brand_id}).first()
+    if not other:obj.active=False
+    _audit("settings.catalog_brand_deleted","brand",obj.id,{"scope":scope,"name":obj.name});db.session.commit();return jsonify({"ok":True})
 
 @catalog_bp.post("/settings/product-catalog/model")
 @permission_required("settings.manage")
@@ -69,14 +132,43 @@ def create_model():
     scope=_scope(request.args.get("scope")); data=request.get_json(silent=True) or {}; name=str(data.get("name") or "").strip(); bid=data.get("brand_id"); tid=data.get("product_type_id")
     if not scope or not name or not bid or not tid:return jsonify({"error":"scope_name_brand_and_product_type_required"}),400
     brand=db.session.get(Brand,int(bid));typ=db.session.get(ProductType,int(tid))
-    if not brand or not typ or typ not in brand.product_types:return jsonify({"error":"invalid_brand_or_product_type"}),400
+    if not brand or not typ or not _scoped("brand",brand.id,scope) or not _scoped("type",typ.id,scope) or typ not in brand.product_types:return jsonify({"error":"invalid_brand_or_product_type"}),400
     try:
         obj=ProductModel.query.filter(db.func.lower(ProductModel.name)==name.lower(),ProductModel.brand_id==brand.id,ProductModel.product_type_id==typ.id).first()
         if not obj:obj=ProductModel(name=name,brand_id=brand.id,product_type_id=typ.id,active=True);db.session.add(obj);db.session.flush()
+        obj.active=True
         for et,eid in (("type",typ.id),("brand",brand.id),("model",obj.id)):
             db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES(:t,:id,:scope) ON CONFLICT DO NOTHING"),{"t":et,"id":eid,"scope":scope})
         _audit("settings.catalog_model_created","product_model",obj.id,{"scope":scope,"brand_id":brand.id,"product_type_id":typ.id});db.session.commit();return jsonify(_model(obj)),201
     except IntegrityError: db.session.rollback();return jsonify({"error":"model_exists"}),409
+
+@catalog_bp.patch("/settings/product-catalog/model/<int:model_id>")
+@permission_required("settings.manage")
+def update_catalog_model(model_id):
+    scope=_scope(request.args.get("scope"));obj=db.session.get(ProductModel,model_id)
+    if not scope:return jsonify({"error":"invalid_scope"}),400
+    if not obj or not _scoped("model",model_id,scope):return jsonify({"error":"not_found"}),404
+    data=request.get_json(silent=True) or {};name=str(data.get("name") or obj.name).strip();bid=int(data.get("brand_id",obj.brand_id));tid=int(data.get("product_type_id",obj.product_type_id))
+    brand=db.session.get(Brand,bid);typ=db.session.get(ProductType,tid)
+    if not name:return jsonify({"error":"name_required"}),400
+    if not brand or not typ or not _scoped("brand",bid,scope) or not _scoped("type",tid,scope) or typ not in brand.product_types:return jsonify({"error":"invalid_brand_or_product_type"}),400
+    conflict=ProductModel.query.filter(db.func.lower(ProductModel.name)==name.lower(),ProductModel.brand_id==bid,ProductModel.product_type_id==tid,ProductModel.id!=obj.id).first()
+    if conflict:return jsonify({"error":"model_exists"}),409
+    before=_model(obj);obj.name=name;obj.brand_id=bid;obj.product_type_id=tid;obj.active=True
+    try:
+        db.session.flush();_audit("settings.catalog_model_updated","product_model",obj.id,{"scope":scope,"before":before,"after":_model(obj)});db.session.commit();return jsonify(_model(obj))
+    except IntegrityError:db.session.rollback();return jsonify({"error":"model_exists"}),409
+
+@catalog_bp.delete("/settings/product-catalog/model/<int:model_id>")
+@permission_required("settings.manage")
+def delete_catalog_model(model_id):
+    scope=_scope(request.args.get("scope"));obj=db.session.get(ProductModel,model_id)
+    if not scope:return jsonify({"error":"invalid_scope"}),400
+    if not obj or not _scoped("model",model_id,scope):return jsonify({"error":"not_found"}),404
+    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='model' AND entity_id=:id AND scope=:scope"),{"id":model_id,"scope":scope})
+    other=db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type='model' AND entity_id=:id LIMIT 1"),{"id":model_id}).first()
+    if not other:obj.active=False
+    _audit("settings.catalog_model_deleted","product_model",obj.id,{"scope":scope,"name":obj.name});db.session.commit();return jsonify({"ok":True})
 
 @catalog_bp.get("/settings/license-catalog")
 def list_license_catalog():
@@ -93,11 +185,33 @@ def create_license_catalog_name():
     data=request.get_json(silent=True) or {}; name=str(data.get("name") or "").strip()
     if not name:return jsonify({"error":"name_required"}),400
     row=db.session.execute(text("SELECT id,name,active FROM license_names WHERE lower(name)=lower(:name)"),{"name":name}).mappings().first()
-    if row:return jsonify(dict(row)),200
+    if row:
+        db.session.execute(text("UPDATE license_names SET active=true,updated_at=CURRENT_TIMESTAMP WHERE id=:id"),{"id":row["id"]});db.session.commit();return jsonify(dict(row)),200
     try:
         row=db.session.execute(text("INSERT INTO license_names(name,active,created_at,updated_at) VALUES(:name,true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id,name,active"),{"name":name}).mappings().first()
         _audit("settings.license_name_created","license_name",row["id"],{"name":name});db.session.commit();return jsonify(dict(row)),201
     except IntegrityError:db.session.rollback();return jsonify({"error":"name_exists"}),409
+
+@catalog_bp.patch("/settings/license-catalog/name/<int:license_name_id>")
+@permission_required("settings.manage")
+def update_license_catalog_name(license_name_id):
+    data=request.get_json(silent=True) or {};obj=db.session.execute(text("SELECT id,name,active FROM license_names WHERE id=:id"),{"id":license_name_id}).mappings().first()
+    if not obj:return jsonify({"error":"not_found"}),404
+    name=str(data.get("name") or obj["name"]).strip()
+    if not name:return jsonify({"error":"name_required"}),400
+    conflict=db.session.execute(text("SELECT 1 FROM license_names WHERE lower(name)=lower(:name) AND id<>:id"),{"name":name,"id":license_name_id}).first()
+    if conflict:return jsonify({"error":"name_exists"}),409
+    db.session.execute(text("UPDATE license_names SET name=:name,active=true,updated_at=CURRENT_TIMESTAMP WHERE id=:id"),{"name":name,"id":license_name_id})
+    _audit("settings.license_name_updated","license_name",license_name_id,{"before":dict(obj),"name":name});db.session.commit();return jsonify({"id":license_name_id,"name":name,"active":True})
+
+@catalog_bp.delete("/settings/license-catalog/name/<int:license_name_id>")
+@permission_required("settings.manage")
+def delete_license_catalog_name(license_name_id):
+    obj=db.session.execute(text("SELECT id,name,active FROM license_names WHERE id=:id"),{"id":license_name_id}).mappings().first()
+    if not obj:return jsonify({"error":"not_found"}),404
+    db.session.execute(text("UPDATE license_names SET active=false,updated_at=CURRENT_TIMESTAMP WHERE id=:id"),{"id":license_name_id})
+    db.session.execute(text("UPDATE license_models SET active=false,updated_at=CURRENT_TIMESTAMP WHERE license_name_id=:id"),{"id":license_name_id})
+    _audit("settings.license_name_deleted","license_name",license_name_id,{"name":obj["name"]});db.session.commit();return jsonify({"ok":True})
 
 @catalog_bp.post("/settings/license-catalog/model")
 @permission_required("settings.manage")
@@ -109,7 +223,29 @@ def create_license_catalog_model():
     if not db.session.execute(text("SELECT 1 FROM license_names WHERE id=:id AND active=true"),{"id":license_name_id}).first():return jsonify({"error":"invalid_license_name"}),400
     try:
         row=db.session.execute(text("SELECT id,name,active FROM license_models WHERE license_name_id=:lid AND lower(name)=lower(:name)"),{"lid":license_name_id,"name":name}).mappings().first()
-        if row:return jsonify(dict(row)),200
+        if row:
+            db.session.execute(text("UPDATE license_models SET active=true,updated_at=CURRENT_TIMESTAMP WHERE id=:id"),{"id":row["id"]});db.session.commit();return jsonify(dict(row)),200
         row=db.session.execute(text("INSERT INTO license_models(license_name_id,name,active,created_at,updated_at) VALUES(:lid,:name,true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id,name,active"),{"lid":license_name_id,"name":name}).mappings().first()
         _audit("settings.license_model_created","license_model",row["id"],{"license_name_id":license_name_id,"name":name});db.session.commit();return jsonify(dict(row)),201
     except IntegrityError:db.session.rollback();return jsonify({"error":"model_exists"}),409
+
+@catalog_bp.patch("/settings/license-catalog/model/<int:model_id>")
+@permission_required("settings.manage")
+def update_license_catalog_model(model_id):
+    data=request.get_json(silent=True) or {};row=db.session.execute(text("SELECT id,license_name_id,name,active FROM license_models WHERE id=:id"),{"id":model_id}).mappings().first()
+    if not row:return jsonify({"error":"not_found"}),404
+    name=str(data.get("name") or row["name"]).strip();lid=int(data.get("license_name_id",row["license_name_id"]))
+    if not name:return jsonify({"error":"name_required"}),400
+    if not db.session.execute(text("SELECT 1 FROM license_names WHERE id=:id AND active=true"),{"id":lid}).first():return jsonify({"error":"invalid_license_name"}),400
+    conflict=db.session.execute(text("SELECT 1 FROM license_models WHERE license_name_id=:lid AND lower(name)=lower(:name) AND id<>:id"),{"lid":lid,"name":name,"id":model_id}).first()
+    if conflict:return jsonify({"error":"model_exists"}),409
+    db.session.execute(text("UPDATE license_models SET license_name_id=:lid,name=:name,active=true,updated_at=CURRENT_TIMESTAMP WHERE id=:id"),{"lid":lid,"name":name,"id":model_id})
+    _audit("settings.license_model_updated","license_model",model_id,{"before":dict(row),"license_name_id":lid,"name":name});db.session.commit();return jsonify({"id":model_id,"license_name_id":lid,"name":name,"active":True})
+
+@catalog_bp.delete("/settings/license-catalog/model/<int:model_id>")
+@permission_required("settings.manage")
+def delete_license_catalog_model(model_id):
+    row=db.session.execute(text("SELECT id,name,active FROM license_models WHERE id=:id"),{"id":model_id}).mappings().first()
+    if not row:return jsonify({"error":"not_found"}),404
+    db.session.execute(text("UPDATE license_models SET active=false,updated_at=CURRENT_TIMESTAMP WHERE id=:id"),{"id":model_id})
+    _audit("settings.license_model_deleted","license_model",model_id,{"name":row["name"]});db.session.commit();return jsonify({"ok":True})
