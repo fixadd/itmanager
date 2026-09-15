@@ -1,10 +1,54 @@
 (()=>{
 'use strict';
 
+const nativeFetch=window.fetch.bind(window);
+let inventoryFetchFixed=false;
+
+async function fetchAllInventory(input,init){
+  const originalUrl=typeof input==='string'?input:input?.url||'';
+  const url=new URL(originalUrl,location.href);
+  if(url.pathname!=='/api/inventory'||url.searchParams.has('id'))return nativeFetch(input,init);
+  if(inventoryFetchFixed)return nativeFetch(input,init);
+  inventoryFetchFixed=true;
+  try{
+    url.searchParams.set('page','1');
+    url.searchParams.set('per_page','100');
+    const first=await nativeFetch(url.toString(),init);
+    const firstData=await first.clone().json();
+    if(!first.ok||!firstData.pagination||firstData.pagination.pages<=1)return first;
+    const all=[...(firstData.items||[])];
+    const pages=Number(firstData.pagination.pages)||1;
+    for(let page=2;page<=pages;page++){
+      const pageUrl=new URL(url.toString());
+      pageUrl.searchParams.set('page',String(page));
+      const r=await nativeFetch(pageUrl.toString(),init);
+      if(!r.ok)break;
+      const d=await r.json().catch(()=>({items:[]}));
+      all.push(...(d.items||[]));
+    }
+    const payload={items:all,pagination:{page:1,per_page:all.length||100,total:firstData.pagination.total??all.length,pages:1}};
+    return new Response(JSON.stringify(payload),{status:200,headers:{'Content-Type':'application/json'}});
+  }finally{inventoryFetchFixed=false;}
+}
+window.fetch=fetchAllInventory;
+
+function normalizeAdminHash(){
+  if(!location.pathname.startsWith('/admin/'))return;
+  if(location.hash && location.hash!=='#admin'){
+    history.replaceState({adminView:location.pathname.split('/')[2]||'products'},'',location.pathname);
+    location.hash='#admin';
+  }
+}
+
 function fixAdminRoute(){
   document.addEventListener('click',e=>{
-    const nav=e.target.closest('.nav-link[data-page="admin"]');
+    const nav=e.target.closest('.nav-link[data-page]');
     if(!nav)return;
+    const page=nav.dataset.page;
+    if(page!=='admin'&&location.pathname.startsWith('/admin/')){
+      history.replaceState(null,'',location.pathname.replace(/^\/admin\/[^/]+/,'')||'/');
+    }
+    if(page!=='admin')return;
     e.preventDefault();
     e.stopImmediatePropagation();
     document.querySelectorAll('.nav-link[data-page]').forEach(x=>x.classList.toggle('active',x===nav));
@@ -17,14 +61,15 @@ function fixAdminRoute(){
 
 function fixAdminProducts(){
   document.addEventListener('click',e=>{
-    const b=e.target.closest('.admin-submenu-link[data-admin-view="products"]');
+    const b=e.target.closest('.admin-submenu-link[data-admin-view]');
     if(!b)return;
     e.preventDefault();
     e.stopImmediatePropagation();
+    const view=b.dataset.adminView;
     document.querySelectorAll('.admin-submenu-link[data-admin-view]').forEach(x=>x.classList.toggle('active',x===b));
-    if(location.hash!=='#admin')history.replaceState({adminView:'products'},'',`${location.pathname}#admin`);
+    history.replaceState({adminView:view},'',`/admin/${view}`);
     window.IT_ADMIN?.render?.();
-    window.dispatchEvent(new CustomEvent('itmanager:admin-view',{detail:'products'}));
+    window.dispatchEvent(new CustomEvent('itmanager:admin-view',{detail:view}));
   },true);
 }
 
@@ -58,7 +103,7 @@ function fixDepartmentLayout(){
   const panel=form.closest('.master-panel');
   if(!col||!panel)return;
   const list=col.querySelector(':scope > .master-list')||col.querySelector('.master-list');
-  if(list && list.parentElement!==panel)panel.appendChild(list);
+  if(list&&list.parentElement!==panel)panel.appendChild(list);
   const nested=panel.querySelector('.master-list .master-list');
   if(nested)panel.appendChild(nested);
 }
@@ -74,10 +119,7 @@ function fixInventoryEye(){
       const id=btn.closest('tr')?.dataset.inventoryId;
       if(!id)return;
       if(typeof window.__IT_OPEN_INVENTORY_DETAIL==='function')window.__IT_OPEN_INVENTORY_DETAIL(id);
-      else {
-        history.pushState({inventoryDetail:id},'',`#inventory/${encodeURIComponent(id)}`);
-        window.dispatchEvent(new HashChangeEvent('hashchange'));
-      }
+      else{history.pushState({inventoryDetail:id},'',`#inventory/${encodeURIComponent(id)}`);window.dispatchEvent(new HashChangeEvent('hashchange'));}
     },true);
   });
 }
@@ -89,6 +131,7 @@ function exposeDetail(){
 }
 
 function run(){
+  normalizeAdminHash();
   fixBrandSelector();
   fixDepartmentLayout();
   fixInventoryEye();
