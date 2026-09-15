@@ -1,7 +1,9 @@
 (()=>{
 'use strict';
 
-/* Inventory: the current table uses .iv-eye + data-iv-id. Route directly to the detail hash. */
+const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+
+/* Inventory table currently renders .iv-eye + data-iv-id. Route to the detail screen. */
 function bindInventoryEye(){
   document.querySelectorAll('#pageContent table tbody tr[data-iv-id] .iv-eye').forEach(btn=>{
     if(btn.dataset.finalEyeFix==='1') return;
@@ -18,10 +20,23 @@ function bindInventoryEye(){
   });
 }
 
-/* Product master: normalize ID comparisons so string/number API values do not hide brands. */
-function bindProductMaster(){
+let catalogPromise=null;
+async function getInventoryCatalog(){
+  if(!catalogPromise) catalogPromise=fetch('/api/settings/product-catalog?scope=inventory',{headers:{Accept:'application/json'}}).then(r=>{
+    if(!r.ok) throw Error(`HTTP ${r.status}`);
+    return r.json();
+  });
+  return catalogPromise;
+}
+
+/* Product master cascade: API IDs can arrive as strings or numbers. */
+async function bindProductMaster(){
   const area=document.querySelector('#catalogArea');
   if(!area) return;
+  try{
+    const cat=await getInventoryCatalog();
+    window.__itProductCatalogBrands=cat.brands||[];
+  }catch(e){return}
 
   const type=document.querySelector('#modelType');
   const brand=document.querySelector('#modelBrand');
@@ -38,25 +53,25 @@ function bindProductMaster(){
     sync();
   }
 
-  const lists=[
+  [
     ['#catalogArea .col-xl-4:nth-child(1) .master-panel .master-list','Donanım Tipleri'],
     ['#brandList','Markalar'],
     ['#modelList','Modeller']
-  ];
-  lists.forEach(([selector,label])=>paginateList(selector,label));
+  ].forEach(([selector,label])=>paginateList(selector,label));
 
-  /* The department form markup previously had an extra closing div. If the browser
-     placed the department list inside the form, move it back into the panel. */
+  /* Keep the department list outside its add form if the browser repaired the old
+     malformed markup by nesting the list inside the form. */
   const df=document.querySelector('#phDepartmentAddForm');
   const dPanel=df?.closest('.master-panel');
-  const dList=df?.querySelector('.master-list');
-  if(dPanel&&dList){
-    dList.remove();
-    df.insertAdjacentElement('afterend',dList);
+  if(dPanel){
+    const nested=df.querySelector('.master-list');
+    if(nested){
+      nested.remove();
+      df.insertAdjacentElement('afterend',nested);
+    }
+    dPanel.querySelectorAll(':scope > .master-list').forEach(x=>{x.style.display='';});
   }
 }
-
-function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 
 function paginateList(selector,label){
   const list=document.querySelector(selector);
@@ -68,10 +83,10 @@ function paginateList(selector,label){
   const pages=Math.ceil(rows.length/10);
   const controls=document.createElement('div');
   controls.className='d-flex justify-content-between align-items-center gap-2 mt-3 final-master-pagination';
-  controls.innerHTML=`<span class="text-secondary small final-page-info"></span><div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-outline-secondary final-prev">‹</button><button type="button" class="btn btn-sm btn-outline-secondary final-next">›</button></div>`;
+  controls.innerHTML='<span class="text-secondary small final-page-info"></span><div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-outline-secondary final-prev">‹ Önceki</button><button type="button" class="btn btn-sm btn-outline-secondary final-next">Sonraki ›</button></div>';
   list.insertAdjacentElement('afterend',controls);
   const render=()=>{
-    rows.forEach((row,i)=>row.hidden=i<((page-1)*10)||i>=(page*10));
+    rows.forEach((row,i)=>{row.hidden=i<((page-1)*10)||i>=(page*10)});
     controls.querySelector('.final-page-info').textContent=`${label}: ${page} / ${pages} · ${rows.length} kayıt`;
     controls.querySelector('.final-prev').disabled=page<=1;
     controls.querySelector('.final-next').disabled=page>=pages;
@@ -81,25 +96,11 @@ function paginateList(selector,label){
   render();
 }
 
-/* Capture catalog data already loaded by the product admin script when possible. */
 const observer=new MutationObserver(()=>{
-  const area=document.querySelector('#catalogArea');
-  if(!area) return;
-  try{
-    if(!window.__itProductCatalogBrands){
-      const addBrand=document.querySelector('#addBrandForm');
-      const select=addBrand?.querySelector('select[name="product_type_id"]');
-      const typeOptions=[...(select?.options||[])].filter(o=>o.value).map(o=>({id:o.value,name:o.textContent}));
-      /* Re-read brand relationships from the model selector only when available is not
-         possible; the original handler remains active. This variable is populated below. */
-      window.__itProductCatalogBrands=window.__itProductCatalogBrands||[];
-    }
-  }catch(e){}
-  bindProductMaster();
   bindInventoryEye();
+  bindProductMaster();
 });
 observer.observe(document.body,{childList:true,subtree:true});
-document.addEventListener('click',()=>{bindInventoryEye();bindProductMaster()},true);
 window.addEventListener('hashchange',()=>setTimeout(()=>{bindInventoryEye();bindProductMaster()},100));
 setTimeout(()=>{bindInventoryEye();bindProductMaster()},300);
 })();
