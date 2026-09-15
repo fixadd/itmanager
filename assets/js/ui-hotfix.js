@@ -7,14 +7,14 @@ let inventoryFetchFixed=false;
 async function fetchAllInventory(input,init){
   const originalUrl=typeof input==='string'?input:input?.url||'';
   const url=new URL(originalUrl,location.href);
-  if(url.pathname!=='/api/inventory'||url.searchParams.has('id'))return nativeFetch(input,init);
+  if(url.pathname!=='/api/inventory')return nativeFetch(input,init);
   if(inventoryFetchFixed)return nativeFetch(input,init);
   inventoryFetchFixed=true;
   try{
     url.searchParams.set('page','1');
     url.searchParams.set('per_page','100');
     const first=await nativeFetch(url.toString(),init);
-    const firstData=await first.clone().json();
+    const firstData=await first.clone().json().catch(()=>({}));
     if(!first.ok||!firstData.pagination||firstData.pagination.pages<=1)return first;
     const all=[...(firstData.items||[])];
     const pages=Number(firstData.pagination.pages)||1;
@@ -26,15 +26,14 @@ async function fetchAllInventory(input,init){
       const d=await r.json().catch(()=>({items:[]}));
       all.push(...(d.items||[]));
     }
-    const payload={items:all,pagination:{page:1,per_page:all.length||100,total:firstData.pagination.total??all.length,pages:1}};
-    return new Response(JSON.stringify(payload),{status:200,headers:{'Content-Type':'application/json'}});
+    return new Response(JSON.stringify({items:all,pagination:{page:1,per_page:all.length||100,total:firstData.pagination.total??all.length,pages:1}}),{status:200,headers:{'Content-Type':'application/json'}});
   }finally{inventoryFetchFixed=false;}
 }
 window.fetch=fetchAllInventory;
 
 function normalizeAdminHash(){
   if(!location.pathname.startsWith('/admin/'))return;
-  if(location.hash && location.hash!=='#admin'){
+  if(location.hash&&location.hash!=='#admin'){
     history.replaceState({adminView:location.pathname.split('/')[2]||'products'},'',location.pathname);
     location.hash='#admin';
   }
@@ -45,9 +44,7 @@ function fixAdminRoute(){
     const nav=e.target.closest('.nav-link[data-page]');
     if(!nav)return;
     const page=nav.dataset.page;
-    if(page!=='admin'&&location.pathname.startsWith('/admin/')){
-      history.replaceState(null,'',location.pathname.replace(/^\/admin\/[^/]+/,'')||'/');
-    }
+    if(page!=='admin'&&location.pathname.startsWith('/admin/'))history.replaceState(null,'',location.pathname.replace(/^\/admin\/[^/]+/,'')||'/');
     if(page!=='admin')return;
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -78,8 +75,7 @@ function fixBrandSelector(){
   if(!area)return;
   const type=area.querySelector('#modelType');
   const brand=area.querySelector('#modelBrand');
-  if(!type||!brand)return;
-  if(type.dataset.hotfixBrand==='1')return;
+  if(!type||!brand||type.dataset.hotfixBrand==='1')return;
   type.dataset.hotfixBrand='1';
   const brands=window.__itProductCatalogBrands||[];
   const matches=(b,tid)=>{
@@ -108,6 +104,13 @@ function fixDepartmentLayout(){
   if(nested)panel.appendChild(nested);
 }
 
+function clearInventoryMockRows(){
+  if(location.hash!=='#inventory')return;
+  document.querySelectorAll('#pageContent table tbody tr').forEach(tr=>{
+    if(!tr.dataset.inventoryId)tr.remove();
+  });
+}
+
 function fixInventoryEye(){
   if(location.hash!=='#inventory')return;
   document.querySelectorAll('#pageContent .row-eye').forEach(btn=>{
@@ -132,6 +135,7 @@ function exposeDetail(){
 
 function run(){
   normalizeAdminHash();
+  clearInventoryMockRows();
   fixBrandSelector();
   fixDepartmentLayout();
   fixInventoryEye();
