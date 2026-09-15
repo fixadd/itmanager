@@ -1,14 +1,1 @@
-(()=>{
-function clean(){
- if(location.hash!=='#admin')return;
- const active=document.querySelector('.admin-submenu-link.active[data-admin-view="products"]');if(!active)return;
- const oldForm=document.querySelector('#productQuickForm');
- if(oldForm){
-  oldForm.closest('.card')?.remove();
-  document.querySelectorAll('#pageContent .page-header').forEach(h=>{if(h.querySelector('h1')?.textContent.trim()==='Ürün Ekle')h.remove()});
- }
-}
-document.addEventListener('itmanager:admin-view',e=>{if(e.detail==='products'){setTimeout(clean,50);setTimeout(clean,250)}});
-window.addEventListener('hashchange',()=>setTimeout(clean,100));
-new MutationObserver(clean).observe(document.body,{childList:true,subtree:true});
-})();
+(()=>{function style(){if(document.getElementById('product-admin-single-style'))return;const s=document.createElement('style');s.id='product-admin-single-style';s.textContent=`#pageContent.product-admin-single .master-global-card,#pageContent.product-admin-single .master-panel{background:var(--bs-body-bg);border:1px solid var(--bs-border-color);box-shadow:0 6px 24px rgba(0,0,0,.08)}#pageContent.product-admin-single .master-global-card{margin-bottom:18px}#pageContent.product-admin-single .master-tabs{width:100%;display:flex;gap:6px;padding:6px;margin-bottom:18px;background:var(--bs-tertiary-bg)}#pageContent.product-admin-single .master-tabs .nav-link{flex:1;text-align:center;padding:11px 14px}#pageContent.product-admin-single .master-panel-head{padding-bottom:10px;border-bottom:1px solid var(--bs-border-color)}#pageContent.product-admin-single .master-row{padding:12px 6px}#pageContent.product-admin-single .master-panel .form-control,#pageContent.product-admin-single .master-panel .form-select{min-height:40px}`;document.head.appendChild(s)}function clean(){if(location.hash!=='#admin')return;const active=document.querySelector('.admin-submenu-link.active[data-admin-view="products"]');if(!active)return;const c=document.querySelector('#pageContent');if(!c)return;c.classList.add('product-admin-single');const old=document.querySelector('#productQuickForm');if(old)old.closest('.card')?.remove();c.querySelectorAll('.page-header').forEach(h=>{if(h.querySelector('h1')?.textContent.trim()==='Ürün Ekle')h.remove()});style()}document.addEventListener('itmanager:admin-view',e=>{if(e.detail==='products'){setTimeout(clean,50);setTimeout(clean,250)}});window.addEventListener('hashchange',()=>setTimeout(clean,100));new MutationObserver(clean).observe(document.body,{childList:true,subtree:true})})();
