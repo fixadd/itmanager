@@ -8,6 +8,6 @@ window.addEventListener('DOMContentLoaded',()=>{
  const hash=location.hash.replace(/^#/,'');
  const r=pageFromPath(initialPath);
  const target=valid.includes(hash)?hash:(r?.page||'dashboard');
- setTimeout(()=>{const a=document.querySelector(`.nav-link[data-page="${target}"]`);if(a)a.click();if(r?.id&&r.page==='inventory'){let tries=0;const timer=setInterval(()=>{const row=document.querySelector(`tr[data-iv-id="${r.id}"]`);if(row){clearInterval(timer);row.querySelector('.iv-eye')?.click()}if(++tries>80)clearInterval(timer)},100)}},0);
+ setTimeout(()=>{const a=document.querySelector(`.nav-link[data-page="${target}"]`);if(a)a.click();if(r?.id&&r.page==='inventory'){const detailHash=`#inventory/${encodeURIComponent(r.id)}`;if(location.hash===detailHash)window.dispatchEvent(new HashChangeEvent('hashchange'));else location.hash=detailHash;}},0);
 });
 })();
