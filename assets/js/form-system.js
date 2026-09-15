@@ -9,11 +9,19 @@ const select=(l,n,a,c='',required=false)=>`<div class="col-md-6"><label class="f
 const input=(l,n,t='text',e='')=>`<div class="col-md-6"><label class="form-label">${l}</label><input class="form-control" type="${t}" name="${n}" ${e}></div>`;
 async function sync(){
  try{
-  const r=await fetch('/api/settings/product-hierarchy',{headers:{Accept:'application/json'}});if(!r.ok)throw 0;
-  const x=await r.json(),d=load();
-  d.factories=x.factories||[];d.departments=x.departments||[];d.inventoryTypes=x.hardware_types||[];d.brands=x.brands||[];d.licenses=d.licenses||[];d.models=x.models||[];
+  const [g,inv]=await Promise.all([
+   fetch('/api/settings/product-hierarchy',{headers:{Accept:'application/json'}}),
+   fetch('/api/settings/product-catalog?scope=inventory',{headers:{Accept:'application/json'}})
+  ]);
+  if(!g.ok||!inv.ok)throw 0;
+  const x=await g.json(),c=await inv.json(),d=load();
+  d.factories=x.factories||[];d.departments=x.departments||[];
+  d.inventoryTypes=c.hardware_types||[];d.brands=c.brands||[];d.models=c.models||[];
   window.IT_MASTER_DATA=d;save(d);document.dispatchEvent(new Event('itmanager:master-ready'));
- }catch{try{const r=await fetch('/api/master-data');if(r.ok){const x=await r.json(),d=load();d.factories=x.factories||[];d.departments=x.departments||[];d.inventoryTypes=x.hardware_types||[];d.brands=x.brands||[];d.licenses=x.licenses||[];d.models=x.models||[];window.IT_MASTER_DATA=d;save(d)}}catch{} }
+ }catch{try{
+  const r=await fetch('/api/master-data');
+  if(r.ok){const x=await r.json(),d=load();d.factories=x.factories||[];d.departments=x.departments||[];d.inventoryTypes=x.hardware_types||[];d.brands=x.brands||[];d.licenses=x.licenses||[];d.models=x.models||[];window.IT_MASTER_DATA=d;save(d)}
+ }catch{} }
 }
 const nameList=(items)=>items.map(x=>typeof x==='string'?x:x.name);
 function inventory(){const d=load();return `<form id="itDynamicForm" data-form-page="inventory"><div class="inventory-form-title"><div><i class="ti ti-device-desktop"></i><div><h6>Yeni Envanter Kaydı</h6><small>Demirbaş bilgilerini eksiksiz girin.</small></div></div><span class="text-muted small">* Zorunlu alan</span></div><div class="inventory-form-section"><div class="section-label"><i class="ti ti-id"></i> Kimlik Bilgileri</div><div class="row g-3">${input('Envanter No','inventory_no','text','required placeholder="Örn. BLN-IT-001245"')}${input('Bilgisayar Adı','computer_name','text','placeholder="Örn. PC-IT-001"')}${input('Seri No','serial_no','text','placeholder="Cihaz seri numarası"')}${input('IFS No','ifs_no','text','placeholder="İsteğe bağlı"')}${input('Bağlı Makina No','machine_no','text','placeholder="İsteğe bağlı"')}</div></div><div class="inventory-form-section"><div class="section-label"><i class="ti ti-building"></i> Organizasyon</div><div class="row g-3">${select('Fabrika','factory',nameList(d.factories),'',true)}${select('Departman','department',nameList(d.departments),'',true)}${select('Sorumlu Personel','person',window.IT_PEOPLE||[],'',false)}</div></div><div class="inventory-form-section"><div class="section-label"><i class="ti ti-device-laptop"></i> Cihaz Bilgileri</div><div class="row g-3"><div class="col-md-6"><label class="form-label">Donanım Tipi *</label><select class="form-select inv-type" name="device_type" required>${opts(nameList(d.inventoryTypes))}</select></div><div class="col-md-6"><label class="form-label">Marka *</label><select class="form-select inv-brand" name="brand" required><option value="">Önce donanım tipi</option></select></div><div class="col-md-6"><label class="form-label">Model</label><select class="form-select inv-model" name="model"><option value="">Önce marka seçin</option></select></div></div></div><div class="inventory-form-section"><div class="section-label"><i class="ti ti-notes"></i> Açıklama</div><div class="row g-3"><div class="col-12"><textarea class="form-control" name="note" rows="4" placeholder="Cihaz hakkında açıklama veya not..."></textarea></div></div></div></form>`}
