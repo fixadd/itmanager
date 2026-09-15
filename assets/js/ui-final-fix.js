@@ -21,7 +21,7 @@ async function getCatalog(scope){
  if(!catalogCache[scope])catalogCache[scope]=fetch(`/api/settings/product-catalog?scope=${scope}`,{headers:{Accept:'application/json'}}).then(r=>{if(!r.ok)throw Error(`HTTP ${r.status}`);return r.json()});
  return catalogCache[scope];
 }
-function currentScope(){return document.querySelector('#catalogArea .master-panel')?.closest('#catalogArea')?.querySelector('[data-catalog-scope].active')?.dataset.catalogScope||'inventory'}
+function currentScope(){return document.querySelector('#pageContent [data-catalog-scope].active')?.dataset.catalogScope||'inventory'}
 
 async function bindProductMaster(){
  const area=document.querySelector('#catalogArea');if(!area)return;
@@ -36,10 +36,7 @@ async function bindProductMaster(){
   };
   type.addEventListener('change',sync);sync();
  }
- [
-  ['#catalogArea .col-xl-4:nth-child(1) .master-panel .master-list','Donanım Tipleri'],
-  ['#brandList','Markalar'],['#modelList','Modeller']
- ].forEach(([selector,label])=>paginateList(selector,label));
+ [['#catalogArea .col-xl-4:nth-child(1) .master-panel .master-list','Donanım Tipleri'],['#brandList','Markalar'],['#modelList','Modeller']].forEach(([selector,label])=>paginateList(selector,label));
  const df=document.querySelector('#phDepartmentAddForm'),dPanel=df?.closest('.master-panel');
  if(dPanel){const nested=df.querySelector('.master-list');if(nested){nested.remove();df.insertAdjacentElement('afterend',nested)}dPanel.querySelectorAll(':scope > .master-list').forEach(x=>x.style.display='')}
 }
