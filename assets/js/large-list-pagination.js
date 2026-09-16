@@ -1,20 +1,9 @@
 /* Shared server-side pagination bridge for large operational lists. */
 (()=>{
 const CFG={licenses:'/api/licenses',maintenance:'/api/maintenance',requests:'/api/purchase-requests',knowledge:'/api/knowledge',scrap:'/api/scrap',logs:'/api/logs'};
-const state={};let originalFetch=window.fetch.bind(window);
-const route=()=>location.hash.slice(1).split('/')[0];
-const key=route();
-if(!CFG[key])return;
-const pageSize=100;
-window.fetch=async function(input,init){
- const url=typeof input==='string'?input:input?.url||'';
- const path=url.split('?')[0];
- if(!CFG[key]||!path.endsWith(CFG[key])||((init?.method||'GET').toUpperCase()!=='GET'))return originalFetch(input,init);
- const u=new URL(url,location.origin);u.searchParams.set('page',String(state[key]?.page||1));u.searchParams.set('per_page',String(pageSize));
- const response=await originalFetch(u.toString(),init);try{const clone=response.clone();const data=await clone.json();if(data?.pagination){state[key]={page:Number(data.pagination.page)||1,pages:Number(data.pagination.pages)||1,total:Number(data.pagination.total)||0};setTimeout(render,0)}}catch(_){ }return response;
-};
-function render(){const s=state[key];if(!s)return;const panel=document.querySelector('#pageContent .panel');if(!panel)return;let el=panel.querySelector('.large-list-pager');if(!el){el=document.createElement('div');el.className='large-list-pager d-flex justify-content-between align-items-center mt-3';panel.appendChild(el)}el.innerHTML=`<div class="small text-secondary">Sayfa ${s.page} / ${Math.max(s.pages,1)} · ${s.total} kayıt</div><div class="btn-group"><button class="btn btn-sm btn-outline-secondary" data-large-page="prev" ${s.page<=1?'disabled':''}>Önceki</button><button class="btn btn-sm btn-outline-secondary" data-large-page="next" ${s.page>=s.pages?'disabled':''}>Sonraki</button></div>`}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-large-page]');if(!b||b.disabled)return;const s=state[key];if(!s)return;e.preventDefault();e.stopImmediatePropagation();const next=b.dataset.largePage==='next'?s.page+1:s.page-1;if(next<1||next>s.pages)return;state[key].page=next;window.dispatchEvent(new HashChangeEvent('hashchange'))},true);
-const mo=new MutationObserver(()=>render());document.addEventListener('DOMContentLoaded',()=>{mo.observe(document.querySelector('#pageContent')||document.body,{childList:true,subtree:true});setTimeout(render,150)});
-window.LARGE_LIST_PAGINATION={state};
+const state={};const originalFetch=window.fetch.bind(window);const pageSize=100;const route=()=>location.hash.slice(1).split('/')[0];
+window.fetch=async function(input,init){const key=route(),base=CFG[key],url=typeof input==='string'?input:input?.url||'',path=url.split('?')[0];if(!base||!path.endsWith(base)||((init?.method||'GET').toUpperCase()!=='GET'))return originalFetch(input,init);const u=new URL(url,location.origin),s=state[key]||{page:1};u.searchParams.set('page',String(s.page||1));u.searchParams.set('per_page',String(pageSize));const response=await originalFetch(u.toString(),init);try{const data=await response.clone().json();if(data?.pagination){state[key]={page:Number(data.pagination.page)||1,pages:Number(data.pagination.pages)||1,total:Number(data.pagination.total)||0};setTimeout(()=>render(key),0)}}catch(_){ }return response};
+function render(key){const s=state[key];if(!s||route()!==key)return;const panel=document.querySelector('#pageContent .panel');if(!panel)return;let el=panel.querySelector('.large-list-pager');if(!el){el=document.createElement('div');el.className='large-list-pager d-flex justify-content-between align-items-center mt-3';panel.appendChild(el)}el.innerHTML=`<div class="small text-secondary">Sayfa ${s.page} / ${Math.max(s.pages,1)} · ${s.total} kayıt</div><div class="btn-group"><button class="btn btn-sm btn-outline-secondary" data-large-page="prev" ${s.page<=1?'disabled':''}>Önceki</button><button class="btn btn-sm btn-outline-secondary" data-large-page="next" ${s.page>=s.pages?'disabled':''}>Sonraki</button></div>`}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-large-page]');if(!b||b.disabled)return;const key=route(),s=state[key];if(!s)return;e.preventDefault();e.stopImmediatePropagation();const next=b.dataset.largePage==='next'?s.page+1:s.page-1;if(next<1||next>s.pages)return;state[key].page=next;window.dispatchEvent(new HashChangeEvent('hashchange'))},true);
+const mo=new MutationObserver(()=>{const key=route();if(key&&state[key])render(key)});document.addEventListener('DOMContentLoaded',()=>{mo.observe(document.querySelector('#pageContent')||document.body,{childList:true,subtree:true})});window.LARGE_LIST_PAGINATION={state};
 })();
