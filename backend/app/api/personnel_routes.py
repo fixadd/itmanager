@@ -16,10 +16,14 @@ def list_personnel():
  if q:
   like=f"%{q}%";query=query.filter(or_(Personnel.name.ilike(like),Personnel.employee_no.ilike(like),Personnel.email.ilike(like)))
  if status in ("active","inactive"):query=query.filter_by(active=status=="active")
- rows=query.order_by(Personnel.name.asc()).all();return jsonify({"items":[person_json(x)|{"asset_count":Inventory.query.filter_by(personnel_id=x.id).count()+License.query.filter_by(personnel_id=x.id).count()} for x in rows],"total":len(rows)})
+ page=max(request.args.get("page",1,type=int),1);per_page=min(max(request.args.get("per_page",100,type=int),1),100)
+ p=query.order_by(Personnel.name.asc()).paginate(page=page,per_page=per_page,error_out=False)
+ items=[]
+ for x in p.items:items.append(person_json(x)|{"asset_count":Inventory.query.filter_by(personnel_id=x.id).count()+License.query.filter_by(personnel_id=x.id).count()})
+ return jsonify({"items":items,"pagination":{"page":page,"per_page":per_page,"total":p.total,"pages":p.pages},"total":p.total})
 @personnel_bp.get("/personnel/<int:person_id>")
 def get_personnel(person_id):
- p=db.get_or_404(Personnel,person_id);data=person_json(p);data["assets"]=asset_json(p);data["history"]=[{"id":h.id,"asset_type":h.asset_type,"asset_id":h.asset_id,"action":h.action,"note":h.note,"created_at":h.created_at.isoformat()} for h in AssignmentHistory.query.filter_by(personnel_id=p.id).order_by(AssignmentHistory.id.desc()).all()];return jsonify(data)
+ p=db.get_or_404(Personnel,person_id);data=person_json(p);data["assets"]=asset_json(p);data["history"]= [{"id":h.id,"asset_type":h.asset_type,"asset_id":h.asset_id,"action":h.action,"note":h.note,"created_at":h.created_at.isoformat()} for h in AssignmentHistory.query.filter_by(personnel_id=p.id).order_by(AssignmentHistory.id.desc()).all()];return jsonify(data)
 @personnel_bp.post("/personnel")
 def create_personnel():
  data=request.get_json(silent=True) or {};name=str(data.get("name") or "").strip()
