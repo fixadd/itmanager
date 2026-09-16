@@ -1,199 +1,24 @@
 (()=>{
 'use strict';
-
-function normalizeAdminHash(){
-  if(!location.pathname.startsWith('/admin/'))return;
-  if(location.hash&&location.hash!=='#admin'){
-    history.replaceState({adminView:location.pathname.split('/')[2]||'products'},'',location.pathname);
-    location.hash='#admin';
-  }
-}
-
-function fixAdminRoute(){
-  document.addEventListener('click',e=>{
-    const nav=e.target.closest('.nav-link[data-page]');
-    if(!nav)return;
-    const page=nav.dataset.page;
-    if(page!=='admin'&&location.pathname.startsWith('/admin/'))history.replaceState(null,'',location.pathname.replace(/^\/admin\/[^/]+/,'')||'/');
-    if(page!=='admin')return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    document.querySelectorAll('.nav-link[data-page]').forEach(x=>x.classList.toggle('active',x===nav));
-    history.replaceState(null,'',`${location.pathname}#admin`);
-    document.querySelector('#adminSubmenu')?.classList.add('open');
-    window.IT_ADMIN?.render?.();
-    window.dispatchEvent(new Event('hashchange'));
-  },true);
-}
-
-function fixAdminProducts(){
-  document.addEventListener('click',e=>{
-    const b=e.target.closest('.admin-submenu-link[data-admin-view]');
-    if(!b)return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    const view=b.dataset.adminView;
-    document.querySelectorAll('.admin-submenu-link[data-admin-view]').forEach(x=>x.classList.toggle('active',x===b));
-    history.replaceState({adminView:view},'',`/admin/${view}`);
-    window.IT_ADMIN?.render?.();
-    window.dispatchEvent(new CustomEvent('itmanager:admin-view',{detail:view}));
-  },true);
-}
-
-function fixBrandSelector(){
-  const area=document.querySelector('#catalogArea');
-  if(!area)return;
-  const type=area.querySelector('#modelType');
-  const brand=area.querySelector('#modelBrand');
-  if(!type||!brand||type.dataset.hotfixBrand==='1')return;
-  type.dataset.hotfixBrand='1';
-  const brands=window.__itProductCatalogBrands||[];
-  const matches=(b,tid)=>{
-    const ids=Array.isArray(b.product_type_ids)?b.product_type_ids.map(String):[];
-    if(ids.length)return ids.includes(String(tid));
-    if(b.product_type_id!=null)return String(b.product_type_id)===String(tid);
-    return true;
-  };
-  const sync=()=>{
-    const tid=type.value;
-    brand.innerHTML='<option value="">Marka seçin</option>'+brands.filter(b=>matches(b,tid)).map(b=>`<option value="${String(b.id)}">${String(b.name??'')}</option>`).join('');
-  };
-  type.addEventListener('change',sync);
-  sync();
-}
-
-function fixDepartmentLayout(){
-  const form=document.querySelector('#phDepartmentAddForm');
-  if(!form)return;
-  const col=form.closest('.col-lg-6');
-  const panel=form.closest('.master-panel');
-  if(!col||!panel)return;
-  const list=col.querySelector(':scope > .master-list')||col.querySelector('.master-list');
-  if(list&&list.parentElement!==panel)panel.appendChild(list);
-  const nested=panel.querySelector('.master-list .master-list');
-  if(nested)panel.appendChild(nested);
-}
-
+function normalizeAdminHash(){if(!location.pathname.startsWith('/admin/'))return;if(location.hash&&location.hash!=='#admin'){history.replaceState({adminView:location.pathname.split('/')[2]||'products'},'',location.pathname);location.hash='#admin'}}
+function fixAdminRoute(){document.addEventListener('click',e=>{const nav=e.target.closest('.nav-link[data-page]');if(!nav)return;const page=nav.dataset.page;if(page!=='admin'&&location.pathname.startsWith('/admin/'))history.replaceState(null,'',location.pathname.replace(/^\/admin\/[^/]+/,'')||'/');if(page!=='admin')return;e.preventDefault();e.stopImmediatePropagation();document.querySelectorAll('.nav-link[data-page]').forEach(x=>x.classList.toggle('active',x===nav));history.replaceState(null,'',`${location.pathname}#admin`);document.querySelector('#adminSubmenu')?.classList.add('open');window.IT_ADMIN?.render?.();window.dispatchEvent(new Event('hashchange'))},true)}
+function fixAdminProducts(){document.addEventListener('click',e=>{const b=e.target.closest('.admin-submenu-link[data-admin-view]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();const view=b.dataset.adminView;document.querySelectorAll('.admin-submenu-link[data-admin-view]').forEach(x=>x.classList.toggle('active',x===b));history.replaceState({adminView:view},'',`/admin/${view}`);window.IT_ADMIN?.render?.();window.dispatchEvent(new CustomEvent('itmanager:admin-view',{detail:view}))},true)}
+function fixBrandSelector(){const area=document.querySelector('#catalogArea');if(!area)return;const type=area.querySelector('#modelType'),brand=area.querySelector('#modelBrand');if(!type||!brand||type.dataset.hotfixBrand==='1')return;type.dataset.hotfixBrand='1';const brands=window.__itProductCatalogBrands||[];const matches=(b,tid)=>{const ids=Array.isArray(b.product_type_ids)?b.product_type_ids.map(String):[];if(ids.length)return ids.includes(String(tid));if(b.product_type_id!=null)return String(b.product_type_id)===String(tid);return true};const sync=()=>{const tid=type.value;brand.innerHTML='<option value="">Marka seçin</option>'+brands.filter(b=>matches(b,tid)).map(b=>`<option value="${String(b.id)}">${String(b.name??'')}</option>`).join('')};type.addEventListener('change',sync);sync()}
+function fixDepartmentLayout(){const form=document.querySelector('#phDepartmentAddForm');if(!form)return;const col=form.closest('.col-lg-6'),panel=form.closest('.master-panel');if(!col||!panel)return;const list=col.querySelector(':scope > .master-list')||col.querySelector('.master-list');if(list&&list.parentElement!==panel)panel.appendChild(list);const nested=panel.querySelector('.master-list .master-list');if(nested)panel.appendChild(nested)}
 function inventoryTable(){return document.querySelector('#pageContent .panel table tbody')}
-function hideInventoryPlaceholders(){
-  if(location.hash!=='#inventory')return;
-  const tb=inventoryTable();
-  if(!tb)return;
-  tb.dataset.loadingInventory='1';
-  tb.style.visibility='hidden';
-}
-function showInventoryRealRows(){
-  if(location.hash!=='#inventory')return;
-  const tb=inventoryTable();
-  if(!tb)return;
-  const real=tb.querySelector('tr[data-inventory-id]');
-  if(real){tb.style.visibility='visible';tb.dataset.loadingInventory='0';}
-}
-function clearInventoryMockRows(){
-  if(location.hash!=='#inventory')return;
-  const tb=inventoryTable();
-  if(!tb)return;
-  tb.querySelectorAll('tr').forEach(tr=>{if(!tr.dataset.inventoryId)tr.remove();});
-}
-
-function fixInventoryEye(){
-  if(location.hash!=='#inventory')return;
-  document.querySelectorAll('#pageContent .row-eye').forEach(btn=>{
-    if(btn.dataset.hotfixEye==='1')return;
-    btn.dataset.hotfixEye='1';
-    btn.addEventListener('click',e=>{
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      const id=btn.closest('tr')?.dataset.inventoryId;
-      if(!id)return;
-      if(typeof window.__IT_OPEN_INVENTORY_DETAIL==='function')window.__IT_OPEN_INVENTORY_DETAIL(id);
-      else{history.pushState({inventoryDetail:id},'',`#inventory/${encodeURIComponent(id)}`);window.dispatchEvent(new HashChangeEvent('hashchange'));}
-    },true);
-  });
-}
-
-function exposeDetail(){
-  if(window.__IT_OPEN_INVENTORY_DETAIL)return;
-  const original=window.IT_INVENTORY_SHOW_DETAIL;
-  if(original)window.__IT_OPEN_INVENTORY_DETAIL=original;
-}
-
-function inventoryPageInfo(){
-  return window.__IT_INVENTORY_PAGE_INFO||{page:1,per_page:100,total:0,pages:1};
-}
-function inventoryQuery(page){
-  const q=new URLSearchParams({page:String(page),per_page:'100'});
-  const vals={search:'#invSearch',factory_id:'#invFactory',department_id:'#invDepartment',product_type_id:'#invType',brand_id:'#invBrand',model_id:'#invModel',status:'#invStatus'};
-  Object.entries(vals).forEach(([k,s])=>{const v=document.querySelector(s)?.value?.trim();if(v)q.set(k,v)});
-  return q;
-}
-function renderInventoryRows(items){
-  const tb=inventoryTable();
-  if(!tb)return;
-  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-  const statusMap={active:['Aktif','success'],faulty:['Arızalı','danger'],maintenance:['Bakımda','warning'],it:['Bilgi İşlem','info'],scrapped:['Hurda','danger']};
-  tb.innerHTML='';
-  items.forEach(x=>{
-    const tr=document.createElement('tr');
-    tr.dataset.recordType='inventory';tr.dataset.inventoryId=x.id;
-    const s=statusMap[x.status]||[x.status||'Bilinmiyor','secondary'];
-    tr.innerHTML=`<td><strong>${esc(x.inventory_no)}</strong></td><td>${esc(x.device_type?.name||'—')}</td><td>${esc([x.brand?.name,x.model?.name].filter(Boolean).join(' ')||'—')}</td><td>${esc(x.serial_no||'—')}</td><td>${esc(x.personnel?.name||'—')}</td><td>${esc(x.factory?.name||'—')}</td><td><span class="status ${s[1]}">${esc(s[0])}</span></td><td class="action-cell"><button type="button" class="btn btn-sm btn-light row-eye" title="Cihazı Görüntüle"><i class="ti ti-eye"></i></button><button type="button" class="btn btn-sm btn-light ms-1 row-actions" title="İşlemler"><i class="ti ti-adjustments-horizontal me-1"></i>İşlemler</button></td>`;
-    tb.appendChild(tr);
-  });
-  fixInventoryEye();
-  tb.style.visibility='visible';
-}
-async function loadInventoryPage(page){
-  if(location.hash!=='#inventory')return;
-  try{
-    const q=inventoryQuery(page);
-    const r=await fetch('/api/inventory?'+q.toString(),{headers:{Accept:'application/json'}});
-    const d=await r.json().catch(()=>({}));
-    if(!r.ok)throw Error(d.error||`HTTP ${r.status}`);
-    window.__IT_INVENTORY_PAGE_INFO=d.pagination||{page,per_page:100,total:(d.items||[]).length,pages:1};
-    renderInventoryRows(d.items||[]);
-    const p=document.querySelector('#pageContent .panel-head p');
-    if(p)p.textContent=`PostgreSQL · ${d.pagination?.total??(d.items||[]).length} kayıt`;
-    renderInventoryPager();
-  }catch(e){console.error(e);window.itToast?.('Envanter verileri alınamadı: '+e.message)}
-}
-function renderInventoryPager(){
-  if(location.hash!=='#inventory')return;
-  const panel=document.querySelector('#pageContent .panel');
-  if(!panel)return;
-  let host=panel.querySelector('.inventory-server-pager');
-  if(!host){host=document.createElement('div');host.className='inventory-server-pager d-flex align-items-center justify-content-between gap-3 mt-3';panel.appendChild(host)}
-  const p=inventoryPageInfo(),pages=Number(p.pages)||1,page=Number(p.page)||1,total=Number(p.total)||0;
-  if(pages<=1){host.innerHTML=total?`<small class="text-muted">${total} kayıt</small>`:'';return}
-  const start=(page-1)*(Number(p.per_page)||100)+1,end=Math.min(page*(Number(p.per_page)||100),total);
-  host.innerHTML=`<small class="text-muted">${start}-${end} / ${total} kayıt</small><div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-inv-page="prev" ${page<=1?'disabled':''}>‹</button><span class="px-2 align-self-center small">Sayfa ${page} / ${pages}</span><button type="button" class="btn btn-sm btn-outline-secondary" data-inv-page="next" ${page>=pages?'disabled':''}>›</button></div>`;
-  host.querySelector('[data-inv-page="prev"]')?.addEventListener('click',()=>loadInventoryPage(page-1));
-  host.querySelector('[data-inv-page="next"]')?.addEventListener('click',()=>loadInventoryPage(page+1));
-}
-function hookInventoryPagination(){
-  if(window.__IT_INVENTORY_PAGER_HOOK)return;
-  window.__IT_INVENTORY_PAGER_HOOK=true;
-  document.addEventListener('click',e=>{
-    if(location.hash!=='#inventory')return;
-    const filter=e.target.closest('#invFilterBtn,#invClearBtn');
-    if(filter)setTimeout(()=>{window.__IT_INVENTORY_PAGE_INFO=null;loadInventoryPage(1)},0);
-  },true);
-}
-
-function run(){
-  normalizeAdminHash();
-  hideInventoryPlaceholders();
-  clearInventoryMockRows();
-  showInventoryRealRows();
-  fixBrandSelector();
-  fixDepartmentLayout();
-  fixInventoryEye();
-  exposeDetail();
-  hookInventoryPagination();
-  if(location.hash==='#inventory')renderInventoryPager();
-}
-
+function hideInventoryPlaceholders(){if(location.hash!=='#inventory')return;const tb=inventoryTable();if(!tb)return;tb.dataset.loadingInventory='1';tb.style.visibility='hidden'}
+function showInventoryRealRows(){if(location.hash!=='#inventory')return;const tb=inventoryTable();if(!tb)return;const real=tb.querySelector('tr[data-inventory-id]');if(real){tb.style.visibility='visible';tb.dataset.loadingInventory='0'}}
+function clearInventoryMockRows(){if(location.hash!=='#inventory')return;const tb=inventoryTable();if(!tb)return;tb.querySelectorAll('tr').forEach(tr=>{if(!tr.dataset.inventoryId)tr.remove()})}
+function fixInventoryEye(){if(location.hash!=='#inventory')return;document.querySelectorAll('#pageContent .row-eye').forEach(btn=>{if(btn.dataset.hotfixEye==='1')return;btn.dataset.hotfixEye='1';btn.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();const id=btn.closest('tr')?.dataset.inventoryId;if(!id)return;if(typeof window.__IT_OPEN_INVENTORY_DETAIL==='function')window.__IT_OPEN_INVENTORY_DETAIL(id);else{history.pushState({inventoryDetail:id},'',`#inventory/${encodeURIComponent(id)}`);window.dispatchEvent(new HashChangeEvent('hashchange'))}},true)})}
+function exposeDetail(){if(window.__IT_OPEN_INVENTORY_DETAIL)return;const original=window.IT_INVENTORY_SHOW_DETAIL;if(original)window.__IT_OPEN_INVENTORY_DETAIL=original}
+function inventoryPageInfo(){return window.__IT_INVENTORY_PAGE_INFO||{page:1,per_page:100,total:0,pages:1}}
+function syncPageInfoFromDom(){if(location.hash!=='#inventory')return;const p=document.querySelector('#pageContent .panel-head p');const text=p?.textContent||'';const m=text.match(/(\d[\d.]*)\s*kayıt/i);if(!m)return;const total=Number(m[1].replace(/\./g,''));const tb=inventoryTable();const count=tb?.querySelectorAll('tr[data-inventory-id]').length||0;window.__IT_INVENTORY_PAGE_INFO={page:1,per_page:100,total,pages:Math.max(1,Math.ceil(total/100)),loaded:count}}
+function inventoryQuery(page){const q=new URLSearchParams({page:String(page),per_page:'100'});const vals={search:'#invSearch',factory_id:'#invFactory',department_id:'#invDepartment',product_type_id:'#invType',brand_id:'#invBrand',model_id:'#invModel',status:'#invStatus'};Object.entries(vals).forEach(([k,s])=>{const v=document.querySelector(s)?.value?.trim();if(v)q.set(k,v)});return q}
+function renderInventoryRows(items){const tb=inventoryTable();if(!tb)return;const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));const statusMap={active:['Aktif','success'],faulty:['Arızalı','danger'],maintenance:['Bakımda','warning'],it:['Bilgi İşlem','info'],scrapped:['Hurda','danger']};tb.innerHTML='';items.forEach(x=>{const tr=document.createElement('tr');tr.dataset.recordType='inventory';tr.dataset.inventoryId=x.id;const s=statusMap[x.status]||[x.status||'Bilinmiyor','secondary'];tr.innerHTML=`<td><strong>${esc(x.inventory_no)}</strong></td><td>${esc(x.device_type?.name||'—')}</td><td>${esc([x.brand?.name,x.model?.name].filter(Boolean).join(' ')||'—')}</td><td>${esc(x.serial_no||'—')}</td><td>${esc(x.personnel?.name||'—')}</td><td>${esc(x.factory?.name||'—')}</td><td><span class="status ${s[1]}">${esc(s[0])}</span></td><td class="action-cell"><button type="button" class="btn btn-sm btn-light row-eye" title="Cihazı Görüntüle"><i class="ti ti-eye"></i></button><button type="button" class="btn btn-sm btn-light ms-1 row-actions" title="İşlemler"><i class="ti ti-adjustments-horizontal me-1"></i>İşlemler</button></td>`;tb.appendChild(tr)});fixInventoryEye();tb.style.visibility='visible'}
+async function loadInventoryPage(page){if(location.hash!=='#inventory')return;try{const q=inventoryQuery(page),r=await fetch('/api/inventory?'+q.toString(),{headers:{Accept:'application/json'}}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||`HTTP ${r.status}`);window.__IT_INVENTORY_PAGE_INFO=d.pagination||{page,per_page:100,total:(d.items||[]).length,pages:1};renderInventoryRows(d.items||[]);const p=document.querySelector('#pageContent .panel-head p');if(p)p.textContent=`PostgreSQL · ${d.pagination?.total??(d.items||[]).length} kayıt`;renderInventoryPager()}catch(e){console.error(e);window.itToast?.('Envanter verileri alınamadı: '+e.message)}}
+function renderInventoryPager(){if(location.hash!=='#inventory')return;const panel=document.querySelector('#pageContent .panel');if(!panel)return;let host=panel.querySelector('.inventory-server-pager');if(!host){host=document.createElement('div');host.className='inventory-server-pager d-flex align-items-center justify-content-between gap-3 mt-3';panel.appendChild(host)}const p=inventoryPageInfo(),pages=Number(p.pages)||1,page=Number(p.page)||1,total=Number(p.total)||0;if(pages<=1){host.innerHTML=total?`<small class="text-muted">${total} kayıt</small>`:'';return}const size=Number(p.per_page)||100,start=(page-1)*size+1,end=Math.min(page*size,total);host.innerHTML=`<small class="text-muted">${start}-${end} / ${total} kayıt</small><div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-inv-page="prev" ${page<=1?'disabled':''}>‹</button><span class="px-2 align-self-center small">Sayfa ${page} / ${pages}</span><button type="button" class="btn btn-sm btn-outline-secondary" data-inv-page="next" ${page>=pages?'disabled':''}>›</button></div>`;host.querySelector('[data-inv-page="prev"]')?.addEventListener('click',()=>loadInventoryPage(page-1));host.querySelector('[data-inv-page="next"]')?.addEventListener('click',()=>loadInventoryPage(page+1))}
+function run(){normalizeAdminHash();hideInventoryPlaceholders();clearInventoryMockRows();showInventoryRealRows();fixBrandSelector();fixDepartmentLayout();fixInventoryEye();exposeDetail();syncPageInfoFromDom();renderInventoryPager()}
 document.addEventListener('DOMContentLoaded',()=>{fixAdminRoute();fixAdminProducts();run();setTimeout(run,250);setTimeout(run,700)});
-window.addEventListener('hashchange',()=>{if(location.hash==='#inventory'){hideInventoryPlaceholders();window.__IT_INVENTORY_PAGE_INFO=null;setTimeout(()=>loadInventoryPage(1),0)}setTimeout(run,100)});
+window.addEventListener('hashchange',()=>{if(location.hash==='#inventory'){hideInventoryPlaceholders();window.__IT_INVENTORY_PAGE_INFO=null}setTimeout(run,100)});
 new MutationObserver(()=>run()).observe(document.body,{childList:true,subtree:true});
 })();
