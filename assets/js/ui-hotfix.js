@@ -1,41 +1,6 @@
 (()=>{
 'use strict';
 
-const nativeFetch=window.fetch.bind(window);
-let inventoryFetchFixed=false;
-let inventoryRequestActive=false;
-
-async function fetchAllInventory(input,init){
-  const originalUrl=typeof input==='string'?input:input?.url||'';
-  const url=new URL(originalUrl,location.href);
-  if(url.pathname!=='/api/inventory')return nativeFetch(input,init);
-  if(inventoryFetchFixed)return nativeFetch(input,init);
-  inventoryFetchFixed=true;
-  inventoryRequestActive=true;
-  try{
-    url.searchParams.set('page','1');
-    url.searchParams.set('per_page','100');
-    const first=await nativeFetch(url.toString(),init);
-    const firstData=await first.clone().json().catch(()=>({}));
-    if(!first.ok||!firstData.pagination||firstData.pagination.pages<=1)return first;
-    const all=[...(firstData.items||[])];
-    const pages=Number(firstData.pagination.pages)||1;
-    for(let page=2;page<=pages;page++){
-      const pageUrl=new URL(url.toString());
-      pageUrl.searchParams.set('page',String(page));
-      const r=await nativeFetch(pageUrl.toString(),init);
-      if(!r.ok)break;
-      const d=await r.json().catch(()=>({items:[]}));
-      all.push(...(d.items||[]));
-    }
-    return new Response(JSON.stringify({items:all,pagination:{page:1,per_page:all.length||100,total:firstData.pagination.total??all.length,pages:1}}),{status:200,headers:{'Content-Type':'application/json'}});
-  }finally{
-    inventoryRequestActive=false;
-    inventoryFetchFixed=false;
-  }
-}
-window.fetch=fetchAllInventory;
-
 function normalizeAdminHash(){
   if(!location.pathname.startsWith('/admin/'))return;
   if(location.hash&&location.hash!=='#admin'){
@@ -129,7 +94,6 @@ function clearInventoryMockRows(){
   const tb=inventoryTable();
   if(!tb)return;
   tb.querySelectorAll('tr').forEach(tr=>{if(!tr.dataset.inventoryId)tr.remove();});
-  showInventoryRealRows();
 }
 
 function fixInventoryEye(){
@@ -154,6 +118,68 @@ function exposeDetail(){
   if(original)window.__IT_OPEN_INVENTORY_DETAIL=original;
 }
 
+function inventoryPageInfo(){
+  return window.__IT_INVENTORY_PAGE_INFO||{page:1,per_page:100,total:0,pages:1};
+}
+function inventoryQuery(page){
+  const q=new URLSearchParams({page:String(page),per_page:'100'});
+  const vals={search:'#invSearch',factory_id:'#invFactory',department_id:'#invDepartment',product_type_id:'#invType',brand_id:'#invBrand',model_id:'#invModel',status:'#invStatus'};
+  Object.entries(vals).forEach(([k,s])=>{const v=document.querySelector(s)?.value?.trim();if(v)q.set(k,v)});
+  return q;
+}
+function renderInventoryRows(items){
+  const tb=inventoryTable();
+  if(!tb)return;
+  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  const statusMap={active:['Aktif','success'],faulty:['Arızalı','danger'],maintenance:['Bakımda','warning'],it:['Bilgi İşlem','info'],scrapped:['Hurda','danger']};
+  tb.innerHTML='';
+  items.forEach(x=>{
+    const tr=document.createElement('tr');
+    tr.dataset.recordType='inventory';tr.dataset.inventoryId=x.id;
+    const s=statusMap[x.status]||[x.status||'Bilinmiyor','secondary'];
+    tr.innerHTML=`<td><strong>${esc(x.inventory_no)}</strong></td><td>${esc(x.device_type?.name||'—')}</td><td>${esc([x.brand?.name,x.model?.name].filter(Boolean).join(' ')||'—')}</td><td>${esc(x.serial_no||'—')}</td><td>${esc(x.personnel?.name||'—')}</td><td>${esc(x.factory?.name||'—')}</td><td><span class="status ${s[1]}">${esc(s[0])}</span></td><td class="action-cell"><button type="button" class="btn btn-sm btn-light row-eye" title="Cihazı Görüntüle"><i class="ti ti-eye"></i></button><button type="button" class="btn btn-sm btn-light ms-1 row-actions" title="İşlemler"><i class="ti ti-adjustments-horizontal me-1"></i>İşlemler</button></td>`;
+    tb.appendChild(tr);
+  });
+  fixInventoryEye();
+  tb.style.visibility='visible';
+}
+async function loadInventoryPage(page){
+  if(location.hash!=='#inventory')return;
+  try{
+    const q=inventoryQuery(page);
+    const r=await fetch('/api/inventory?'+q.toString(),{headers:{Accept:'application/json'}});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw Error(d.error||`HTTP ${r.status}`);
+    window.__IT_INVENTORY_PAGE_INFO=d.pagination||{page,per_page:100,total:(d.items||[]).length,pages:1};
+    renderInventoryRows(d.items||[]);
+    const p=document.querySelector('#pageContent .panel-head p');
+    if(p)p.textContent=`PostgreSQL · ${d.pagination?.total??(d.items||[]).length} kayıt`;
+    renderInventoryPager();
+  }catch(e){console.error(e);window.itToast?.('Envanter verileri alınamadı: '+e.message)}
+}
+function renderInventoryPager(){
+  if(location.hash!=='#inventory')return;
+  const panel=document.querySelector('#pageContent .panel');
+  if(!panel)return;
+  let host=panel.querySelector('.inventory-server-pager');
+  if(!host){host=document.createElement('div');host.className='inventory-server-pager d-flex align-items-center justify-content-between gap-3 mt-3';panel.appendChild(host)}
+  const p=inventoryPageInfo(),pages=Number(p.pages)||1,page=Number(p.page)||1,total=Number(p.total)||0;
+  if(pages<=1){host.innerHTML=total?`<small class="text-muted">${total} kayıt</small>`:'';return}
+  const start=(page-1)*(Number(p.per_page)||100)+1,end=Math.min(page*(Number(p.per_page)||100),total);
+  host.innerHTML=`<small class="text-muted">${start}-${end} / ${total} kayıt</small><div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-inv-page="prev" ${page<=1?'disabled':''}>‹</button><span class="px-2 align-self-center small">Sayfa ${page} / ${pages}</span><button type="button" class="btn btn-sm btn-outline-secondary" data-inv-page="next" ${page>=pages?'disabled':''}>›</button></div>`;
+  host.querySelector('[data-inv-page="prev"]')?.addEventListener('click',()=>loadInventoryPage(page-1));
+  host.querySelector('[data-inv-page="next"]')?.addEventListener('click',()=>loadInventoryPage(page+1));
+}
+function hookInventoryPagination(){
+  if(window.__IT_INVENTORY_PAGER_HOOK)return;
+  window.__IT_INVENTORY_PAGER_HOOK=true;
+  document.addEventListener('click',e=>{
+    if(location.hash!=='#inventory')return;
+    const filter=e.target.closest('#invFilterBtn,#invClearBtn');
+    if(filter)setTimeout(()=>{window.__IT_INVENTORY_PAGE_INFO=null;loadInventoryPage(1)},0);
+  },true);
+}
+
 function run(){
   normalizeAdminHash();
   hideInventoryPlaceholders();
@@ -163,9 +189,11 @@ function run(){
   fixDepartmentLayout();
   fixInventoryEye();
   exposeDetail();
+  hookInventoryPagination();
+  if(location.hash==='#inventory')renderInventoryPager();
 }
 
 document.addEventListener('DOMContentLoaded',()=>{fixAdminRoute();fixAdminProducts();run();setTimeout(run,250);setTimeout(run,700)});
-window.addEventListener('hashchange',()=>{if(location.hash==='#inventory')hideInventoryPlaceholders();setTimeout(run,100)});
+window.addEventListener('hashchange',()=>{if(location.hash==='#inventory'){hideInventoryPlaceholders();window.__IT_INVENTORY_PAGE_INFO=null;setTimeout(()=>loadInventoryPage(1),0)}setTimeout(run,100)});
 new MutationObserver(()=>run()).observe(document.body,{childList:true,subtree:true});
 })();
