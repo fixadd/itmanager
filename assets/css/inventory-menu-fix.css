@@ -3,3 +3,4 @@
 .panel,.table-responsive{overflow:visible!important}
 .table{overflow:visible!important}
 .action-cell .row-eye,.action-cell .iv-eye{display:inline-flex!important;visibility:visible!important;opacity:1!important;align-items:center;justify-content:center}
+.inv-screen-panel .row-actions,.inv-screen-panel .inventory-detail-actions{display:none!important}
