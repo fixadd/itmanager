@@ -38,6 +38,15 @@ def assign_owner(license_id):
     return jsonify({"license_id": license_obj.id, "personnel": {"id": person.id, "name": person.name}})
 
 
+@license_owner_bp.get("/license-owners/<int:license_id>/history")
+def owner_history(license_id):
+    license_obj=db.session.get(License,license_id)
+    if not license_obj:
+        return jsonify({"error":"Lisans kaydı bulunamadı"}),404
+    rows=AssignmentHistory.query.filter_by(asset_type="license",asset_id=license_id).order_by(AssignmentHistory.id.desc()).all()
+    people={p.id:p.name for p in Personnel.query.all()}
+    return jsonify({"items":[{"id":r.id,"personnel":{"id":r.personnel_id,"name":people.get(r.personnel_id,"—")},"action":r.action,"note":r.note,"created_at":r.created_at.isoformat() if r.created_at else None} for r in rows]})
+
 @license_owner_bp.post("/license-owners/<int:license_id>/clear")
 def clear_owner(license_id):
     license_obj = db.session.get(License, license_id)
