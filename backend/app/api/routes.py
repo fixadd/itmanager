@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
@@ -169,7 +169,7 @@ def list_licenses():
         if expiry_status=="timeless":
             q=q.filter(License.expires_at.is_(None))
         elif expiry_status=="active":
-            q=q.filter(License.expires_at.is_not(None),License.expires_at>date.today()+__import__("datetime").timedelta(days=30))
+            q=q.filter(License.expires_at.is_not(None),License.expires_at>date.today()+timedelta(days=30))
         elif expiry_status=="expiring":
             q=q.filter(License.expires_at>=date.today(),License.expires_at<=date.today()+__import__("datetime").timedelta(days=30))
         elif expiry_status=="expired":
