@@ -126,8 +126,19 @@ def scrap_inventory(inventory_id):
     old=x.status; x.status="scrapped"; x.personnel_id=None; db.session.add(ScrapRecord(source_type="inventory",source_id=x.id,reason=reason,note=data.get("note"))); _audit("inventory.scrapped","inventory",x.id,{"from_status":old,"reason":reason,"note":data.get("note")}); db.session.commit(); return jsonify(_inventory_dict(x))
 
 # -------------------- LICENSE API --------------------
+def _license_effective_status(x):
+    if x.status in ("scrapped", "it", "empty") or not x.expires_at:
+        return x.status
+    days=(x.expires_at-date.today()).days
+    if days < 0:
+        return "expired"
+    if days <= 30:
+        return "expiring"
+    return x.status
+
 def _license_dict(x):
-    return {"id":x.id,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"note":x.note,"status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+    days=(x.expires_at-date.today()).days if x.expires_at else None
+    return {"id":x.id,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 
 def _license_payload(data,x=None):
     name_value=data.get("license_name", x.license_name_id if x else None)
@@ -156,6 +167,18 @@ def list_licenses():
     if license_type:q=q.filter(License.license_type==license_type)
     page=max(request.args.get("page",1,type=int),1); per_page=min(max(request.args.get("per_page",25,type=int),1),100); p=q.order_by(License.id.desc()).paginate(page=page,per_page=per_page,error_out=False)
     return jsonify({"items":[_license_dict(x) for x in p.items],"pagination":{"page":page,"per_page":per_page,"total":p.total,"pages":p.pages}})
+
+@api_bp.get("/licenses/expiry-summary")
+def license_expiry_summary():
+    rows=License.query.all()
+    counts={"total":len(rows),"active":0,"empty":0,"expiring":0,"expired":0,"it":0,"scrapped":0,"expiring_30_days":0}
+    for x in rows:
+        s=_license_effective_status(x)
+        counts[s]=counts.get(s,0)+1
+        if x.expires_at and x.status not in ("scrapped","it","empty"):
+            days=(x.expires_at-date.today()).days
+            if 0 <= days <= 30: counts["expiring_30_days"]+=1
+    return jsonify(counts)
 
 @api_bp.get("/licenses/<int:license_id>")
 def get_license(license_id):
