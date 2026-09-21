@@ -160,11 +160,20 @@ def _license_payload(data,x=None):
 
 @api_bp.get("/licenses")
 def list_licenses():
-    q=License.query.join(LicenseName).outerjoin(LicenseModel,License.license_model_id==LicenseModel.id); search=request.args.get("search","").strip(); status=request.args.get("status","").strip(); license_type=request.args.get("license_type","").strip()
+    q=License.query.join(LicenseName).outerjoin(LicenseModel,License.license_model_id==LicenseModel.id); search=request.args.get("search","").strip(); status=request.args.get("status","").strip(); license_type=request.args.get("license_type","").strip(); expiry_status=request.args.get("expiry_status","").strip()
     if search:
         term=f"%{search}%"; q=q.filter(or_(LicenseName.name.ilike(term),LicenseModel.name.ilike(term),License.email.ilike(term),License.license_key.ilike(term)))
     if status:q=q.filter(License.status==status)
     if license_type:q=q.filter(License.license_type==license_type)
+    if expiry_status:
+        if expiry_status=="timeless":
+            q=q.filter(License.expires_at.is_(None))
+        elif expiry_status=="active":
+            q=q.filter(License.expires_at.is_not(None),License.expires_at>date.today()+__import__("datetime").timedelta(days=30))
+        elif expiry_status=="expiring":
+            q=q.filter(License.expires_at>=date.today(),License.expires_at<=date.today()+__import__("datetime").timedelta(days=30))
+        elif expiry_status=="expired":
+            q=q.filter(License.expires_at<date.today())
     page=max(request.args.get("page",1,type=int),1); per_page=min(max(request.args.get("per_page",25,type=int),1),100); p=q.order_by(License.id.desc()).paginate(page=page,per_page=per_page,error_out=False)
     return jsonify({"items":[_license_dict(x) for x in p.items],"pagination":{"page":page,"per_page":per_page,"total":p.total,"pages":p.pages}})
 
