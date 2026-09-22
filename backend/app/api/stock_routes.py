@@ -87,11 +87,30 @@ def list_stock():
         q = q.join(ProductType).join(Brand).outerjoin(ProductModel).filter(or_(ProductType.name.ilike(term), Brand.name.ilike(term), ProductModel.name.ilike(term)))
     if status:
         q = q.filter(StockItem.status == status)
+    for field, key in ((StockItem.product_type_id, "product_type_id"), (StockItem.brand_id, "brand_id"), (StockItem.model_id, "model_id")):
+        value = request.args.get(key, "").strip()
+        if value:
+            try:
+                q = q.filter(field == int(value))
+            except ValueError:
+                return jsonify({"error": "Filtre parametresi geçersiz"}), 400
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = min(max(request.args.get("per_page", 25, type=int), 1), 100)
     p = q.order_by(StockItem.id.desc()).paginate(page=page, per_page=per_page, error_out=False)
     return jsonify({"items": [_dict(x) for x in p.items], "pagination": {"page": page, "per_page": per_page, "total": p.total, "pages": p.pages}})
 
+
+@stock_bp.get("/stock/summary")
+def stock_summary():
+    from datetime import date
+    from sqlalchemy import func
+    total = StockItem.query.filter(StockItem.status != "scrapped").count()
+    critical = StockItem.query.filter(StockItem.status == "available", StockItem.quantity <= 10).count()
+    scrapped = StockItem.query.filter(StockItem.status == "scrapped").count()
+    today = date.today()
+    month_start = today.replace(day=1)
+    movements_this_month = StockMovement.query.filter(StockMovement.created_at >= month_start).count()
+    return jsonify({"total": total, "critical": critical, "scrapped": scrapped, "movements_this_month": movements_this_month})
 
 @stock_bp.get("/stock/<int:stock_id>")
 def get_stock(stock_id):
