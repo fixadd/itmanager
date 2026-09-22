@@ -152,7 +152,7 @@ def _license_payload(data,x=None):
     for key in ("license_type","license_key","email","password","note","status"):
         if key in data: vals[key]=data[key] if data[key] not in ("",None) else None
     if x is None and "license_type" not in vals: vals["license_type"]="subscription"
-    if "expires_at" in data:
+    if "starts_at" in data:\n        value=data["starts_at"]\n        try: vals["starts_at"]=date.fromisoformat(value) if value else None\n        except (TypeError,ValueError): raise ValueError("Geçersiz başlangıç tarihi")\n    if "expires_at" in data:
         value=data["expires_at"]
         try: vals["expires_at"]=date.fromisoformat(value) if value else None
         except (TypeError,ValueError): raise ValueError("Geçersiz bitiş tarihi")
