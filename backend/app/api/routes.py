@@ -138,7 +138,7 @@ def _license_effective_status(x):
 
 def _license_dict(x):
     days=(x.expires_at-date.today()).days if x.expires_at else None
-    return {"id":x.id,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+    return {"id":x.id,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"starts_at":x.starts_at.isoformat() if x.starts_at else None,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 
 def _license_payload(data,x=None):
     name_value=data.get("license_name", x.license_name_id if x else None)
@@ -152,7 +152,11 @@ def _license_payload(data,x=None):
     for key in ("license_type","license_key","email","password","note","status"):
         if key in data: vals[key]=data[key] if data[key] not in ("",None) else None
     if x is None and "license_type" not in vals: vals["license_type"]="subscription"
-    if "starts_at" in data:\n        value=data["starts_at"]\n        try: vals["starts_at"]=date.fromisoformat(value) if value else None\n        except (TypeError,ValueError): raise ValueError("Geçersiz başlangıç tarihi")\n    if "expires_at" in data:
+    if "starts_at" in data:
+        value=data["starts_at"]
+        try: vals["starts_at"]=date.fromisoformat(value) if value else None
+        except (TypeError,ValueError): raise ValueError("Geçersiz başlangıç tarihi")
+    if "expires_at" in data:
         value=data["expires_at"]
         try: vals["expires_at"]=date.fromisoformat(value) if value else None
         except (TypeError,ValueError): raise ValueError("Geçersiz bitiş tarihi")
