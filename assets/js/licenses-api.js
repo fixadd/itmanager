@@ -11,7 +11,7 @@ function bindFilters(panel){
  const name=panel.querySelector('#licenseNameFilter'),model=panel.querySelector('#licenseModelFilter'),search=panel.querySelector('#licenseSearch'),st=panel.querySelector('#licenseStatusFilter');
  if(!name||name.dataset.bound)return;
  name.dataset.bound='1';
- const render=(cat)=>{name.innerHTML='<option value="">Tümü</option>'+cat.filter(x=>x.active!==false).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');fillModels(cat);};
+ const render=(cat)=>{window.IT_LICENSE_CATALOG=cat;name.innerHTML='<option value="">Tümü</option>'+cat.filter(x=>x.active!==false).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');fillModels(cat);};
  const fillModels=(cat)=>{const n=cat.find(x=>String(x.id)===String(name.value));model.innerHTML='<option value="">Tümü</option>'+(n?.models||[]).filter(x=>x.active!==false).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');model.disabled=!name.value;};
  const cat=window.IT_LICENSE_CATALOG||[];
  if(cat.length)render(cat);else fetch('/api/settings/license-catalog').then(r=>r.ok?r.json():null).then(d=>render(d?.items||[])).catch(()=>render([]));
