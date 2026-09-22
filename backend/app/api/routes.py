@@ -163,6 +163,10 @@ def list_licenses():
     q=License.query.join(LicenseName).outerjoin(LicenseModel,License.license_model_id==LicenseModel.id); search=request.args.get("search","").strip(); status=request.args.get("status","").strip(); license_type=request.args.get("license_type","").strip(); expiry_status=request.args.get("expiry_status","").strip()
     if search:
         term=f"%{search}%"; q=q.filter(or_(LicenseName.name.ilike(term),LicenseModel.name.ilike(term),License.email.ilike(term),License.license_key.ilike(term)))
+    license_name_id=request.args.get("license_name_id",type=int)
+    license_model_id=request.args.get("license_model_id",type=int)
+    if license_name_id:q=q.filter(License.license_name_id==license_name_id)
+    if license_model_id:q=q.filter(License.license_model_id==license_model_id)
     if status:q=q.filter(License.status==status)
     if license_type:q=q.filter(License.license_type==license_type)
     if expiry_status:
