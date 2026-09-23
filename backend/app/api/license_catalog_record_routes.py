@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
-from ..models import License, LicenseName, LicenseModel
+from ..models import License, LicenseName, LicenseModel, AuditLog\nfrom .auth_routes import current_user
 
 license_catalog_record_bp = Blueprint("license_catalog_record", __name__)
 
@@ -36,6 +36,6 @@ def create_record():
         if data.get("expires_at"):
             from datetime import date
             vals["expires_at"]=date.fromisoformat(data["expires_at"])
-        x=License(**vals);db.session.add(x);db.session.commit();return jsonify(_dict(x)),201
+        x=License(**vals);db.session.add(x);db.session.flush();u=current_user();db.session.add(AuditLog(action="license_catalog_record.created",entity_type="license",entity_id=x.id,actor_user_id=u.id if u else None,details={"license_name_id":x.license_name_id,"license_model_id":x.license_model_id}));db.session.commit();return jsonify(_dict(x)),201
     except ValueError as e:db.session.rollback();return jsonify({"error":str(e)}),400
     except Exception as e:db.session.rollback();return jsonify({"error":"Lisans kaydı oluşturulamadı","detail":str(e)}),409
