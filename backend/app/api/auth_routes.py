@@ -170,10 +170,6 @@ def update_user(user_id):
         if data["personnel_id"] and (not personnel or not personnel.active):
             return jsonify({"error": "invalid_personnel"}), 400
         user.personnel = personnel
-    if data.get("password"):
-        if len(str(data["password"])) < 8:
-            return jsonify({"error": "password_too_short"}), 400
-        user.password_hash = generate_password_hash(str(data["password"]))
     audit("user_updated", "user", user.id, {"username": user.username})
     db.session.commit()
     return jsonify({"user": user_json(user)})
