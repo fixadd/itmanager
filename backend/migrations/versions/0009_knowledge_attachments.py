@@ -32,5 +32,4 @@ def upgrade():
 
 
 def downgrade():
-    if inspect(op.get_bind()).has_table("knowledge_attachments"):
-        op.drop_table("knowledge_attachments", if_exists=True)
+    op.drop_table("knowledge_attachments", if_exists=True)
