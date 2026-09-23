@@ -6,8 +6,9 @@ window.addEventListener('DOMContentLoaded',()=>{
  const adminMatch=initialPath.match(/^admin\/(users|roles|products|connections|data)$/);
  if(adminMatch){const target=adminMatch[1];setTimeout(()=>{document.querySelectorAll('.admin-submenu-link[data-admin-view]').forEach(x=>x.classList.remove('active'));const link=document.querySelector(`[data-admin-view="${target}"]`);if(link)link.classList.add('active');history.replaceState({adminView:target},'',`/admin/${target}`);if(location.hash!=='#admin')location.hash='#admin';else window.IT_ADMIN?.render?.();setTimeout(()=>link?.click(),0)},0);return;}
  const hash=location.hash.replace(/^#/,'');
+ const hashRoute=pageFromPath(hash);
  const r=pageFromPath(initialPath);
- const target=valid.includes(hash)?hash:(r?.page||'dashboard');
- setTimeout(()=>{const a=document.querySelector(`.nav-link[data-page="${target}"]`);if(a)a.click();if(r?.id&&r.page==='inventory'){const detailHash=`#inventory/${encodeURIComponent(r.id)}`;if(location.hash===detailHash)window.dispatchEvent(new HashChangeEvent('hashchange'));else location.hash=detailHash;}},0);
+ const target=hashRoute?.page||r?.page||'dashboard';
+ setTimeout(()=>{const a=document.querySelector(`.nav-link[data-page="${target}"]`);if(a)a.click();if(hashRoute?.id&&(hashRoute.page==='inventory'||hashRoute.page==='stock')){const detailHash=`#${hashRoute.page}/${encodeURIComponent(hashRoute.id)}`;if(location.hash===detailHash)window.dispatchEvent(new HashChangeEvent('hashchange'));else location.hash=detailHash;}else if(r?.id&&r.page==='inventory'){const detailHash=`#inventory/${encodeURIComponent(r.id)}`;if(location.hash===detailHash)window.dispatchEvent(new HashChangeEvent('hashchange'));else location.hash=detailHash;}},0);
 });
 })();
