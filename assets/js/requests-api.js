@@ -74,7 +74,7 @@ function openTransferForm(x,d){
 }
 function operationMenu(id){
  const x=current.find(q=>q.id===id);if(!x)return;
- const choices={pending:[['approve','Onayla'],['reject','Reddet'],['cancel','İptal']],approved:[['order','Sipariş Verildi'],['cancel','İptal']],ordered:[['complete','Tamamlandı']],draft:[['approve','Onayla'],['cancel','İptal']],rejected:[['approve','Tekrar Onaya Al']],cancelled:[['approve','Tekrar Aç']]};
+ const choices={pending:[['approve','Onayla'],['reject','Reddet'],['cancel','İptal']],approved:[['order','Sipariş Verildi'],['cancel','İptal']],ordered:[['complete','Tamamlandı']],completed:[['transfer','Modüle Aktar']],draft:[['approve','Onayla'],['cancel','İptal']],rejected:[['approve','Tekrar Onaya Al']],cancelled:[['approve','Tekrar Aç']]};
  const opts=choices[x.status]||[];if(!opts.length){notify('Bu talep için yapılacak işlem yok.');return}
  const pick=prompt(opts.map((v,i)=>`${i+1}. ${v[1]}`).join('\\n'));const n=Number(pick);if(!opts[n-1])return;
  if(opts[n-1][0]==='transfer'){transfer(id);return}
