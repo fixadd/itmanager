@@ -52,9 +52,23 @@ function operationMenu(id){
  const opts=choices[x.status]||[];if(!opts.length){notify('Bu talep için yapılacak işlem yok.');return}
  const pick=prompt(opts.map((v,i)=>`${i+1}. ${v[1]}`).join('\\n'));const n=Number(pick);if(!opts[n-1])return;
  action(id,opts[n-1][0]).then(()=>{notify('Talep güncellendi.');load()}).catch(e=>notify(e.message));
+}
+function detail(id){
+ const x=current.find(q=>q.id===id);if(!x)return;
+ const body='<div class="detail-grid"><div><span>Talep No</span><strong>'+esc(x.request_no)+'</strong></div><div><span>Talep Sahibi</span><strong>'+esc(x.requester?.name||'—')+'</strong></div><div><span>Departman</span><strong>'+esc(x.department?.name||'—')+'</strong></div><div><span>Fabrika</span><strong>'+esc(x.factory?.name||'—')+'</strong></div><div><span>Öncelik</span><strong>'+esc(x.priority)+'</strong></div><div><span>Durum</span><strong>'+esc(labels[x.status]||x.status)+'</strong></div></div><hr><h6>Talep Kalemleri</h6><div class="table-responsive"><table class="table"><thead><tr><th>Tip</th><th>Ürün</th><th>Marka</th><th>Model</th><th>Miktar</th><th>Açıklama</th></tr></thead><tbody>'+x.items.map(i=>'<tr><td>'+esc(i.product_type)+'</td><td>'+esc(i.device_type||'—')+'</td><td>'+esc(i.brand||'—')+'</td><td>'+esc(i.model||'—')+'</td><td>'+esc(i.quantity)+' '+esc(i.unit)+'</td><td>'+esc(i.description||'—')+'</td></tr>').join('')+'</tbody></table></div>' +(x.note?'<div class="mt-3"><strong>Not:</strong> '+esc(x.note)+'</div>':'');
+ if(window.ITUI)ITUI.modal('Satın Alma Talebi Detayı',body,{footer:'<button class="btn btn-light" data-bs-dismiss="modal">Kapat</button>'});else alert(x.request_no);
+}
+document.addEventListener('click',e=>{
+ const add=e.target.closest('#addRequestRow');if(add){e.preventDefault();document.querySelector('#requestRows')?.insertAdjacentHTML('beforeend',itemRow());return}
+ const newBtn=e.target.closest('#requestNew');if(newBtn){e.preventDefault();openCreate();return}
+ const refresh=e.target.closest('#requestRefresh');if(refresh){e.preventDefault();load();return}
+ const rm=e.target.closest('.req-remove,.remove-request-row');if(rm){rm.closest('.request-api-row,.request-extra-row')?.remove();return}
+ const det=e.target.closest('.request-detail');if(det){detail(Number(det.dataset.id));return}
+ const act=e.target.closest('.request-actions');if(act){operationMenu(Number(act.dataset.id));return}
 },true);
-document.addEventListener('input',e=>{if(e.target.matches('#requestSearch')){clearTimeout(window.__requestSearchTimer);window.__requestSearchTimer=setTimeout(load,250)}});document.addEventListener('change',e=>{if(e.target.matches('#requestStatus,#requestPriority'))load();
-if(e.target.matches('.req-brand,.request-row-brand')){const r=e.target.closest('.request-api-row,.request-extra-row');const model=r?.querySelector('.req-model,.request-row-model');const name=e.target.value;const d=window.IT_MASTER?.load?.()||{};const vals=d.models?.[name]||[];if(model)model.innerHTML='<option value="">Seçiniz</option>'+vals.map(x=>`<option>${esc(x)}</option>`).join('')}});
+document.addEventListener('input',e=>{if(e.target.matches('#requestSearch')){clearTimeout(window.__requestSearchTimer);window.__requestSearchTimer=setTimeout(load,250)}});
+document.addEventListener('change',e=>{if(e.target.matches('#requestStatus,#requestPriority'))load();
+ if(e.target.matches('.req-brand,.request-row-brand')){const r=e.target.closest('.request-api-row,.request-extra-row');const model=r?.querySelector('.req-model,.request-row-model');const name=e.target.value;const d=window.IT_MASTER_DATA||window.IT_MASTER?.load?.()||{};const brands=d.brands||[],models=d.models||[];const b=brands.find(x=>(x.name||x)===name);const vals=models.filter(x=>String(x.brand_id)===String(b?.id)).map(x=>x.name);if(model)model.innerHTML='<option value="">Seçiniz</option>'+vals.map(x=>`<option>${esc(x)}</option>`).join('')}});
 document.addEventListener('submit',async e=>{const form=e.target;if(form.dataset.formPage!=='requests')return;e.preventDefault();e.stopImmediatePropagation();try{await save(form);notify('Satın alma talebi kaydedildi.');document.querySelector('#itManagerModal .btn-close')?.click();load()}catch(err){notify(err.message)}},true);
 function openCreate(){
  const form=window.IT_FORM_RENDER?.('requests')||'<form id="itDynamicForm" data-form-page="requests"></form>';
