@@ -99,13 +99,13 @@ async function chooseTarget(sourceId,assets){
 document.addEventListener('click',async e=>{
  if(location.hash.slice(1)!=='people')return;
  const pg=e.target.closest('[data-personnel-page]');if(pg&&!pg.disabled){e.preventDefault();e.stopImmediatePropagation();await load(pg.dataset.personnelPage==='next'?page+1:page-1);return}
- if(e.target.closest('#personnelRefresh')){e.preventDefault();await load(page);return}
+ if(e.target.closest('#personnelFilterReset')){e.preventDefault();document.querySelector('#personnelSearch').value='';document.querySelector('#personnelStatus').value='';document.querySelector('#personnelDepartment').value='';await load(1);return}\n if(e.target.closest('#personnelRefresh')){e.preventDefault();await load(page);return}
  if(e.target.closest('#personnelNew')){e.preventDefault();await loadDepartments();openForm();return}
  const edit=e.target.closest('.personnel-edit');if(edit){e.preventDefault();e.stopImmediatePropagation();const tr=edit.closest('tr');const p=await json('/api/personnel/'+Number(tr.dataset.personnelId));await loadDepartments();openForm(p);return}
  const toggle=e.target.closest('.personnel-toggle');if(toggle){e.preventDefault();e.stopImmediatePropagation();const tr=toggle.closest('tr');try{await json('/api/personnel/'+Number(tr.dataset.personnelId)+'/toggle',{method:'POST'});toast('Personel durumu güncellendi.');await load(page)}catch(err){toast(err.message)}return}
  const close=e.target.closest('.personnel-close');if(close){e.preventDefault();e.stopImmediatePropagation();close.closest('tr.inline-detail')?.remove();return}
  const eye=e.target.closest('.personnel-eye');if(eye){e.preventDefault();e.stopImmediatePropagation();await openDetail(Number(eye.closest('tr').dataset.personnelId),eye.closest('tr'));return}
- const transfer=e.target.closest('.personnel-transfer');if(transfer){e.preventDefault();e.stopImmediatePropagation();await chooseTarget(currentPerson?.id||Number(transfer.closest('tr.inline-detail')?.previousElementSibling?.dataset.personnelId),{asset_type:transfer.dataset.kind,asset_id:Number(transfer.dataset.asset)});return}
+ const transfer=e.target.closest('.personnel-transfer');if(transfer){e.preventDefault();e.stopImmediatePropagation();await chooseTarget(Number(transfer.closest('tr.inline-detail')?.previousElementSibling?.dataset.personnelId),{asset_type:transfer.dataset.kind,asset_id:Number(transfer.dataset.asset)});return}
 });
 document.addEventListener('input',e=>{if(location.hash.slice(1)==='people'&&e.target.id==='personnelSearch'){clearTimeout(window.__personnelSearchTimer);window.__personnelSearchTimer=setTimeout(()=>load(1),300)}});
 document.addEventListener('change',e=>{if(location.hash.slice(1)==='people'&&(e.target.id==='personnelStatus'||e.target.id==='personnelDepartment'))load(1)});
