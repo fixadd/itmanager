@@ -1,11 +1,22 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
-from ..models import AuditLog, KnowledgeArticle, Personnel
+from ..models import AuditLog, KnowledgeArticle, KnowledgeAttachment, Personnel, User
 
 knowledge_bp = Blueprint("knowledge", __name__)
 
 STATUSES = {"draft", "published", "archived"}
+
+
+def attachment_json(attachment):
+    return {
+        "id": attachment.id,
+        "name": attachment.original_name,
+        "mime_type": attachment.mime_type,
+        "size": attachment.size,
+        "created_at": attachment.created_at.isoformat() if attachment.created_at else None,
+        "url": f"/api/knowledge/{attachment.article_id}/attachments/{attachment.id}",
+    }
 
 
 def article_json(article, include_content=False):
@@ -24,6 +35,7 @@ def article_json(article, include_content=False):
     }
     if include_content:
         data["content"] = article.content
+        data["attachments"] = [attachment_json(x) for x in article.attachments]
     return data
 
 
@@ -81,6 +93,34 @@ def list_articles():
 def categories():
     rows = db.session.query(KnowledgeArticle.category).distinct().order_by(KnowledgeArticle.category.asc()).all()
     return jsonify([r[0] for r in rows if r[0]])
+
+
+
+@knowledge_bp.get("/knowledge/<int:article_id>/history")
+def article_history(article_id):
+    article = db.get_or_404(KnowledgeArticle, article_id)
+    rows = (
+        AuditLog.query
+        .filter_by(entity_type="knowledge_article", entity_id=article.id)
+        .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .limit(100)
+        .all()
+    )
+    items = []
+    for row in rows:
+        actor = db.session.get(User, row.actor_user_id) if row.actor_user_id else None
+        items.append({
+            "id": row.id,
+            "action": row.action,
+            "details": row.details or {},
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "actor": {
+                "id": actor.id,
+                "username": actor.username,
+                "name": actor.personnel.name if actor.personnel else actor.username,
+            } if actor else None,
+        })
+    return jsonify(items)
 
 
 @knowledge_bp.get("/knowledge/<int:article_id>")
