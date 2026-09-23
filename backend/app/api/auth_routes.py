@@ -6,7 +6,7 @@ from sqlalchemy import or_
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
-from ..models import AuditLog, Permission, Role, User, Personnel
+from ..models import AuditLog, Permission, Role, User, Personnel, Personnel
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -123,7 +123,15 @@ def create_user():
     user = User(username=username, email=str(data.get("email") or "").strip() or None,
                 password_hash=generate_password_hash(password), active=bool(data.get("active", True)))
     if data.get("role_id"):
-        user.role = db.session.get(Role, int(data["role_id"]))
+        role = db.session.get(Role, int(data["role_id"]))
+        if not role or not role.active:
+            return jsonify({"error": "invalid_role"}), 400
+        user.role = role
+    if data.get("personnel_id"):
+        personnel = db.session.get(Personnel, int(data["personnel_id"]))
+        if not personnel or not personnel.active:
+            return jsonify({"error": "invalid_personnel"}), 400
+        user.personnel = personnel
     db.session.add(user)
     db.session.flush()
     audit("user_created", "user", user.id, {"username": user.username})
@@ -151,7 +159,15 @@ def update_user(user_id):
     if "active" in data:
         user.active = bool(data["active"])
     if "role_id" in data:
-        user.role = db.session.get(Role, int(data["role_id"])) if data["role_id"] else None
+        role = db.session.get(Role, int(data["role_id"])) if data["role_id"] else None
+        if data["role_id"] and (not role or not role.active):
+            return jsonify({"error": "invalid_role"}), 400
+        user.role = role
+    if "personnel_id" in data:
+        personnel = db.session.get(Personnel, int(data["personnel_id"])) if data["personnel_id"] else None
+        if data["personnel_id"] and (not personnel or not personnel.active):
+            return jsonify({"error": "invalid_personnel"}), 400
+        user.personnel = personnel
     if data.get("password"):
         if len(str(data["password"])) < 8:
             return jsonify({"error": "password_too_short"}), 400
