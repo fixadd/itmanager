@@ -63,7 +63,8 @@ def unique_slug(title, current_id=None):
 
 
 def audit(action, article, details=None):
-    db.session.add(AuditLog(action=action, entity_type="knowledge_article", entity_id=article.id, details=details or {}))
+    user = current_user()
+    db.session.add(AuditLog(action=action, entity_type="knowledge_article", entity_id=article.id, actor_user_id=user.id if user else None, details=details or {}))
 
 
 @knowledge_bp.get("/knowledge")
