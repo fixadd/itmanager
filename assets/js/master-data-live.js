@@ -1,9 +1,9 @@
 /* Live PostgreSQL master-data binding for add/edit forms. */
 (()=>{
-let globalCache=null,catalogCache={};
+let globalCache=null;
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const getGlobals=async()=>{if(globalCache)return globalCache;const r=await fetch('/api/master-data',{headers:{Accept:'application/json'}});if(!r.ok)throw new Error('Ana veriler alınamadı');globalCache=await r.json();return globalCache};
-const getCatalog=async scope=>{if(catalogCache[scope])return catalogCache[scope];const r=await fetch(`/api/settings/product-catalog?scope=${scope}`,{headers:{Accept:'application/json'}});if(!r.ok)throw new Error('Ürün kataloğu alınamadı');catalogCache[scope]=await r.json();return catalogCache[scope]};
+const getCatalog=async()=>{const globals=await getGlobals();return {hardware_types:globals.hardware_types||[],brands:globals.brands||[],models:globals.models||[]};};
 const fill=(sel,items,placeholder='Seçiniz',valueKey='id')=>{if(!sel)return;const current=sel.value;sel.innerHTML=`<option value="">${placeholder}</option>`+(items||[]).map(x=>`<option value="${esc(x[valueKey]??x.name)}">${esc(x.name)}</option>`).join('');if(current)sel.value=current};
 const bind=async form=>{try{
  const globals=await getGlobals();
@@ -12,7 +12,7 @@ const bind=async form=>{try{
  fill(form.querySelector('[name="department"]'),globals.departments);
  fill(form.querySelector('[name="person"]'),globals.personnel,'Atanmamış');
  if(page==='inventory'||page==='stock'){
-  const scope=page==='inventory'?'inventory':'stock',d=await getCatalog(scope),type=form.querySelector('[name="device_type"]'),brand=form.querySelector('[name="brand"]'),model=form.querySelector('[name="model"]');
+  const d=await getCatalog(),type=form.querySelector('[name="device_type"]'),brand=form.querySelector('[name="brand"]'),model=form.querySelector('[name="model"]');
   fill(type,d.hardware_types,'Seçiniz');
   const updateBrands=()=>{
    const tid=Number(type?.value||0),list=(d.brands||[]).filter(x=>!tid||(x.product_type_ids||[]).map(Number).includes(tid)),cur=brand?.value;
