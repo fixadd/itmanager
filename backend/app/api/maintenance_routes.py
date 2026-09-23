@@ -66,6 +66,14 @@ def _payload(data, existing=None):
     if not fault:
         raise ValueError("Arıza / konu zorunludur")
 
+    started_at = _dt(data.get("started_at", existing.started_at if existing else None))
+    completed_at = _dt(data.get("completed_at", existing.completed_at if existing else None))
+    now = datetime.now(timezone.utc)
+    if status in {"in_progress", "service"} and not started_at:
+        started_at = now
+    if status == "completed" and not completed_at:
+        completed_at = now
+
     return {
         "inventory_id": inventory.id,
         "maintenance_type": maintenance_type,
@@ -73,8 +81,8 @@ def _payload(data, existing=None):
         "description": data.get("description", existing.description if existing else None),
         "service": data.get("service", existing.service if existing else None),
         "technician": data.get("technician", existing.technician if existing else None),
-        "started_at": _dt(data.get("started_at", existing.started_at if existing else None)),
-        "completed_at": _dt(data.get("completed_at", existing.completed_at if existing else None)),
+        "started_at": started_at,
+        "completed_at": completed_at,
         "status": status,
         "cost": data.get("cost", existing.cost if existing else None),
         "note": data.get("note", existing.note if existing else None),
