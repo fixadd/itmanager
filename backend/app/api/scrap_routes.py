@@ -152,6 +152,23 @@ def get_scrap(scrap_id):
     return jsonify(record_json(db.get_or_404(ScrapRecord, scrap_id)))
 
 
+
+
+@scrap_bp.get("/scrap/summary")
+def scrap_summary():
+    from sqlalchemy import func
+    rows = db.session.query(ScrapRecord.source_type, func.count(ScrapRecord.id)).group_by(ScrapRecord.source_type).all()
+    by_type = {k: int(v) for k, v in rows}
+    reasons = db.session.query(ScrapRecord.reason, func.count(ScrapRecord.id)).group_by(ScrapRecord.reason).order_by(func.count(ScrapRecord.id).desc()).all()
+    return jsonify({
+        "total": ScrapRecord.query.count(),
+        "inventory": by_type.get("inventory", 0),
+        "stock": by_type.get("stock", 0),
+        "license": by_type.get("license", 0),
+        "reasons": [{"reason": r, "count": int(n)} for r, n in reasons if r],
+    })
+
+
 @scrap_bp.get("/scrap/reasons")
 def reasons():
     rows = db.session.query(ScrapRecord.reason).distinct().order_by(ScrapRecord.reason.asc()).all()
