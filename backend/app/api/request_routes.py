@@ -1,4 +1,5 @@
 from datetime import datetime,timezone
+from uuid import uuid4
 from flask import Blueprint,jsonify,request
 from sqlalchemy import or_
 from ..extensions import db
@@ -22,7 +23,8 @@ def _audit(action,i,details=None):db.session.add(AuditLog(action=action,entity_t
 def _payload(data,existing=None):
  u=current_user(); logged_person=u.personnel if u else None
  no=str(data.get("request_no",existing.request_no if existing else "")).strip()
- if not no:raise ValueError("Sipariş/Talep numarası zorunludur")
+ if existing is not None and not no:no=existing.request_no
+ if not existing and not no:no=f"TMP-{uuid4().hex}"
  status=str(data.get("status",existing.status if existing else "pending")).strip().lower();priority=str(data.get("priority",existing.priority if existing else "normal")).strip().lower()
  if status not in STATUSES:raise ValueError("Geçersiz talep durumu")
  if priority not in PRIORITIES:raise ValueError("Geçersiz öncelik")
@@ -55,7 +57,10 @@ def get_request(request_id):
 @requests_bp.post("/requests")
 def create_request():
  try:
-  data=_payload(request.get_json(silent=True) or {});items=data.pop("items");x=PurchaseRequest(**data);x.items=items;db.session.add(x);db.session.flush();_audit("request.created",x.id,{"request_no":x.request_no,"item_count":len(items)});db.session.commit();return jsonify(_dict(x)),201
+  data=_payload(request.get_json(silent=True) or {});items=data.pop("items");x=PurchaseRequest(**data);x.items=items;db.session.add(x);db.session.flush()
+  if x.request_no.startswith("TMP-"):
+   x.request_no=f"SAT-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{x.id:05d}"
+  _audit("request.created",x.id,{"request_no":x.request_no,"item_count":len(items)});db.session.commit();return jsonify(_dict(x)),201
  except ValueError as e:db.session.rollback();return jsonify({"error":str(e)}),400
  except Exception as e:db.session.rollback();return jsonify({"error":"Talep oluşturulamadı","detail":str(e)}),409
 @requests_bp.patch("/requests/<int:request_id>")
