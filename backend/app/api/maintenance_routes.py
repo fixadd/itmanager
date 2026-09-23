@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy import or_
 
 from ..extensions import db
 from ..models import AuditLog, Inventory, MaintenanceRecord
@@ -87,7 +88,7 @@ def list_maintenance():
     status = request.args.get("status", "").strip()
     if search:
         term = f"%{search}%"
-        q = q.filter(db.or_(Inventory.inventory_no.ilike(term), Inventory.computer_name.ilike(term), MaintenanceRecord.fault.ilike(term), MaintenanceRecord.technician.ilike(term)))
+        q = q.filter(or_(Inventory.inventory_no.ilike(term), Inventory.computer_name.ilike(term), Inventory.serial_no.ilike(term), MaintenanceRecord.fault.ilike(term), MaintenanceRecord.technician.ilike(term), MaintenanceRecord.service.ilike(term)))
     if status:
         q = q.filter(MaintenanceRecord.status == status)
     page = max(request.args.get("page", 1, type=int), 1)
