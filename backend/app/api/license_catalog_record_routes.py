@@ -1,7 +1,8 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
-from ..models import License, LicenseName, LicenseModel, AuditLog\nfrom .auth_routes import current_user
+from ..models import License, LicenseName, LicenseModel, AuditLog
+from .auth_routes import current_user
 
 license_catalog_record_bp = Blueprint("license_catalog_record", __name__)
 
