@@ -3,7 +3,7 @@ from uuid import uuid4
 from flask import Blueprint,jsonify,request
 from sqlalchemy import or_
 from ..extensions import db
-from ..models import AuditLog,Department,Factory,Personnel,PurchaseRequest,PurchaseRequestItem
+from ..models import AuditLog,Brand,Department,Factory,Inventory,License,LicenseModel,LicenseName,Personnel,ProductModel,ProductType,PurchaseRequest,PurchaseRequestItem,StockItem,StockMovement
 from .auth_routes import current_user
 requests_bp=Blueprint("requests",__name__)
 STATUSES={"draft","pending","approved","rejected","ordered","completed","cancelled"};PRIORITIES={"low","normal","high","urgent"}
@@ -79,6 +79,66 @@ def _set_status(request_id,status):
  if status=="approved":x.approved_at=datetime.now(timezone.utc);x.approved_by=data.get("approved_by") or (current_user().username if current_user() else "Sistem")
  if status=="completed" and not x.completed_at:x.completed_at=datetime.now(timezone.utc)
  _audit(f"request.{status}",x.id,{"from_status":old,"note":data.get("note")});db.session.commit();return jsonify(_dict(x))
+def _transfer_missing(x,data):
+ raw=data.get("items") if isinstance(data.get("items"),list) else []
+ by_id={str(v.get("item_id")):v for v in raw if isinstance(v,dict) and v.get("item_id") is not None}
+ result=[]
+ for item in x.items:
+  v=by_id.get(str(item.id),{}); missing=[]
+  if item.product_type=="Envanter":
+   for key,label in (("inventory_no","Envanter No"),("factory","Fabrika"),("department","Departman"),("device_type","Donanım Tipi"),("brand","Marka")):
+    value=v.get(key) or (x.factory_id if key=="factory" else x.department_id if key=="department" else item.device_type if key=="device_type" else item.brand if key=="brand" else None)
+    if value in (None,""): missing.append({"key":key,"label":label})
+  elif item.product_type=="Lisans":
+   for key,label in (("license_name","Lisans Adı"),("license_model_id","Lisans Modeli")):
+    if v.get(key) in (None,""): missing.append({"key":key,"label":label})
+  else:
+   for key,label in (("device_type","Donanım Tipi"),("brand","Marka")):
+    value=v.get(key) or getattr(item,key,None)
+    if value in (None,""): missing.append({"key":key,"label":label})
+  result.append({"item_id":item.id,"product_type":item.product_type,"missing":missing,"data":v})
+ return result
+
+@requests_bp.post("/requests/<int:request_id>/transfer")
+def transfer_request(request_id):
+ x=db.session.get(PurchaseRequest,request_id); data=request.get_json(silent=True) or {}
+ if not x:return jsonify({"error":"Talep bulunamadı"}),404
+ if x.status!="completed":return jsonify({"error":"Aktarım için talep önce Tamamlandı durumunda olmalıdır"}),400
+ if AuditLog.query.filter_by(action="request.transferred",entity_type="purchase_request",entity_id=x.id).first():return jsonify({"error":"Bu satın alma talebi daha önce aktarılmış"}),409
+ missing=_transfer_missing(x,data)
+ if any(v["missing"] for v in missing):return jsonify({"error":"Aktarım için eksik bilgiler var","requires_input":True,"items":missing}),409
+ by_id={str(v.get("item_id")):v for v in (data.get("items") or [])}; created=[]
+ try:
+  for item in x.items:
+   v=by_id.get(str(item.id),{})
+   if item.product_type=="Envanter":
+    factory=_resolve(Factory,v.get("factory") or x.factory_id,"fabrika"); department=_resolve(Department,v.get("department") or x.department_id,"departman"); ptype=_resolve(ProductType,v.get("device_type") or item.device_type,"donanım tipi"); brand=_resolve(Brand,v.get("brand") or item.brand,"marka"); model=None
+    if v.get("model") or item.model:
+     model=_resolve(ProductModel,v.get("model") or item.model,"model")
+     if model.brand_id!=brand.id or (model.product_type_id and model.product_type_id!=ptype.id):raise ValueError("Envanter model, marka/donanım tipiyle eşleşmiyor")
+    person=_resolve(Personnel,v.get("person"),"personel") if v.get("person") not in (None,"") else None
+    obj=Inventory(inventory_no=str(v["inventory_no"]).strip(),computer_name=v.get("computer_name") or None,serial_no=v.get("serial_no") or None,machine_no=v.get("machine_no") or None,ifs_no=v.get("ifs_no") or None,note=v.get("note") or item.description or None,factory_id=factory.id,department_id=department.id,product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,personnel_id=person.id if person else None)
+    db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Envanter","id":obj.id})
+   elif item.product_type=="Lisans":
+    name=_resolve(LicenseName,v.get("license_name"),"lisans adı"); model=_resolve(LicenseModel,v.get("license_model_id") or v.get("license_model"),"lisans modeli")
+    if model.license_name_id!=name.id:raise ValueError("Lisans modeli seçilen lisans adına bağlı değil")
+    starts=_dt(v.get("starts_at")).date() if v.get("starts_at") else None; expires=_dt(v.get("expires_at")).date() if v.get("expires_at") else None
+    obj=License(license_name_id=name.id,license_model_id=model.id,license_type=v.get("license_type") or "subscription",license_key=v.get("license_key") or None,email=v.get("email") or None,password=v.get("password") or None,starts_at=starts,expires_at=expires,note=v.get("note") or item.description or None,status="active")
+    db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Lisans","id":obj.id})
+   else:
+    ptype=_resolve(ProductType,v.get("device_type") or item.device_type,"donanım tipi"); brand=_resolve(Brand,v.get("brand") or item.brand,"marka"); model=None
+    if v.get("model") or item.model:
+     model=_resolve(ProductModel,v.get("model") or item.model,"model")
+     if model.brand_id!=brand.id:raise ValueError("Stok model, marka ile eşleşmiyor")
+    try:q=float(v.get("quantity",item.quantity or 1))
+    except (TypeError,ValueError):raise ValueError("Stok miktarı geçersiz")
+    if q<=0:raise ValueError("Stok miktarı 0'dan büyük olmalıdır")
+    obj=StockItem(product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,quantity=q,unit=v.get("unit") or item.unit or "Adet",note=v.get("note") or item.description or None)
+    db.session.add(obj);db.session.flush();db.session.add(StockMovement(stock_item_id=obj.id,movement_type="in",quantity=q,unit=obj.unit,note=f"Satın alma talebi {x.request_no}"));created.append({"item_id":item.id,"type":"Stok","id":obj.id})
+  _audit("request.transferred",x.id,{"request_no":x.request_no,"targets":created});db.session.commit();return jsonify({"request_id":x.id,"request_no":x.request_no,"transferred":created})
+ except ValueError as e:db.session.rollback();return jsonify({"error":str(e)}),400
+ except Exception as e:db.session.rollback();return jsonify({"error":"Talep aktarımı başarısız","detail":str(e)}),409
+
 @requests_bp.post("/requests/<int:request_id>/approve")
 def approve(request_id):return _set_status(request_id,"approved")
 @requests_bp.post("/requests/<int:request_id>/reject")
