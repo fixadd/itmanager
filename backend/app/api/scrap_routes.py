@@ -1,9 +1,8 @@
 from flask import Blueprint, jsonify, request
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 
 from ..extensions import db
 from ..models import AuditLog, Inventory, License, StockItem, ScrapRecord
-from .auth_routes import permission_required, current_user
 
 scrap_bp = Blueprint("scrap", __name__)
 
@@ -30,7 +29,65 @@ def record_json(r):
     else:
         name = f"{r.source_type} #{r.source_id}"
         detail = ""
-    return {"id": r.id, "source_type": r.source_type, "source_id": r.source_id, "name": name or f"{r.source_type} #{r.source_id}", "detail": detail, "reason": r.reason, "note": r.note, "brand_id": brand_id, "model_id": model_id, "scrapped_at": r.scrapped_at.isoformat() if r.scrapped_at else None, "created_at": r.created_at.isoformat() if r.created_at else None}
+    return {
+        "id": r.id,
+        "source_type": r.source_type,
+        "source_id": r.source_id,
+        "name": name or f"{r.source_type} #{r.source_id}",
+        "detail": detail,
+        "reason": r.reason,
+        "note": r.note,
+        "brand_id": brand_id,
+        "model_id": model_id,
+        "scrapped_at": r.scrapped_at.isoformat() if r.scrapped_at else None,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    }
+
+
+def _source_ids_for_search(term):
+    pattern = f"%{term}%"
+    inventory_ids = db.session.query(Inventory.id).filter(
+        or_(
+            Inventory.inventory_no.ilike(pattern),
+            Inventory.serial_no.ilike(pattern),
+            Inventory.computer_name.ilike(pattern),
+        )
+    )
+    stock_ids = (
+        db.session.query(StockItem.id)
+        .outerjoin(StockItem.brand)
+        .outerjoin(StockItem.model)
+        .filter(or_(
+            StockItem.note.ilike(pattern),
+            db.inspect(StockItem).mapper.class_.brand.has() if False else StockItem.id.is_not(None),
+        ))
+    )
+    # Stock brand/model are relationship-backed filters; keep them separate so
+    # the main ScrapRecord query remains source-safe.
+    from ..models import Brand, ProductModel, LicenseModel, LicenseName
+
+    stock_ids = (
+        db.session.query(StockItem.id)
+        .outerjoin(Brand, StockItem.brand_id == Brand.id)
+        .outerjoin(ProductModel, StockItem.model_id == ProductModel.id)
+        .filter(or_(
+            Brand.name.ilike(pattern),
+            ProductModel.name.ilike(pattern),
+            StockItem.note.ilike(pattern),
+        ))
+    )
+    license_ids = (
+        db.session.query(License.id)
+        .outerjoin(LicenseName, License.license_name_id == LicenseName.id)
+        .outerjoin(LicenseModel, License.license_model_id == LicenseModel.id)
+        .filter(or_(
+            LicenseName.name.ilike(pattern),
+            LicenseModel.name.ilike(pattern),
+            License.email.ilike(pattern),
+            License.note.ilike(pattern),
+        ))
+    )
+    return inventory_ids, stock_ids, license_ids
 
 
 @scrap_bp.get("/scrap")
@@ -42,21 +99,61 @@ def list_scrap():
     model_id = request.args.get("model_id", type=int)
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = min(max(request.args.get("per_page", 20, type=int), 1), 100)
+
     query = ScrapRecord.query
+
     if source_type:
         query = query.filter(ScrapRecord.source_type == source_type)
+
     if reason:
         query = query.filter(ScrapRecord.reason == reason)
-    if q:
-        term = f"%{q}%"
-        query = query.filter(or_(ScrapRecord.reason.ilike(term), ScrapRecord.note.ilike(term)))
-    pagination = query.order_by(ScrapRecord.scrapped_at.desc(), ScrapRecord.id.desc()).paginate(page=page, per_page=per_page, error_out=False)
-    items = [record_json(r) for r in pagination.items]
+
     if brand_id is not None:
-        items = [x for x in items if x["brand_id"] == brand_id]
+        query = query.filter(or_(
+            and_(ScrapRecord.source_type == "inventory", ScrapRecord.source_id.in_(
+                db.session.query(Inventory.id).filter(Inventory.brand_id == brand_id)
+            )),
+            and_(ScrapRecord.source_type == "stock", ScrapRecord.source_id.in_(
+                db.session.query(StockItem.id).filter(StockItem.brand_id == brand_id)
+            )),
+        ))
+
     if model_id is not None:
-        items = [x for x in items if x["model_id"] == model_id]
-    return jsonify({"items": items, "pagination": {"page": pagination.page, "per_page": pagination.per_page, "total": len(items) if (brand_id is not None or model_id is not None) else pagination.total, "pages": pagination.pages}})
+        query = query.filter(or_(
+            and_(ScrapRecord.source_type == "inventory", ScrapRecord.source_id.in_(
+                db.session.query(Inventory.id).filter(Inventory.model_id == model_id)
+            )),
+            and_(ScrapRecord.source_type == "stock", ScrapRecord.source_id.in_(
+                db.session.query(StockItem.id).filter(StockItem.model_id == model_id)
+            )),
+        ))
+
+    if q:
+        inventory_ids, stock_ids, license_ids = _source_ids_for_search(q)
+        term = f"%{q}%"
+        query = query.filter(or_(
+            ScrapRecord.reason.ilike(term),
+            ScrapRecord.note.ilike(term),
+            and_(ScrapRecord.source_type == "inventory", ScrapRecord.source_id.in_(inventory_ids)),
+            and_(ScrapRecord.source_type == "stock", ScrapRecord.source_id.in_(stock_ids)),
+            and_(ScrapRecord.source_type == "license", ScrapRecord.source_id.in_(license_ids)),
+        ))
+
+    # Apply every filter before pagination so totals/pages remain correct.
+    pagination = query.order_by(
+        ScrapRecord.scrapped_at.desc(),
+        ScrapRecord.id.desc(),
+    ).paginate(page=page, per_page=per_page, error_out=False)
+
+    return jsonify({
+        "items": [record_json(r) for r in pagination.items],
+        "pagination": {
+            "page": pagination.page,
+            "per_page": pagination.per_page,
+            "total": pagination.total,
+            "pages": pagination.pages,
+        },
+    })
 
 
 @scrap_bp.get("/scrap/<int:scrap_id>")
@@ -73,9 +170,9 @@ def reasons():
 @scrap_bp.delete("/scrap/<int:scrap_id>")
 @permission_required("scrap.manage")
 def delete_scrap(scrap_id):
+    # Scrap history is audit data and must not be hard-deleted.
     r = db.get_or_404(ScrapRecord, scrap_id)
-    actor = current_user()
-    db.session.add(AuditLog(action="scrap_deleted", entity_type="scrap_record", entity_id=r.id, actor_user_id=actor.id if actor else None, details={"source_type": r.source_type, "source_id": r.source_id}))
-    db.session.delete(r)
-    db.session.commit()
-    return jsonify({"message": "Hurda kaydı silindi"})
+    return jsonify({
+        "error": "Hurda geçmiş kayıtları silinemez",
+        "scrap_id": r.id,
+    }), 409
