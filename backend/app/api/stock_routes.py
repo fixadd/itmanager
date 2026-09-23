@@ -2,7 +2,7 @@ from decimal import Decimal, InvalidOperation
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
-from ..models import AssignmentHistory, AuditLog, Brand, Inventory, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement
+from .auth_routes import current_user\nfrom ..models import AssignmentHistory, AuditLog, Brand, Inventory, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement
 
 stock_bp = Blueprint("stock", __name__)
 
