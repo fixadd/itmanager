@@ -5,6 +5,7 @@ Revises: 0008_license_start_date
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 revision = "0009_knowledge_attachments"
 down_revision = "0008_license_start_date"
@@ -13,6 +14,9 @@ depends_on = None
 
 
 def upgrade():
+    if inspect(op.get_bind()).has_table("knowledge_attachments"):
+        return
+
     op.create_table(
         "knowledge_attachments",
         sa.Column("id", sa.Integer(), primary_key=True),
@@ -28,4 +32,5 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table("knowledge_attachments")
+    if inspect(op.get_bind()).has_table("knowledge_attachments"):
+        op.drop_table("knowledge_attachments")
