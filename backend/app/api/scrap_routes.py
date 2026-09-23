@@ -24,7 +24,8 @@ def record_json(r):
     elif r.source_type == "stock":
         source = db.session.get(StockItem, r.source_id)
         name = " ".join(filter(None, [source.brand.name if source and source.brand else "", source.model.name if source and source.model else ""])) if source else f"Stok #{r.source_id}"
-        scrap_movement = (StockMovement.query.filter_by(stock_item_id=r.source_id, movement_type="scrap").order_by(StockMovement.id.desc()).first() if source else None)\n        detail = f"Miktar: {scrap_movement.quantity} {scrap_movement.unit}" if scrap_movement else (f"Miktar: {source.quantity}" if source else "")
+        scrap_movement = (StockMovement.query.filter_by(stock_item_id=r.source_id, movement_type="scrap").order_by(StockMovement.id.desc()).first() if source else None)
+        detail = f"Miktar: {scrap_movement.quantity} {scrap_movement.unit}" if scrap_movement else (f"Miktar: {source.quantity}" if source else "")
         brand_id = source.brand_id if source else None
         model_id = source.model_id if source else None
     else:
