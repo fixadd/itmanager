@@ -46,7 +46,7 @@ document.addEventListener('click',async e=>{
 document.addEventListener('click',e=>{if(e.target.closest('#itManagerModal [data-save]')&&location.hash==='#maintenance'){e.preventDefault();e.stopImmediatePropagation();save()}},true);
 let timer;
 document.addEventListener('input',e=>{if(e.target.id==='maintenanceSearch'){clearTimeout(timer);timer=setTimeout(load,250)}});
-document.addEventListener('change',e=>{if(e.target.id==='maintenanceStatus')load();if(e.target.matches('[data-maint-tab]')){const tab=e.target.dataset.maintTab;const s=document.querySelector('#maintenanceStatus');if(s)s.value=tab==='all'?'':tab;load()}});
+document.addEventListener('change',e=>{if(e.target.id==='maintenanceStatus')load()});document.addEventListener('click',e=>{const tab=e.target.closest('[data-maint-tab]');if(!tab)return;const s=document.querySelector('#maintenanceStatus');if(s)s.value=tab.dataset.maintTab==='all'?'':tab.dataset.maintTab;document.querySelectorAll('[data-maint-tab]').forEach(x=>x.classList.remove('active'));tab.classList.add('active');load()});
 window.addEventListener('hashchange',()=>setTimeout(load,100));
 document.addEventListener('DOMContentLoaded',()=>setTimeout(load,250));
 })();
