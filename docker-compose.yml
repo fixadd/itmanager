@@ -31,6 +31,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - itmanager_uploads:/app/instance
     ports:
       - "5000:5000"
     restart: unless-stopped
@@ -48,3 +50,4 @@ services:
 
 volumes:
   itmanager_pgdata:
+  itmanager_uploads:
