@@ -11,6 +11,9 @@ def _items(model):
     return [{"id": x.id, "name": x.name} for x in model.query.filter_by(active=True).order_by(model.name).all()]
 
 def _audit(action, entity_type, entity_id, details=None, actor_user_id=None):
+    if actor_user_id is None:
+        actor = current_user()
+        actor_user_id = actor.id if actor else None
     db.session.add(AuditLog(action=action, entity_type=entity_type, entity_id=entity_id, actor_user_id=actor_user_id, details=details or {}))
 
 def _find_by_name(model, value):
