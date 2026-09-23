@@ -30,7 +30,7 @@ def _inventory_dict(x):
 
 @api_bp.get("/master-data")
 def master_data():
-    return jsonify({"factories":_items(Factory),"departments":_items(Department),"personnel":_items(Personnel),"hardware_types":_items(ProductType),"brands":_items(Brand),"models":[{"id":x.id,"name":x.name,"brand_id":x.brand_id,"product_type_id":x.product_type_id} for x in ProductModel.query.filter_by(active=True).order_by(ProductModel.name).all()],"licenses":_items(LicenseName)})
+    return jsonify({"factories":_items(Factory),"departments":_items(Department),"personnel":_items(Personnel),"hardware_types":_items(ProductType),"brands":[{"id":x.id,"name":x.name,"product_type_ids":[p.id for p in x.product_types if p.active]} for x in Brand.query.filter_by(active=True).order_by(Brand.name).all()],"models":[{"id":x.id,"name":x.name,"brand_id":x.brand_id,"product_type_id":x.product_type_id} for x in ProductModel.query.filter_by(active=True).order_by(ProductModel.name).all()],"licenses":_items(LicenseName)})
 
 @api_bp.get("/master-data/<string:resource>")
 def master_resource(resource):
