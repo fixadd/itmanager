@@ -8,8 +8,8 @@ function ensure(){const root=document.querySelector('#stockScreen');if(!root)ret
 let stockCatalog={hardware_types:[],brands:[],models:[]};
 async function loadStockCatalog(){
   try{
-    const d=await json('/api/settings/product-catalog?scope=stock');
-    stockCatalog=d||stockCatalog;
+    const d=await json('/api/master-data');
+    stockCatalog={hardware_types:d.hardware_types||[],brands:d.brands||[],models:d.models||[]};
     window.IT_STOCK_CATALOG=stockCatalog;
     return stockCatalog;
   }catch(e){
