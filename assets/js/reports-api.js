@@ -1,4 +1,53 @@
 (()=>{
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const n=v=>Number(v||0).toLocaleString('tr-TR');
-async function load(){if(location.hash.slice(1)!=='reports')return;const c=document.querySelector('#pageContent');if(!c)return;try{const d=await fetch('/api/reports/summary').then(r=>{if(!r.ok)throw Error('Rapor verileri alınamadı');return r.json()});const card=(title,value,sub)=>`<div class="col-md-3"><div class="stat-card"><div><span>${title}</span><h2>${n(value)}</h2><small>${sub||''}</small></div></div></div>`;const bars=(arr)=>`<div class="simple-bars">${(arr||[]).slice(0,7).map(x=>`<div><span>${esc(x.label)}</span><b style="width:${Math.min(100,(x.count/Math.max(1,arr[0]?.count))*100)}%"></b><strong>${n(x.count)}</strong></div>`).join('')||'<div class="text-secondary">Veri yok</div>'}</div>`;const inv=d.inventory, lic=d.licenses, st=d.stock, m=d.maintenance, r=d.requests, p=d.people, s=d.scrap;c.innerHTML=`<div class="page-head"><div><h1>Raporlar</h1><p>PostgreSQL üzerindeki güncel IT varlık ve süreçlerinin özeti.</p></div><div class="page-actions"><button class="btn btn-outline-secondary" onclick="window.print()"><i class="ti ti-printer me-1"></i>Yazdır</button></div></div><div class="row g-3 mb-4">${card('Toplam Envanter',inv.total,`${n(inv.active)} aktif · ${n(inv.scrapped)} hurda`)}${card('Toplam Lisans',lic.total,`${n(lic.active)} aktif · ${n(lic.expiring)} yaklaşan`)}${card('Stok Kalemi',st.items,`${n(st.total_quantity)} toplam miktar`)}${card('Aktif Personel',p.active,`${n(p.total)} toplam personel`)}</div><div class="row g-3"><div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Envanter Durumu</h3><p>Durum bazında gerçek kayıtlar</p></div></div><div class="p-3">${bars(inv.by_status)}</div></div></div><div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Lisans Durumu</h3><p>Aktif, süresi yaklaşan ve bitmiş lisanslar</p></div></div><div class="p-3">${bars(lic.by_status)}</div></div></div><div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Bakım / Servis</h3><p>Toplam maliyet: ${n(m.total_cost)} ₺</p></div></div><div class="p-3">${bars(m.by_status)}</div></div></div><div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Satın Alma Talepleri</h3><p>Talep durumlarının dağılımı</p></div></div><div class="p-3">${bars(r.by_status)}</div></div></div><div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Hurda Dağılımı</h3><p>Kaynak bazında hurda kayıtları</p></div></div><div class="p-3">${bars([{label:'Envanter',count:s.inventory},{label:'Lisans',count:s.license},{label:'Stok',count:s.stock}])}</div></div></div><div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Özet</h3><p>Sistem genel görünümü</p></div></div><div class="p-3"><div class="row g-2"><div class="col-6"><div class="flow-note">Arızalı: <strong>${n(inv.faulty)}</strong></div></div><div class="col-6"><div class="flow-note">Bakımda: <strong>${n(inv.maintenance)}</strong></div></div><div class="col-6"><div class="flow-note">Bekleyen talep: <strong>${n(r.pending)}</strong></div></div><div class="col-6"><div class="flow-note">Tamamlanan bakım: <strong>${n(m.completed)}</strong></div></div></div></div></div></div></div>`;}catch(e){console.error(e)}}window.addEventListener('hashchange',()=>setTimeout(load,80));document.addEventListener('DOMContentLoaded',()=>setTimeout(load,250));window.IT_REPORTS_API={load};})();
+const statusLabel=v=>({active:'Aktif',inactive:'Pasif',faulty:'Arızalı',arizali:'Arızalı',broken:'Arızalı',maintenance:'Bakımda',service:'Serviste',scrapped:'Hurda',pending:'Bekliyor',in_progress:'İşlemde',completed:'Tamamlandı',cancelled:'İptal',draft:'Taslak',approved:'Onaylandı',ordered:'Sipariş Verildi',rejected:'Reddedildi',expired:'Süresi Doldu',expiring:'Süresi Yaklaşıyor',available:'Mevcut',unavailable:'Mevcut Değil'}[v]||v||'Bilinmiyor');
+async function load(){
+ if(location.hash.slice(1)!=='reports')return;
+ const c=document.querySelector('#pageContent'); if(!c)return;
+ c.innerHTML='<div class="text-center text-secondary py-5">Raporlar yükleniyor...</div>';
+ try{
+  const res=await fetch('/api/reports/summary');
+  if(!res.ok)throw Error('Rapor verileri alınamadı');
+  const d=await res.json();
+  const card=(title,value,sub)=>'<div class="col-md-3"><div class="stat-card"><div><span>'+esc(title)+'</span><h2>'+n(value)+'</h2><small>'+esc(sub||'')+'</small></div></div></div>';
+  const bars=(arr)=>'<div class="simple-bars">'+(arr||[]).slice(0,8).map(x=>'<div><span>'+esc(statusLabel(x.label))+'</span><b style="width:'+Math.min(100,(Number(x.count||0)/Math.max(1,Number(arr?.[0]?.count||0)))*100)+'%"></b><strong>'+n(x.count)+'</strong></div>').join('')||'<div class="text-secondary">Veri yok</div>'+'</div>';
+  const inv=d.inventory||{},lic=d.licenses||{},st=d.stock||{},m=d.maintenance||{},r=d.requests||{},p=d.people||{},s=d.scrap||{};
+  const typeBars=bars(inv.by_type);
+  const scrapBars=bars([{label:'Envanter',count:s.inventory},{label:'Lisans',count:s.license},{label:'Stok',count:s.stock}]);
+  c.innerHTML=`
+   <div class="page-head"><div><h1>Raporlar</h1><p>Sistemdeki IT varlıkları ve operasyonların güncel özet görünümü.</p></div><div class="page-actions"><button class="btn btn-outline-secondary" id="reportsPrint"><i class="ti ti-printer me-1"></i>Yazdır</button><button class="btn btn-outline-secondary" id="reportsRefresh"><i class="ti ti-refresh me-1"></i>Yenile</button></div></div>
+   <div class="row g-3 mb-4">
+    ${card('Toplam Envanter',inv.total,`${n(inv.active)} aktif · ${n(inv.scrapped)} hurda`)}
+    ${card('Toplam Lisans',lic.total,`${n(lic.active)} aktif · ${n(lic.expiring)} süresi yaklaşıyor`)}
+    ${card('Stok Kalemi',st.items,`${n(st.total_quantity)} toplam miktar`)}
+    ${card('Aktif Personel',p.active,`${n(p.total)} toplam personel`)}
+   </div>
+   <div class="row g-3">
+    <div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Envanter Durumu</h3><p>Demirbaşların mevcut durum dağılımı</p></div></div><div class="p-3">${bars(inv.by_status)}</div></div></div>
+    <div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Envanter Türleri</h3><p>Cihaz ve demirbaş türlerine göre dağılım</p></div></div><div class="p-3">${typeBars}</div></div></div>
+    <div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Lisans Durumu</h3><p>Aktif, yaklaşan ve süresi dolmuş lisanslar</p></div></div><div class="p-3">${bars(lic.by_status)}</div></div></div>
+    <div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Bakım / Servis</h3><p>Toplam bakım maliyeti: ${n(m.total_cost)} ₺</p></div></div><div class="p-3">${bars(m.by_status)}</div></div></div>
+    <div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Satın Alma Talepleri</h3><p>Talep durumlarının dağılımı</p></div></div><div class="p-3">${bars(r.by_status)}</div></div></div>
+    <div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Hurda Dağılımı</h3><p>Hurdaya ayrılmış kayıtların kaynağı</p></div></div><div class="p-3">${scrapBars}</div></div></div>
+    <div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Stok Durumu</h3><p>Stok kalemlerinin durum dağılımı</p></div></div><div class="p-3">${bars(st.by_status)}</div></div></div>
+    <div class="col-xl-6"><div class="panel"><div class="panel-head"><div><h3>Operasyon Özeti</h3><p>Öne çıkan güncel sayılar</p></div></div><div class="p-3"><div class="row g-2">
+      <div class="col-6"><div class="flow-note">Arızalı: <strong>${n(inv.faulty)}</strong></div></div>
+      <div class="col-6"><div class="flow-note">Bakımda: <strong>${n(inv.maintenance)}</strong></div></div>
+      <div class="col-6"><div class="flow-note">Bekleyen talep: <strong>${n(r.pending)}</strong></div></div>
+      <div class="col-6"><div class="flow-note">Tamamlanan bakım: <strong>${n(m.completed)}</strong></div></div>
+      <div class="col-6"><div class="flow-note">Toplam hurda: <strong>${n(s.total)}</strong></div></div>
+      <div class="col-6"><div class="flow-note">Pasif personel: <strong>${n(p.inactive)}</strong></div></div>
+    </div></div></div></div>
+   </div>`;
+  document.querySelector('#reportsPrint')?.addEventListener('click',()=>window.print());
+  document.querySelector('#reportsRefresh')?.addEventListener('click',load);
+ }catch(e){
+  console.error(e);
+  c.innerHTML='<div class="alert alert-danger">Rapor verileri yüklenemedi. Lütfen sayfayı yenileyin.</div>';
+ }
+}
+window.addEventListener('hashchange',()=>setTimeout(load,80));
+document.addEventListener('DOMContentLoaded',()=>setTimeout(load,250));
+window.IT_REPORTS_API={load};
+})();
