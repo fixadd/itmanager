@@ -1,4 +1,5 @@
-from sqlalchemy import or_\nfrom sqlalchemy.exc import IntegrityError
+from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from flask import Blueprint,jsonify,request
 from ..extensions import db
 from ..models import Personnel,Inventory,License,AssignmentHistory,StockMovement,AuditLog
@@ -15,7 +16,9 @@ def list_personnel():
  q=(request.args.get("q") or "").strip();status=request.args.get("status");query=Personnel.query
  if q:
   like=f"%{q}%";query=query.filter(or_(Personnel.name.ilike(like),Personnel.employee_no.ilike(like),Personnel.email.ilike(like)))
- if status in ("active","inactive"):query=query.filter_by(active=status=="active")\n department_id=request.args.get("department_id",type=int)\n if department_id:query=query.filter(Personnel.department_id==department_id)
+ if status in ("active","inactive"):query=query.filter_by(active=status=="active")
+ department_id=request.args.get("department_id",type=int)
+ if department_id:query=query.filter(Personnel.department_id==department_id)
  page=max(request.args.get("page",1,type=int),1);per_page=min(max(request.args.get("per_page",100,type=int),1),100)
  p=query.order_by(Personnel.name.asc()).paginate(page=page,per_page=per_page,error_out=False)
  items=[]
