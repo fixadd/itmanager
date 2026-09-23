@@ -9,7 +9,8 @@ stock_bp = Blueprint("stock", __name__)
 
 
 def _audit(action, entity_id, details=None):
-    db.session.add(AuditLog(action=action, entity_type="stock", entity_id=entity_id, details=details or {}))
+    user = current_user()
+    db.session.add(AuditLog(action=action, entity_type="stock", entity_id=entity_id, actor_user_id=user.id if user else None, details=details or {}))
 
 
 def _resolve(model, value, field):
