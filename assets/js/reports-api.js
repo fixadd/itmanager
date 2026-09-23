@@ -11,7 +11,7 @@ async function load(){
   if(!res.ok)throw Error('Rapor verileri alınamadı');
   const d=await res.json();
   const card=(title,value,sub)=>'<div class="col-md-3"><div class="stat-card"><div><span>'+esc(title)+'</span><h2>'+n(value)+'</h2><small>'+esc(sub||'')+'</small></div></div></div>';
-  const bars=(arr)=>'<div class="simple-bars">'+(arr||[]).slice(0,8).map(x=>'<div><span>'+esc(statusLabel(x.label))+'</span><b style="width:'+Math.min(100,(Number(x.count||0)/Math.max(1,Number(arr?.[0]?.count||0)))*100)+'%"></b><strong>'+n(x.count)+'</strong></div>').join('')||'<div class="text-secondary">Veri yok</div>'+'</div>';
+  const bars=(arr)=>{const items=(arr||[]).slice(0,8);if(!items.length)return '<div class="text-secondary">Veri yok</div>';const max=Math.max(1,...items.map(x=>Number(x.count||0)));return '<div class="simple-bars">'+items.map(x=>'<div><span>'+esc(statusLabel(x.label))+'</span><b style="width:'+Math.min(100,(Number(x.count||0)/max)*100)+'%"></b><strong>'+n(x.count)+'</strong></div>').join('')+'</div>';};
   const inv=d.inventory||{},lic=d.licenses||{},st=d.stock||{},m=d.maintenance||{},r=d.requests||{},p=d.people||{},s=d.scrap||{};
   const typeBars=bars(inv.by_type);
   const scrapBars=bars([{label:'Envanter',count:s.inventory},{label:'Lisans',count:s.license},{label:'Stok',count:s.stock}]);
