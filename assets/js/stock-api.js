@@ -2,6 +2,8 @@
 
 const status=s=>{const x=labels[s]||[s||'Normal','secondary'];return '<span class="status '+x[1]+'">'+esc(x[0])+'</span>'};
 const detailStatus=s=>status(s);
+const movementLabels={in:'Stok Girişi',out:'Stok Çıkışı',assign:'Atama',scrap:'Hurda'};
+const movementLabel=s=>movementLabels[s]||s||'—';
 function ensure(){const root=document.querySelector('#stockScreen');if(!root)return null;root.className='stock-screen';return root}
 let stockCatalog={hardware_types:[],brands:[],models:[]};
 async function loadStockCatalog(){
