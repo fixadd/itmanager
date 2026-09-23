@@ -282,10 +282,6 @@ def update_profile():
     data = request.get_json(silent=True) or {}
     if "email" in data:
         user.email = str(data["email"] or "").strip() or None
-    if data.get("password"):
-        if len(str(data["password"])) < 8:
-            return jsonify({"error": "password_too_short"}), 400
-        user.password_hash = generate_password_hash(str(data["password"]))
     audit("profile_updated", "user", user.id)
     db.session.commit()
     return jsonify({"user": user_json(user)})
