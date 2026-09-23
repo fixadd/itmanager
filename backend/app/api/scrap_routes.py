@@ -2,7 +2,8 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import and_, or_
 
 from ..extensions import db
-from ..models import AuditLog, Inventory, License, StockItem, ScrapRecord
+from ..models import Inventory, License, StockItem, ScrapRecord
+from .auth_routes import permission_required
 
 scrap_bp = Blueprint("scrap", __name__)
 
@@ -53,17 +54,6 @@ def _source_ids_for_search(term):
             Inventory.computer_name.ilike(pattern),
         )
     )
-    stock_ids = (
-        db.session.query(StockItem.id)
-        .outerjoin(StockItem.brand)
-        .outerjoin(StockItem.model)
-        .filter(or_(
-            StockItem.note.ilike(pattern),
-            db.inspect(StockItem).mapper.class_.brand.has() if False else StockItem.id.is_not(None),
-        ))
-    )
-    # Stock brand/model are relationship-backed filters; keep them separate so
-    # the main ScrapRecord query remains source-safe.
     from ..models import Brand, ProductModel, LicenseModel, LicenseName
 
     stock_ids = (
