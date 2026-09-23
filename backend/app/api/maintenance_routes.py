@@ -4,7 +4,8 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 
 from ..extensions import db
-from ..models import AuditLog, Inventory, MaintenanceRecord\nfrom .auth_routes import current_user
+from ..models import AuditLog, Inventory, MaintenanceRecord
+from .auth_routes import current_user
 
 maintenance_bp = Blueprint("maintenance", __name__)
 
