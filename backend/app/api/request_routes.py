@@ -79,6 +79,19 @@ def _set_status(request_id,status):
  if status=="approved":x.approved_at=datetime.now(timezone.utc);x.approved_by=data.get("approved_by") or (current_user().username if current_user() else "Sistem")
  if status=="completed" and not x.completed_at:x.completed_at=datetime.now(timezone.utc)
  _audit(f"request.{status}",x.id,{"from_status":old,"note":data.get("note")});db.session.commit();return jsonify(_dict(x))
+@requests_bp.get("/requests/transfer-options")
+def transfer_options():
+ return jsonify({
+  "factories":[{"id":x.id,"name":x.name} for x in Factory.query.filter_by(active=True).order_by(Factory.name).all()],
+  "departments":[{"id":x.id,"name":x.name} for x in Department.query.filter_by(active=True).order_by(Department.name).all()],
+  "personnel":[{"id":x.id,"name":x.name} for x in Personnel.query.filter_by(active=True).order_by(Personnel.name).all()],
+  "hardware_types":[{"id":x.id,"name":x.name} for x in ProductType.query.filter_by(active=True).order_by(ProductType.name).all()],
+  "brands":[{"id":x.id,"name":x.name} for x in Brand.query.filter_by(active=True).order_by(Brand.name).all()],
+  "models":[{"id":x.id,"name":x.name,"brand_id":x.brand_id,"product_type_id":x.product_type_id} for x in ProductModel.query.filter_by(active=True).order_by(ProductModel.name).all()],
+  "license_names":[{"id":x.id,"name":x.name} for x in LicenseName.query.filter_by(active=True).order_by(LicenseName.name).all()],
+  "license_models":[{"id":x.id,"name":x.name,"license_name_id":x.license_name_id} for x in LicenseModel.query.filter_by(active=True).order_by(LicenseModel.name).all()]
+ })
+
 def _transfer_missing(x,data):
  raw=data.get("items") if isinstance(data.get("items"),list) else []
  by_id={str(v.get("item_id")):v for v in raw if isinstance(v,dict) and v.get("item_id") is not None}
