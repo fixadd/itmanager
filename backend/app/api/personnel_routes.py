@@ -1,4 +1,4 @@
-from sqlalchemy import or_
+from sqlalchemy import or_\nfrom sqlalchemy.exc import IntegrityError
 from flask import Blueprint,jsonify,request
 from ..extensions import db
 from ..models import Personnel,Inventory,License,AssignmentHistory,StockMovement,AuditLog
@@ -15,7 +15,7 @@ def list_personnel():
  q=(request.args.get("q") or "").strip();status=request.args.get("status");query=Personnel.query
  if q:
   like=f"%{q}%";query=query.filter(or_(Personnel.name.ilike(like),Personnel.employee_no.ilike(like),Personnel.email.ilike(like)))
- if status in ("active","inactive"):query=query.filter_by(active=status=="active")
+ if status in ("active","inactive"):query=query.filter_by(active=status=="active")\n department_id=request.args.get("department_id",type=int)\n if department_id:query=query.filter(Personnel.department_id==department_id)
  page=max(request.args.get("page",1,type=int),1);per_page=min(max(request.args.get("per_page",100,type=int),1),100)
  p=query.order_by(Personnel.name.asc()).paginate(page=page,per_page=per_page,error_out=False)
  items=[]
@@ -28,7 +28,14 @@ def get_personnel(person_id):
 def create_personnel():
  data=request.get_json(silent=True) or {};name=str(data.get("name") or "").strip()
  if not name:return jsonify({"error":"Personel adı zorunludur."}),400
- p=Personnel(employee_no=data.get("employee_no") or None,name=name,email=data.get("email"),department_id=data.get("department_id") or None,active=bool(data.get("active",True)));db.session.add(p);db.session.flush();audit("personnel.created","personnel",p.id,{"name":p.name});db.session.commit();return jsonify(person_json(p)),201
+ p=Personnel(employee_no=str(data.get("employee_no") or "").strip() or None,name=name,email=str(data.get("email") or "").strip() or None,department_id=data.get("department_id") or None,active=bool(data.get("active",True)))
+ db.session.add(p)
+ try:
+  db.session.flush();audit("personnel.created","personnel",p.id,{"name":p.name});db.session.commit();return jsonify(person_json(p)),201
+ except IntegrityError:
+  db.session.rollback();return jsonify({"error":"Personel numarası zaten kayıtlı."}),409
+ except Exception as exc:
+  db.session.rollback();return jsonify({"error":"Personel kaydı oluşturulamadı","detail":str(exc)}),409
 @personnel_bp.route("/personnel/<int:person_id>",methods=["PATCH","PUT"])
 def update_personnel(person_id):
  p=db.get_or_404(Personnel,person_id);data=request.get_json(silent=True) or {}
@@ -37,8 +44,17 @@ def update_personnel(person_id):
   if not name:return jsonify({"error":"Personel adı zorunludur."}),400
   p.name=name
  for key in ("employee_no","email","department_id","active"):
-  if key in data:setattr(p,key,data[key])
- audit("personnel.updated","personnel",p.id,{"fields":sorted(data.keys())});db.session.commit();return jsonify(person_json(p))
+  if key in data:
+   value=data[key]
+   if key=="employee_no":value=str(value or "").strip() or None
+   if key=="email":value=str(value or "").strip() or None
+   setattr(p,key,value)
+ try:
+  db.session.flush();audit("personnel.updated","personnel",p.id,{"fields":sorted(data.keys())});db.session.commit();return jsonify(person_json(p))
+ except IntegrityError:
+  db.session.rollback();return jsonify({"error":"Personel numarası zaten kayıtlı."}),409
+ except Exception as exc:
+  db.session.rollback();return jsonify({"error":"Personel güncellenemedi","detail":str(exc)}),409
 @personnel_bp.post("/personnel/<int:person_id>/toggle")
 def toggle_personnel(person_id):
  p=db.get_or_404(Personnel,person_id);p.active=not p.active;audit("personnel.status_changed","personnel",p.id,{"active":p.active});db.session.commit();return jsonify(person_json(p))
