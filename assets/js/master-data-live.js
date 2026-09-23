@@ -2,7 +2,7 @@
 (()=>{
 let globalCache=null;
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-const getGlobals=async()=>{if(globalCache)return globalCache;const r=await fetch('/api/master-data',{headers:{Accept:'application/json'}});if(!r.ok)throw new Error('Ana veriler alınamadı');globalCache=await r.json();return globalCache};
+const getGlobals=async()=>{const r=await fetch('/api/master-data',{headers:{Accept:'application/json'}});if(!r.ok)throw new Error('Ana veriler alınamadı');globalCache=await r.json();return globalCache};
 const getCatalog=async()=>{const globals=await getGlobals();return {hardware_types:globals.hardware_types||[],brands:globals.brands||[],models:globals.models||[]};};
 const fill=(sel,items,placeholder='Seçiniz',valueKey='id')=>{if(!sel)return;const current=sel.value;sel.innerHTML=`<option value="">${placeholder}</option>`+(items||[]).map(x=>`<option value="${esc(x[valueKey]??x.name)}">${esc(x.name)}</option>`).join('');if(current)sel.value=current};
 const bind=async form=>{try{
