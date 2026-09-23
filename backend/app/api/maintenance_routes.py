@@ -96,6 +96,20 @@ def list_maintenance():
     return jsonify({"items": [_dict(x) for x in p.items], "pagination": {"page": page, "per_page": per_page, "total": p.total, "pages": p.pages}})
 
 
+@maintenance_bp.get("/maintenance/summary")
+def maintenance_summary():
+    rows = db.session.query(MaintenanceRecord.status, db.func.count(MaintenanceRecord.id)).group_by(MaintenanceRecord.status).all()
+    counts = {status: int(total) for status, total in rows}
+    return jsonify({
+        "total": sum(counts.values()),
+        "pending": counts.get("pending", 0),
+        "in_progress": counts.get("in_progress", 0),
+        "service": counts.get("service", 0),
+        "completed": counts.get("completed", 0),
+        "cancelled": counts.get("cancelled", 0),
+    })
+
+
 @maintenance_bp.get("/maintenance/<int:maintenance_id>")
 def get_maintenance(maintenance_id):
     x = db.session.get(MaintenanceRecord, maintenance_id)
@@ -151,9 +165,12 @@ def change_status(maintenance_id):
     status = str(data.get("status", "")).strip().lower()
     if status not in ALLOWED_STATUS:
         return jsonify({"error": "Geçersiz bakım durumu"}), 400
+    now = datetime.now(timezone.utc)
     x.status = status
+    if status in {"in_progress", "service"} and not x.started_at:
+        x.started_at = now
     if status == "completed" and not x.completed_at:
-        x.completed_at = datetime.now(timezone.utc)
+        x.completed_at = now
     _audit("maintenance.status_changed", x.id, {"status": status, "note": data.get("note")})
     db.session.commit()
     return jsonify(_dict(x))
