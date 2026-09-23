@@ -157,6 +157,8 @@ def update_user(user_id):
     if "email" in data:
         user.email = str(data["email"] or "").strip() or None
     if "active" in data:
+        if current_user().id == user.id and not bool(data["active"]):
+            return jsonify({"error": "cannot_disable_current_user"}), 400
         user.active = bool(data["active"])
     if "role_id" in data:
         role = db.session.get(Role, int(data["role_id"])) if data["role_id"] else None
