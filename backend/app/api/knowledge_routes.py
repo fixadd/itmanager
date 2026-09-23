@@ -1,7 +1,8 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
-from ..models import AuditLog, KnowledgeArticle, KnowledgeAttachment, Personnel, User\nfrom .auth_routes import current_user
+from ..models import AuditLog, KnowledgeArticle, KnowledgeAttachment, Personnel, User
+from .auth_routes import current_user
 
 knowledge_bp = Blueprint("knowledge", __name__)
 
