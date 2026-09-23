@@ -259,6 +259,26 @@ def profile():
     return jsonify({"user": user_json(current_user())})
 
 
+@auth_bp.post("/profile/password")
+@login_required
+def change_profile_password():
+    user = current_user()
+    data = request.get_json(silent=True) or {}
+    current_password = str(data.get("current_password") or "")
+    new_password = str(data.get("new_password") or "")
+    if not current_password or not new_password:
+        return jsonify({"error": "current_and_new_password_required"}), 400
+    if not check_password_hash(user.password_hash, current_password):
+        return jsonify({"error": "current_password_invalid"}), 400
+    if len(new_password) < 8:
+        return jsonify({"error": "password_too_short"}), 400
+    if check_password_hash(user.password_hash, new_password):
+        return jsonify({"error": "password_must_be_different"}), 400
+    user.password_hash = generate_password_hash(new_password)
+    audit("password_changed", "user", user.id)
+    db.session.commit()
+    return jsonify({"ok": True})
+
 @auth_bp.patch("/profile")
 @login_required
 def update_profile():
