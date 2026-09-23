@@ -35,4 +35,3 @@ def upgrade():
 
 def downgrade():
     op.drop_table("connection_settings")
-    op.drop_table("knowledge_attachments")
