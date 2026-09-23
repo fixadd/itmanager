@@ -251,6 +251,7 @@ def scrap_stock(stock_id):
     old = x.quantity
     x.quantity = Decimal("0")
     x.status = "scrapped"
+    db.session.add(StockMovement(stock_item_id=x.id, movement_type="scrap", quantity=old, unit=x.unit, note=reason))
     db.session.add(ScrapRecord(source_type="stock", source_id=x.id, reason=reason, note=data.get("note")))
     _audit("stock.scrapped", x.id, {"quantity": float(old), "reason": reason, "note": data.get("note")})
     db.session.commit()
