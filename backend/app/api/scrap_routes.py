@@ -11,12 +11,15 @@ scrap_bp = Blueprint("scrap", __name__)
 def record_json(r):
     source = None
     brand_id = model_id = None
+    brand_name = model_name = None
     if r.source_type == "inventory":
         source = db.session.get(Inventory, r.source_id)
         name = source.inventory_no if source else f"Envanter #{r.source_id}"
         detail = " / ".join(filter(None, [source.computer_name, source.serial_no])) if source else ""
         brand_id = source.brand_id if source else None
         model_id = source.model_id if source else None
+        brand_name = source.brand.name if source and source.brand else None
+        model_name = source.model.name if source and source.model else None
     elif r.source_type == "license":
         source = db.session.get(License, r.source_id)
         name = source.license_name.name if source and source.license_name else f"Lisans #{r.source_id}"
@@ -28,6 +31,8 @@ def record_json(r):
         detail = f"Miktar: {scrap_movement.quantity} {scrap_movement.unit}" if scrap_movement else (f"Miktar: {source.quantity}" if source else "")
         brand_id = source.brand_id if source else None
         model_id = source.model_id if source else None
+        brand_name = source.brand.name if source and source.brand else None
+        model_name = source.model.name if source and source.model else None
     else:
         name = f"{r.source_type} #{r.source_id}"
         detail = ""
@@ -41,6 +46,8 @@ def record_json(r):
         "note": r.note,
         "brand_id": brand_id,
         "model_id": model_id,
+        "brand_name": brand_name,
+        "model_name": model_name,
         "scrapped_at": r.scrapped_at.isoformat() if r.scrapped_at else None,
         "created_at": r.created_at.isoformat() if r.created_at else None,
     }
@@ -90,35 +97,21 @@ def list_scrap():
     model_id = request.args.get("model_id", type=int)
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = min(max(request.args.get("per_page", 20, type=int), 1), 100)
-
     query = ScrapRecord.query
-
     if source_type:
         query = query.filter(ScrapRecord.source_type == source_type)
-
     if reason:
         query = query.filter(ScrapRecord.reason == reason)
-
     if brand_id is not None:
         query = query.filter(or_(
-            and_(ScrapRecord.source_type == "inventory", ScrapRecord.source_id.in_(
-                db.session.query(Inventory.id).filter(Inventory.brand_id == brand_id)
-            )),
-            and_(ScrapRecord.source_type == "stock", ScrapRecord.source_id.in_(
-                db.session.query(StockItem.id).filter(StockItem.brand_id == brand_id)
-            )),
+            and_(ScrapRecord.source_type == "inventory", ScrapRecord.source_id.in_(db.session.query(Inventory.id).filter(Inventory.brand_id == brand_id))),
+            and_(ScrapRecord.source_type == "stock", ScrapRecord.source_id.in_(db.session.query(StockItem.id).filter(StockItem.brand_id == brand_id))),
         ))
-
     if model_id is not None:
         query = query.filter(or_(
-            and_(ScrapRecord.source_type == "inventory", ScrapRecord.source_id.in_(
-                db.session.query(Inventory.id).filter(Inventory.model_id == model_id)
-            )),
-            and_(ScrapRecord.source_type == "stock", ScrapRecord.source_id.in_(
-                db.session.query(StockItem.id).filter(StockItem.model_id == model_id)
-            )),
+            and_(ScrapRecord.source_type == "inventory", ScrapRecord.source_id.in_(db.session.query(Inventory.id).filter(Inventory.model_id == model_id))),
+            and_(ScrapRecord.source_type == "stock", ScrapRecord.source_id.in_(db.session.query(StockItem.id).filter(StockItem.model_id == model_id))),
         ))
-
     if q:
         inventory_ids, stock_ids, license_ids = _source_ids_for_search(q)
         term = f"%{q}%"
@@ -129,29 +122,13 @@ def list_scrap():
             and_(ScrapRecord.source_type == "stock", ScrapRecord.source_id.in_(stock_ids)),
             and_(ScrapRecord.source_type == "license", ScrapRecord.source_id.in_(license_ids)),
         ))
-
-    # Apply every filter before pagination so totals/pages remain correct.
-    pagination = query.order_by(
-        ScrapRecord.scrapped_at.desc(),
-        ScrapRecord.id.desc(),
-    ).paginate(page=page, per_page=per_page, error_out=False)
-
-    return jsonify({
-        "items": [record_json(r) for r in pagination.items],
-        "pagination": {
-            "page": pagination.page,
-            "per_page": pagination.per_page,
-            "total": pagination.total,
-            "pages": pagination.pages,
-        },
-    })
+    pagination = query.order_by(ScrapRecord.scrapped_at.desc(), ScrapRecord.id.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    return jsonify({"items": [record_json(r) for r in pagination.items], "pagination": {"page": pagination.page, "per_page": pagination.per_page, "total": pagination.total, "pages": pagination.pages}})
 
 
 @scrap_bp.get("/scrap/<int:scrap_id>")
 def get_scrap(scrap_id):
     return jsonify(record_json(db.get_or_404(ScrapRecord, scrap_id)))
-
-
 
 
 @scrap_bp.get("/scrap/summary")
@@ -160,13 +137,7 @@ def scrap_summary():
     rows = db.session.query(ScrapRecord.source_type, func.count(ScrapRecord.id)).group_by(ScrapRecord.source_type).all()
     by_type = {k: int(v) for k, v in rows}
     reasons = db.session.query(ScrapRecord.reason, func.count(ScrapRecord.id)).group_by(ScrapRecord.reason).order_by(func.count(ScrapRecord.id).desc()).all()
-    return jsonify({
-        "total": ScrapRecord.query.count(),
-        "inventory": by_type.get("inventory", 0),
-        "stock": by_type.get("stock", 0),
-        "license": by_type.get("license", 0),
-        "reasons": [{"reason": r, "count": int(n)} for r, n in reasons if r],
-    })
+    return jsonify({"total": ScrapRecord.query.count(), "inventory": by_type.get("inventory", 0), "stock": by_type.get("stock", 0), "license": by_type.get("license", 0), "reasons": [{"reason": r, "count": int(n)} for r, n in reasons if r]})
 
 
 @scrap_bp.get("/scrap/reasons")
@@ -178,9 +149,5 @@ def reasons():
 @scrap_bp.delete("/scrap/<int:scrap_id>")
 @permission_required("scrap.manage")
 def delete_scrap(scrap_id):
-    # Scrap history is audit data and must not be hard-deleted.
     r = db.get_or_404(ScrapRecord, scrap_id)
-    return jsonify({
-        "error": "Hurda geçmiş kayıtları silinemez",
-        "scrap_id": r.id,
-    }), 409
+    return jsonify({"error": "Hurda geçmiş kayıtları silinemez", "scrap_id": r.id}), 409
