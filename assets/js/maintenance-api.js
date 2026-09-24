@@ -17,10 +17,17 @@ async function load(){if(location.hash.slice(1)!=='maintenance')return;const pan
 
 async function openCreate(){
 try{
- const d=await json('/api/inventory?per_page=100');
- const options=(d.items||[]).map(x=>`<option value="${x.id}">${esc(x.inventory_no)} — ${esc(x.computer_name||x.serial_no||'')}</option>`).join('');
+ const first=await json('/api/inventory?per_page=100&page=1');
+ const items=[...(first.items||[])];
+ const pages=first.pagination?.pages||1;
+ for(let page=2;page<=pages;page++){
+   const d=await json('/api/inventory?per_page=100&page='+page);
+   items.push(...(d.items||[]));
+ }
+ const options=items.map(x=>`<option value="${x.id}">${esc(x.inventory_no)} — ${esc(x.computer_name||x.serial_no||'')}</option>`).join('');
  const body=`<form id="itDynamicForm" data-form-page="maintenance"><div class="row g-3"><div class="col-md-6"><label class="form-label">Envanter <span class="text-danger">*</span></label><select class="form-select" name="inventory_id" required><option value="">Cihaz seçiniz</option>${options}</select></div><div class="col-md-6"><label class="form-label">Bakım Türü</label><select class="form-select" name="type"><option value="internal">İç Bakım</option><option value="service">Dış Servis / Tamir</option><option value="periodic">Periyodik Bakım</option></select></div><div class="col-md-6"><label class="form-label">Arıza / Konu <span class="text-danger">*</span></label><input class="form-control" name="fault" required></div><div class="col-md-6"><label class="form-label">Servis / Firma</label><input class="form-control" name="service"></div><div class="col-md-6"><label class="form-label">Teknisyen</label><input class="form-control" name="technician"></div><div class="col-md-6"><label class="form-label">Maliyet</label><input class="form-control" type="number" min="0" step="0.01" name="cost"></div><div class="col-md-6"><label class="form-label">Başlangıç</label><input class="form-control" type="datetime-local" name="started_at"></div><div class="col-md-6"><label class="form-label">Bitiş</label><input class="form-control" type="datetime-local" name="completed_at"></div><div class="col-12"><label class="form-label">Açıklama</label><textarea class="form-control" name="description" rows="2"></textarea></div><div class="col-12"><label class="form-label">Not</label><textarea class="form-control" name="note" rows="2"></textarea></div></div></form>`;
  window.ITUI?.modal('Yeni Bakım Kaydı',body);
+ document.querySelector('#itManagerModal [data-save]')?.removeAttribute('data-maint-edit');
 }catch(e){toast(e.message)}
 }
 
