@@ -59,4 +59,3 @@ document.addEventListener('change',e=>{if(e.target.id==='maintenanceStatus')load
 window.addEventListener('hashchange',()=>setTimeout(load,100));
 document.addEventListener('DOMContentLoaded',()=>setTimeout(load,250));
 })();
-(function loadPurchaseRequestModule(){if(document.querySelector('script[data-purchase-requests]'))return;const s=document.createElement('script');s.src='assets/js/requests-api.js?v=1';s.dataset.purchaseRequests='1';document.head.appendChild(s)})();
