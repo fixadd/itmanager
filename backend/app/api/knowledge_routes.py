@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
 from ..models import AuditLog, KnowledgeArticle, KnowledgeAttachment, Personnel, User
-from .auth_routes import current_user
+from .auth_routes import current_user, login_required
 
 knowledge_bp = Blueprint("knowledge", __name__)
 
@@ -68,6 +68,7 @@ def audit(action, article, details=None):
 
 
 @knowledge_bp.get("/knowledge")
+@login_required
 def list_articles():
     q = (request.args.get("q") or "").strip()
     category = (request.args.get("category") or "").strip()
@@ -92,6 +93,7 @@ def list_articles():
 
 
 @knowledge_bp.get("/knowledge/categories")
+@login_required
 def categories():
     rows = db.session.query(KnowledgeArticle.category).distinct().order_by(KnowledgeArticle.category.asc()).all()
     return jsonify([r[0] for r in rows if r[0]])
@@ -99,6 +101,7 @@ def categories():
 
 
 @knowledge_bp.get("/knowledge/<int:article_id>/history")
+@login_required
 def article_history(article_id):
     article = db.get_or_404(KnowledgeArticle, article_id)
     rows = (
@@ -126,6 +129,7 @@ def article_history(article_id):
 
 
 @knowledge_bp.get("/knowledge/<int:article_id>")
+@login_required
 def get_article(article_id):
     article = db.get_or_404(KnowledgeArticle, article_id)
     article.view_count += 1
@@ -134,6 +138,7 @@ def get_article(article_id):
 
 
 @knowledge_bp.post("/knowledge")
+@login_required
 def create_article():
     data = request.get_json(silent=True) or {}
     title = (data.get("title") or "").strip()
@@ -167,6 +172,7 @@ def create_article():
 
 
 @knowledge_bp.route("/knowledge/<int:article_id>", methods=["PATCH", "PUT"])
+@login_required
 def update_article(article_id):
     article = db.get_or_404(KnowledgeArticle, article_id)
     data = request.get_json(silent=True) or {}
@@ -204,6 +210,7 @@ def update_article(article_id):
     return jsonify(article_json(article, include_content=True))
 
 
+@login_required
 def change_status(article_id, status, action):
     article = db.get_or_404(KnowledgeArticle, article_id)
     article.status = status
@@ -213,15 +220,18 @@ def change_status(article_id, status, action):
 
 
 @knowledge_bp.post("/knowledge/<int:article_id>/publish")
+@login_required
 def publish_article(article_id):
     return change_status(article_id, "published", "knowledge_published")
 
 
 @knowledge_bp.post("/knowledge/<int:article_id>/archive")
+@login_required
 def archive_article(article_id):
     return change_status(article_id, "archived", "knowledge_archived")
 
 
 @knowledge_bp.post("/knowledge/<int:article_id>/restore")
+@login_required
 def restore_article(article_id):
     return change_status(article_id, "draft", "knowledge_restored")
