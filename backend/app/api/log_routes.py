@@ -17,10 +17,16 @@ SENSITIVE_DETAIL_KEYS = {
 
 
 def safe_details(details):
-    if not isinstance(details, dict):
-        return {}
-    return {key: "[REDACTED]" if str(key).lower() in SENSITIVE_DETAIL_KEYS else value
-            for key, value in details.items()}
+    def clean(value, key=None):
+        if key is not None and str(key).lower() in SENSITIVE_DETAIL_KEYS:
+            return "[REDACTED]"
+        if isinstance(value, dict):
+            return {k: clean(v, k) for k, v in value.items()}
+        if isinstance(value, list):
+            return [clean(v) for v in value]
+        return value
+
+    return clean(details) if isinstance(details, dict) else {}
 
 
 def log_json(log):
