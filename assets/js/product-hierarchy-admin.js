@@ -61,7 +61,13 @@ function renderCatalog(){
  paginateMasterList('#modelList','Modeller');
 }
 async function createCatalog(kind,fd){
- try{const data=Object.fromEntries(fd.entries());await req(`/settings/product-catalog/${kind}?scope=${scope}`,{method:'POST',body:JSON.stringify({...data,product_type_id:data.product_type_id?Number(data.product_type_id):undefined,brand_id:data.brand_id?Number(data.brand_id):undefined})});toast('Tanım eklendi');await load(scope);}catch(e){toast(msg(e))}
+ try{
+  const image=kind==='model'?fd.get('image'):null;
+  const data=Object.fromEntries(fd.entries()); delete data.image;
+  const created=await req(`/settings/product-catalog/${kind}?scope=${scope}`,{method:'POST',body:JSON.stringify({...data,product_type_id:data.product_type_id?Number(data.product_type_id):undefined,brand_id:data.brand_id?Number(data.brand_id):undefined})});
+  if(kind==='model'&&image instanceof File&&image.size){const upload=new FormData();upload.append('image',image);await req(`/settings/product-catalog/model/${created.id}/image`,{method:'POST',body:upload});}
+  toast('Tanım eklendi');await load(scope);
+ }catch(e){toast(msg(e))}
 }
 async function renderLicense(){
  await loadLicenses();const area=document.getElementById('catalogArea');if(!area)return;
