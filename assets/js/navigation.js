@@ -78,3 +78,35 @@ document.querySelectorAll('.admin-submenu-link').forEach(x=>x.classList.remove('
 document.querySelector(`.nav-link[data-page="${k}"]`)?.classList.add('active');
 if(k!=='admin' && !(k==='stock' && /^#stock\/\d+$/.test(location.hash)))history.replaceState(null,'',location.pathname+location.search+'#'+k);
 crumb.textContent=pages[k][0];content.innerHTML=layout(k);window.scrollTo(0,0);if(k==='dashboard')setTimeout(()=>loadDashboard(),0);if(k==='inventory'||k==='licenses'||k==='knowledge'||k==='scrap'||k==='reports'||k==='settings'||k==='logs'||k==='profile')setTimeout(()=>window.dispatchEvent(new Event('hashchange')),0);if(k==='barcode'){const run=async()=>{const input=document.querySelector('#navBarcode'),box=document.querySelector('#navBarcodeResult');const q=input?.value.trim();if(!q){box.innerHTML='<div class="alert alert-warning">Barkod girin veya okutun.</div>';return}try{const r=await fetch('/api/barcode/'+encodeURIComponent(q),{headers:{Accept:'application/json'}}),d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Barkod bulunamadı');location.hash=d.detail_url.replace(/^#/,'');return}catch(e){box.innerHTML='<div class="alert alert-danger">'+esc(e.message)+'</div>'}};document.querySelector('#navBarcodeBtn')?.addEventListener('click',run);document.querySelector('#navBarcode')?.addEventListener('keydown',e=>e.key==='Enter'&&run())});
+function handleNavHash(){
+  const raw=location.hash.replace(/^#/,'');
+  const m=raw.match(/^([^/]+)(?:\\/(\\d+))?/);
+  const page=m?.[1];
+  if(!page||!pages[page])return;
+  if(page==='inventory' && m[2]){
+    if(window.IT_INVENTORY_API?.openDetail) window.IT_INVENTORY_API.openDetail(Number(m[2]));
+    return;
+  }
+  if(page==='stock' && m[2]){ window.dispatchEvent(new Event('hashchange')); return; }
+  go(page);
+}
+document.addEventListener('click',e=>{
+  const link=e.target.closest('.nav-link[data-page]');
+  if(!link)return;
+  e.preventDefault();
+  const page=link.dataset.page;
+  if(page==='admin'){
+    const submenu=document.getElementById('adminSubmenu');
+    const open=!submenu?.classList.contains('open');
+    submenu?.classList.toggle('open',open);
+    link.setAttribute('aria-expanded',String(open));
+    if(location.hash!=='#admin')location.hash='#admin'; else go('admin');
+    return;
+  }
+  if(location.hash!=='#'+page)location.hash='#'+page; else go(page);
+});
+window.addEventListener('hashchange',handleNavHash);
+window.IT_NAV={go,handleNavHash};
+const initial=location.hash.replace(/^#/,'').match(/^([^/]+)/)?.[1];
+if(initial&&pages[initial])setTimeout(()=>handleNavHash(),0);
+});
