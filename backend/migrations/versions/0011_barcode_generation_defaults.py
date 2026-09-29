@@ -17,9 +17,9 @@ def upgrade():
     op.execute("CREATE SEQUENCE IF NOT EXISTS inventory_barcode_seq")
     op.execute("CREATE SEQUENCE IF NOT EXISTS license_barcode_seq")
 
-    op.execute("SELECT setval('stock_barcode_seq', COALESCE((SELECT MAX(id) FROM stock_items), 0), true)")
-    op.execute("SELECT setval('inventory_barcode_seq', COALESCE((SELECT MAX(id) FROM inventory), 0), true)")
-    op.execute("SELECT setval('license_barcode_seq', COALESCE((SELECT MAX(id) FROM licenses), 0), true)")
+    op.execute("SELECT setval('stock_barcode_seq', COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM stock_items")
+    op.execute("SELECT setval('inventory_barcode_seq', COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM inventory")
+    op.execute("SELECT setval('license_barcode_seq', COALESCE(MAX(id), 1), MAX(id) IS NOT NULL) FROM licenses")
 
     op.alter_column(
         "stock_items",
