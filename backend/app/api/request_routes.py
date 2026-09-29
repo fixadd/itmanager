@@ -4,7 +4,7 @@ from flask import Blueprint,jsonify,request
 from sqlalchemy import or_
 from ..extensions import db
 from ..models import AuditLog,Brand,Department,Factory,Inventory,License,LicenseModel,LicenseName,Personnel,ProductModel,ProductType,PurchaseRequest,PurchaseRequestItem,StockItem,StockMovement
-from .auth_routes import current_user
+from .auth_routes import current_user,login_required
 requests_bp=Blueprint("requests",__name__)
 STATUSES={"draft","pending","approved","rejected","ordered","completed","cancelled"};PRIORITIES={"low","normal","high","urgent"}
 def _dt(v):
@@ -44,6 +44,7 @@ def _payload(data,existing=None):
   items.append(PurchaseRequestItem(product_type=product_type,device_type=raw.get("device_type") or None,brand=raw.get("brand") or None,model=raw.get("model") or None,quantity=q,unit=raw.get("unit") or "Adet",estimated_unit_price=None,description=raw.get("description") or None))
  return {"request_no":no,"requester_id":requester.id if requester else None,"department_id":department.id if department else None,"factory_id":factory.id if factory else None,"status":status,"priority":priority,"requested_at":_dt(data.get("requested_at",existing.requested_at if existing else None)) or (existing.requested_at if existing else datetime.now(timezone.utc)),"approved_at":_dt(data.get("approved_at",existing.approved_at if existing else None)),"approved_by":data.get("approved_by",existing.approved_by if existing else None),"completed_at":_dt(data.get("completed_at",existing.completed_at if existing else None)),"note":data.get("note",existing.note if existing else None),"items":items}
 @requests_bp.get("/requests")
+@login_required
 def list_requests():
  q=PurchaseRequest.query;search=request.args.get("search","").strip();status=request.args.get("status","").strip();priority=request.args.get("priority","").strip()
  if search:
@@ -52,9 +53,11 @@ def list_requests():
  if priority:q=q.filter(PurchaseRequest.priority==priority)
  page=max(request.args.get("page",1,type=int),1);per_page=min(max(request.args.get("per_page",25,type=int),1),100);p=q.order_by(PurchaseRequest.id.desc()).paginate(page=page,per_page=per_page,error_out=False);return jsonify({"items":[_dict(x) for x in p.items],"pagination":{"page":page,"per_page":per_page,"total":p.total,"pages":p.pages}})
 @requests_bp.get("/requests/<int:request_id>")
+@login_required
 def get_request(request_id):
  x=db.session.get(PurchaseRequest,request_id);return jsonify(_dict(x)) if x else (jsonify({"error":"Talep bulunamadı"}),404)
 @requests_bp.post("/requests")
+@login_required
 def create_request():
  try:
   data=_payload(request.get_json(silent=True) or {});items=data.pop("items");x=PurchaseRequest(**data);x.items=items;db.session.add(x);db.session.flush()
@@ -65,6 +68,7 @@ def create_request():
  except Exception as e:db.session.rollback();return jsonify({"error":"Talep oluşturulamadı","detail":str(e)}),409
 @requests_bp.patch("/requests/<int:request_id>")
 @requests_bp.put("/requests/<int:request_id>")
+@login_required
 def update_request(request_id):
  x=db.session.get(PurchaseRequest,request_id)
  if not x:return jsonify({"error":"Talep bulunamadı"}),404
@@ -80,6 +84,7 @@ def _set_status(request_id,status):
  if status=="completed" and not x.completed_at:x.completed_at=datetime.now(timezone.utc)
  _audit(f"request.{status}",x.id,{"from_status":old,"note":data.get("note")});db.session.commit();return jsonify(_dict(x))
 @requests_bp.get("/requests/transfer-options")
+@login_required
 def transfer_options():
  return jsonify({
   "factories":[{"id":x.id,"name":x.name} for x in Factory.query.filter_by(active=True).order_by(Factory.name).all()],
@@ -113,8 +118,9 @@ def _transfer_missing(x,data):
  return result
 
 @requests_bp.post("/requests/<int:request_id>/transfer")
+@login_required
 def transfer_request(request_id):
- x=db.session.get(PurchaseRequest,request_id); data=request.get_json(silent=True) or {}
+ x=PurchaseRequest.query.with_for_update().filter_by(id=request_id).first(); data=request.get_json(silent=True) or {}
  if not x:return jsonify({"error":"Talep bulunamadı"}),404
  if x.status!="completed":return jsonify({"error":"Aktarım için talep önce Tamamlandı durumunda olmalıdır"}),400
  if AuditLog.query.filter_by(action="request.transferred",entity_type="purchase_request",entity_id=x.id).first():return jsonify({"error":"Bu satın alma talebi daha önce aktarılmış"}),409
@@ -126,23 +132,30 @@ def transfer_request(request_id):
    v=by_id.get(str(item.id),{})
    if item.product_type=="Envanter":
     factory=_resolve(Factory,v.get("factory") or x.factory_id,"fabrika"); department=_resolve(Department,v.get("department") or x.department_id,"departman"); ptype=_resolve(ProductType,v.get("device_type") or item.device_type,"donanım tipi"); brand=_resolve(Brand,v.get("brand") or item.brand,"marka"); model=None
+    if not all(obj.active for obj in (factory,department,ptype,brand)): raise ValueError("Aktarımda pasif master kayıt kullanılamaz")
+    if ptype not in brand.product_types: raise ValueError("Envanter marka, donanım tipiyle eşleşmiyor")
     if v.get("model") or item.model:
      model=_resolve(ProductModel,v.get("model") or item.model,"model")
+     if not model.active: raise ValueError("Aktarımda pasif model kullanılamaz")
      if model.brand_id!=brand.id or (model.product_type_id and model.product_type_id!=ptype.id):raise ValueError("Envanter model, marka/donanım tipiyle eşleşmiyor")
     person=_resolve(Personnel,v.get("person"),"personel") if v.get("person") not in (None,"") else None
     obj=Inventory(inventory_no=str(v["inventory_no"]).strip(),computer_name=v.get("computer_name") or None,serial_no=v.get("serial_no") or None,machine_no=v.get("machine_no") or None,ifs_no=v.get("ifs_no") or None,note=v.get("note") or item.description or None,factory_id=factory.id,department_id=department.id,product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,personnel_id=person.id if person else None)
     db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Envanter","id":obj.id})
    elif item.product_type=="Lisans":
     name=_resolve(LicenseName,v.get("license_name"),"lisans adı"); model=_resolve(LicenseModel,v.get("license_model_id") or v.get("license_model"),"lisans modeli")
+    if not name.active or not model.active: raise ValueError("Aktarımda pasif lisans master kaydı kullanılamaz")
     if model.license_name_id!=name.id:raise ValueError("Lisans modeli seçilen lisans adına bağlı değil")
     starts=_dt(v.get("starts_at")).date() if v.get("starts_at") else None; expires=_dt(v.get("expires_at")).date() if v.get("expires_at") else None
     obj=License(license_name_id=name.id,license_model_id=model.id,license_type=v.get("license_type") or "subscription",license_key=v.get("license_key") or None,email=v.get("email") or None,password=v.get("password") or None,starts_at=starts,expires_at=expires,note=v.get("note") or item.description or None,status="active")
     db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Lisans","id":obj.id})
    else:
     ptype=_resolve(ProductType,v.get("device_type") or item.device_type,"donanım tipi"); brand=_resolve(Brand,v.get("brand") or item.brand,"marka"); model=None
+    if not ptype.active or not brand.active: raise ValueError("Aktarımda pasif master kayıt kullanılamaz")
+    if ptype not in brand.product_types: raise ValueError("Stok marka, donanım tipiyle eşleşmiyor")
     if v.get("model") or item.model:
      model=_resolve(ProductModel,v.get("model") or item.model,"model")
-     if model.brand_id!=brand.id:raise ValueError("Stok model, marka ile eşleşmiyor")
+     if not model.active: raise ValueError("Aktarımda pasif model kullanılamaz")
+     if model.brand_id!=brand.id or (model.product_type_id and model.product_type_id!=ptype.id):raise ValueError("Stok model, marka/donanım tipiyle eşleşmiyor")
     try:q=float(v.get("quantity",item.quantity or 1))
     except (TypeError,ValueError):raise ValueError("Stok miktarı geçersiz")
     if q<=0:raise ValueError("Stok miktarı 0'dan büyük olmalıdır")
@@ -153,12 +166,17 @@ def transfer_request(request_id):
  except Exception as e:db.session.rollback();return jsonify({"error":"Talep aktarımı başarısız","detail":str(e)}),409
 
 @requests_bp.post("/requests/<int:request_id>/approve")
+@login_required
 def approve(request_id):return _set_status(request_id,"approved")
 @requests_bp.post("/requests/<int:request_id>/reject")
+@login_required
 def reject(request_id):return _set_status(request_id,"rejected")
 @requests_bp.post("/requests/<int:request_id>/order")
+@login_required
 def order(request_id):return _set_status(request_id,"ordered")
 @requests_bp.post("/requests/<int:request_id>/complete")
+@login_required
 def complete(request_id):return _set_status(request_id,"completed")
 @requests_bp.post("/requests/<int:request_id>/cancel")
+@login_required
 def cancel(request_id):return _set_status(request_id,"cancelled")
