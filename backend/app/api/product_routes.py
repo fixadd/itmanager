@@ -18,7 +18,7 @@ def _scope_ids(entity_type,scope="inventory"):
  return list(scoped|unscoped)
 def _type_json(x):return {"id":x.id,"name":x.name,"active":x.active,"brand_ids":[b.id for b in x.brands if b.active]}
 def _brand_json(x):return {"id":x.id,"name":x.name,"active":x.active,"product_type_ids":[t.id for t in x.product_types if t.active]}
-def _model_json(x):return {"id":x.id,"name":x.name,"active":x.active,"brand_id":x.brand_id,"product_type_id":x.product_type_id,"brand":{"id":x.brand.id,"name":x.brand.name} if x.brand else None,"product_type":{"id":x.product_type.id,"name":x.product_type.name} if x.product_type else None}
+def _model_json(x):return {"id":x.id,"name":x.name,"active":x.active,"image_path":x.image_path,"brand_id":x.brand_id,"product_type_id":x.product_type_id,"brand":{"id":x.brand.id,"name":x.brand.name} if x.brand else None,"product_type":{"id":x.product_type.id,"name":x.product_type.name} if x.product_type else None}
 @product_bp.get("/settings/product-hierarchy")
 def hierarchy():
  tids,bids,mids=_scope_ids("type"),_scope_ids("brand"),_scope_ids("model")
