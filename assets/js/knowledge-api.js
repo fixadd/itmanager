@@ -271,7 +271,5 @@
     }
   });
 
-  window.addEventListener('hashchange', () => load(1));
-  document.addEventListener('DOMContentLoaded', () => load(1));
   window.IT_KNOWLEDGE_API = {load, get, save, openEditor, getHistory, uploadAttachment, deleteAttachment};
 })();
