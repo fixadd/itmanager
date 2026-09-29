@@ -29,6 +29,7 @@ def _inventory_dict(x):
     return {"id":x.id,"barcode":x.barcode,"inventory_no":x.inventory_no,"computer_name":x.computer_name,"serial_no":x.serial_no,"machine_no":x.machine_no,"ifs_no":x.ifs_no,"note":x.note,"status":x.status,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"device_type":{"id":x.product_type_id,"name":x.product_type.name} if x.product_type else None,"brand":{"id":x.brand_id,"name":x.brand.name} if x.brand else None,"model":{"id":x.model_id,"name":x.model.name,"image_path":x.model.image_path} if x.model else None,"personnel":{"id":x.personnel_id,"name":x.personnel.name} if x.personnel else None,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 
 @api_bp.get("/barcode/<path:barcode>")
+@login_required
 def barcode_lookup(barcode):
     code=str(barcode or "").strip().upper()
     if not code:return jsonify({"error":"Barkod boş olamaz"}),400
@@ -45,20 +46,24 @@ def barcode_lookup(barcode):
     return jsonify({"error":"Geçersiz barkod. STK-, ENV- veya LIC- ile başlamalıdır."}),400
 
 @api_bp.get("/master-data")
+@login_required
 def master_data():
     return jsonify({"factories":_items(Factory),"departments":_items(Department),"personnel":_items(Personnel),"hardware_types":_items(ProductType),"brands":[{"id":x.id,"name":x.name,"product_type_ids":[p.id for p in x.product_types if p.active]} for x in Brand.query.filter_by(active=True).order_by(Brand.name).all()],"models":[{"id":x.id,"name":x.name,"brand_id":x.brand_id,"product_type_id":x.product_type_id} for x in ProductModel.query.filter_by(active=True).order_by(ProductModel.name).all()],"licenses":_items(LicenseName)})
 
 @api_bp.get("/master-data/<string:resource>")
+@login_required
 def master_resource(resource):
     resources={"factories":Factory,"departments":Department,"personnel":Personnel,"hardware-types":ProductType,"brands":Brand,"licenses":LicenseName}; model=resources.get(resource)
     if not model:return jsonify({"error":"Bilinmeyen master veri kaynağı"}),404
     return jsonify(_items(model))
 
 @api_bp.get("/brands/<int:brand_id>/models")
+@login_required
 def brand_models(brand_id):
     return jsonify([{"id":x.id,"name":x.name,"product_type_id":x.product_type_id} for x in ProductModel.query.filter_by(brand_id=brand_id,active=True).order_by(ProductModel.name).all()])
 
 @api_bp.get("/inventory")
+@login_required
 def list_inventory():
     query=Inventory.query; search=request.args.get("search","").strip(); status=request.args.get("status","").strip()
     fields=((Inventory.factory_id,"factory_id"),(Inventory.department_id,"department_id"),(Inventory.product_type_id,"product_type_id"),(Inventory.brand_id,"brand_id"),(Inventory.model_id,"model_id"),(Inventory.personnel_id,"personnel_id"))
@@ -74,6 +79,7 @@ def list_inventory():
     return jsonify({"items":[_inventory_dict(x) for x in p.items],"pagination":{"page":page,"per_page":per_page,"total":p.total,"pages":p.pages}})
 
 @api_bp.get("/inventory/<int:inventory_id>")
+@login_required
 def get_inventory(inventory_id):
     x=db.session.get(Inventory,inventory_id)
     return jsonify(_inventory_dict(x)) if x else (jsonify({"error":"Envanter kaydı bulunamadı"}),404)
@@ -102,6 +108,7 @@ def _inventory_payload(data,item=None):
     return vals
 
 @api_bp.post("/inventory")
+@login_required
 def create_inventory():
     try:
         x=Inventory(**_inventory_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); _audit("inventory.created","inventory",x.id,{"inventory_no":x.inventory_no}); db.session.commit(); return jsonify(_inventory_dict(x)),201
@@ -110,6 +117,7 @@ def create_inventory():
 
 @api_bp.patch("/inventory/<int:inventory_id>")
 @api_bp.put("/inventory/<int:inventory_id>")
+@login_required
 def update_inventory(inventory_id):
     x=db.session.get(Inventory,inventory_id)
     if not x:return jsonify({"error":"Envanter kaydı bulunamadı"}),404
@@ -119,6 +127,7 @@ def update_inventory(inventory_id):
     except Exception as e: db.session.rollback(); return jsonify({"error":"Envanter kaydı güncellenemedi","detail":str(e)}),409
 
 @api_bp.post("/inventory/<int:inventory_id>/assign")
+@login_required
 def assign_inventory(inventory_id):
     x=db.session.get(Inventory,inventory_id); data=request.get_json(silent=True) or {}
     if not x:return jsonify({"error":"Envanter kaydı bulunamadı"}),404
@@ -127,18 +136,21 @@ def assign_inventory(inventory_id):
     except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
 
 @api_bp.post("/inventory/<int:inventory_id>/mark-faulty")
+@login_required
 def mark_inventory_faulty(inventory_id):
     x=db.session.get(Inventory,inventory_id); data=request.get_json(silent=True) or {}
     if not x:return jsonify({"error":"Envanter kaydı bulunamadı"}),404
     old=x.status; x.status="faulty"; x.note=data.get("note",x.note); _audit("inventory.mark_faulty","inventory",x.id,{"from_status":old,"note":data.get("note")}); db.session.commit(); return jsonify(_inventory_dict(x))
 
 @api_bp.post("/inventory/<int:inventory_id>/send-to-it")
+@login_required
 def send_inventory_to_it(inventory_id):
     x=db.session.get(Inventory,inventory_id); data=request.get_json(silent=True) or {}
     if not x:return jsonify({"error":"Envanter kaydı bulunamadı"}),404
     old=x.status; old_person=x.personnel_id; x.personnel_id=None; x.status="it"; x.note=data.get("note",x.note); _audit("inventory.sent_to_it","inventory",x.id,{"from_personnel_id":old_person,"from_status":old,"note":data.get("note")}); db.session.commit(); return jsonify(_inventory_dict(x))
 
 @api_bp.post("/inventory/<int:inventory_id>/scrap")
+@login_required
 def scrap_inventory(inventory_id):
     x=db.session.get(Inventory,inventory_id); data=request.get_json(silent=True) or {}; reason=str(data.get("reason","")).strip()
     if not x:return jsonify({"error":"Envanter kaydı bulunamadı"}),404
@@ -183,6 +195,7 @@ def _license_payload(data,x=None):
     return vals
 
 @api_bp.get("/licenses")
+@login_required
 def list_licenses():
     q=License.query.join(LicenseName).outerjoin(LicenseModel,License.license_model_id==LicenseModel.id); search=request.args.get("search","").strip(); status=request.args.get("status","").strip(); license_type=request.args.get("license_type","").strip(); expiry_status=request.args.get("expiry_status","").strip()
     if search:
@@ -206,6 +219,7 @@ def list_licenses():
     return jsonify({"items":[_license_dict(x) for x in p.items],"pagination":{"page":page,"per_page":per_page,"total":p.total,"pages":p.pages}})
 
 @api_bp.get("/licenses/expiry-summary")
+@login_required
 def license_expiry_summary():
     rows=License.query.all()
     counts={"total":len(rows),"active":0,"empty":0,"expiring":0,"expired":0,"it":0,"scrapped":0,"expiring_30_days":0}
@@ -218,10 +232,12 @@ def license_expiry_summary():
     return jsonify(counts)
 
 @api_bp.get("/licenses/<int:license_id>")
+@login_required
 def get_license(license_id):
     x=db.session.get(License,license_id); return jsonify(_license_dict(x)) if x else (jsonify({"error":"Lisans kaydı bulunamadı"}),404)
 
 @api_bp.post("/licenses")
+@login_required
 def create_license():
     try:
         x=License(**_license_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); _audit("license.created","license",x.id,{"license_name_id":x.license_name_id,"license_model_id":x.license_model_id}); db.session.commit(); return jsonify(_license_dict(x)),201
@@ -230,6 +246,7 @@ def create_license():
 
 @api_bp.patch("/licenses/<int:license_id>")
 @api_bp.put("/licenses/<int:license_id>")
+@login_required
 def update_license(license_id):
     x=db.session.get(License,license_id)
     if not x:return jsonify({"error":"Lisans kaydı bulunamadı"}),404
@@ -239,6 +256,7 @@ def update_license(license_id):
     except Exception as e: db.session.rollback(); return jsonify({"error":"Lisans güncellenemedi","detail":str(e)}),409
 
 @api_bp.post("/licenses/<int:license_id>/assign")
+@login_required
 def assign_license(license_id):
     x=db.session.get(License,license_id); data=request.get_json(silent=True) or {}
     if not x:return jsonify({"error":"Lisans kaydı bulunamadı"}),404
@@ -247,12 +265,14 @@ def assign_license(license_id):
     except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
 
 @api_bp.post("/licenses/<int:license_id>/send-to-it")
+@login_required
 def send_license_to_it(license_id):
     x=db.session.get(License,license_id); data=request.get_json(silent=True) or {}
     if not x:return jsonify({"error":"Lisans kaydı bulunamadı"}),404
     old=x.status; x.status="it"; x.note=data.get("note",x.note); _audit("license.sent_to_it","license",x.id,{"from_status":old,"note":data.get("note")}); db.session.commit(); return jsonify(_license_dict(x))
 
 @api_bp.post("/licenses/<int:license_id>/scrap")
+@login_required
 def scrap_license(license_id):
     x=db.session.get(License,license_id); data=request.get_json(silent=True) or {}; reason=str(data.get("reason","")).strip()
     if not x:return jsonify({"error":"Lisans kaydı bulunamadı"}),404
