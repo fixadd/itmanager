@@ -44,7 +44,7 @@ def create_app(config_class=Config):
   elif path.startswith('/api/scrap') and method in {'POST','PUT','PATCH','DELETE'}:permission='scrap.manage'
   elif path.startswith('/api/reports'):permission='reports.view'
   elif path.startswith('/api/settings/product-catalog/model/') and path.endswith('/image') and method=='GET':permission=None
-  elif path.startswith('/api/settings') or path.startswith('/api/data') or path.startswith('/api/connections'):permission='settings.manage'
+  elif (path.startswith('/api/settings') or path.startswith('/api/data') or path.startswith('/api/connections')) and method in {'POST','PUT','PATCH','DELETE'}:permission='settings.manage'
   if permission and not user.has_permission(permission):return jsonify({'error':'forbidden','permission':permission}),403
  @app.get('/health')
  def health():return jsonify({'status':'ok','service':'itmanager-api'})
