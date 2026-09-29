@@ -20,11 +20,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     const t=primary.textContent.trim();
     const matched=/Yeni Envanter|Yeni Lisans|Stok Girişi|Yeni Talep|Yeni Satın Alma Talebi|Bakım Kaydı|Yeni Personel|Yeni Makale|Kullanıcı Ekle|Yeni Kayıt/i.test(t);
     if(!matched)return;
-    e.preventDefault();e.stopImmediatePropagation();
     const p=page(),title=t||'Yeni Kayıt';
-    // These modules own their create buttons/forms. Do not let this generic
-    // capture-phase handler intercept their controls before their handlers run.
+    // These modules own their create buttons/forms. Do not intercept their
+    // controls in the generic capture-phase handler.
     if(['admin','people','knowledge','requests'].includes(p)) return;
+    e.preventDefault();e.stopImmediatePropagation();
     if(window.ITUI&&window.IT_FORM_RENDER&&['inventory','licenses','stock','requests','knowledge'].includes(p)){ITUI.modal(title,IT_FORM_RENDER(p,title),{size:p==='inventory'?'modal-xl':'modal-lg'});return;}
     const labels=p.includes('licenses')?['Lisans Adı','Lisans Anahtarı','E-posta','Şifre','Not']:p.includes('stock')?['Donanım Tipi','Marka','Model','Miktar','Not']:p.includes('requests')?['Sipariş No','Talep Sahibi','Ürün Tipi','Donanım Tipi','Miktar','Marka','Model','Açıklama']:p.includes('people')?['Ad Soyad','Sicil No','Departman','Fabrika','Pozisyon','Durum']:['Başlık','Kategori','Açıklama','Durum'];
     const form='<div class="row g-3">'+labels.map(x=>'<div class="col-md-6"><label class="form-label">'+esc(x)+'</label><input class="form-control" placeholder="'+esc(x)+'"></div>').join('')+'</div>';
