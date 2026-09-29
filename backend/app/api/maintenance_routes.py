@@ -5,7 +5,7 @@ from sqlalchemy import or_
 
 from ..extensions import db
 from ..models import AuditLog, Inventory, MaintenanceRecord
-from .auth_routes import current_user
+from .auth_routes import current_user, login_required
 
 maintenance_bp = Blueprint("maintenance", __name__)
 
@@ -92,6 +92,7 @@ def _payload(data, existing=None):
 
 
 @maintenance_bp.get("/maintenance")
+@login_required
 def list_maintenance():
     q = MaintenanceRecord.query.join(Inventory)
     search = request.args.get("search", "").strip()
@@ -108,6 +109,7 @@ def list_maintenance():
 
 
 @maintenance_bp.get("/maintenance/summary")
+@login_required
 def maintenance_summary():
     rows = db.session.query(MaintenanceRecord.status, db.func.count(MaintenanceRecord.id)).group_by(MaintenanceRecord.status).all()
     counts = {status: int(total) for status, total in rows}
@@ -122,6 +124,7 @@ def maintenance_summary():
 
 
 @maintenance_bp.get("/maintenance/<int:maintenance_id>")
+@login_required
 def get_maintenance(maintenance_id):
     x = db.session.get(MaintenanceRecord, maintenance_id)
     if not x:
@@ -130,6 +133,7 @@ def get_maintenance(maintenance_id):
 
 
 @maintenance_bp.post("/maintenance")
+@login_required
 def create_maintenance():
     try:
         x = MaintenanceRecord(**_payload(request.get_json(silent=True) or {}))
@@ -147,7 +151,9 @@ def create_maintenance():
 
 
 @maintenance_bp.patch("/maintenance/<int:maintenance_id>")
+@login_required
 @maintenance_bp.put("/maintenance/<int:maintenance_id>")
+@login_required
 def update_maintenance(maintenance_id):
     x = db.session.get(MaintenanceRecord, maintenance_id)
     if not x:
@@ -168,6 +174,7 @@ def update_maintenance(maintenance_id):
 
 
 @maintenance_bp.post("/maintenance/<int:maintenance_id>/status")
+@login_required
 def change_status(maintenance_id):
     x = db.session.get(MaintenanceRecord, maintenance_id)
     data = request.get_json(silent=True) or {}
