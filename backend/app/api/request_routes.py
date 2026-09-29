@@ -66,8 +66,7 @@ def create_request():
   _audit("request.created",x.id,{"request_no":x.request_no,"item_count":len(items)});db.session.commit();return jsonify(_dict(x)),201
  except ValueError as e:db.session.rollback();return jsonify({"error":str(e)}),400
  except Exception as e:db.session.rollback();return jsonify({"error":"Talep oluşturulamadı","detail":str(e)}),409
-@requests_bp.patch("/requests/<int:request_id>")
-@requests_bp.put("/requests/<int:request_id>")
+@requests_bp.route("/requests/<int:request_id>", methods=["PATCH", "PUT"])
 @login_required
 def update_request(request_id):
  x=db.session.get(PurchaseRequest,request_id)
