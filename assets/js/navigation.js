@@ -71,8 +71,11 @@ function settings(){return generic('settings')}
 function logs(){return generic('logs')}
 function generic(k){return head(k,btn('Yeni Kayıt'))+filters()+panel(pages[k][0]+' Kayıtları',table(['KAYIT','AÇIKLAMA','SORUMLU','DURUM','TARİH'],[['#1001',pages[k][0]+' örnek kaydı','IT Manager',status('Aktif'),'04.09.2026'],['#1002','Örnek ikinci kayıt','IT Manager',status('İşlemde','info'),'03.09.2026']]))}
 function layout(k){return ({dashboard,barcode,inventory,licenses,stock,maintenance,requests,people,knowledge,scrap,reports,profile,admin,settings,logs}[k]||(()=>generic(k)))()}
+let renderedPage=null;
 function go(k){
   if(!pages[k])return;
+  const pageChanged=renderedPage!==k;
+  renderedPage=k;
   document.querySelectorAll('.nav-link').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.admin-submenu-link').forEach(x=>x.classList.remove('active'));
   document.querySelector('.nav-link[data-page="'+k+'"]')?.classList.add('active');
@@ -83,7 +86,7 @@ function go(k){
   content.innerHTML=layout(k);
   window.scrollTo(0,0);
   if(k==='dashboard')setTimeout(loadDashboard,0);
-  if(['inventory','licenses','knowledge','scrap','reports','settings','logs','profile'].includes(k)){
+  if(pageChanged && ['inventory','licenses','knowledge','scrap','reports','settings','logs','profile'].includes(k)){
     setTimeout(()=>window.dispatchEvent(new Event('hashchange')),0);
   }
   if(k==='barcode'){
