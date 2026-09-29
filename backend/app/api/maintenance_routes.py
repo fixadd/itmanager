@@ -150,9 +150,7 @@ def create_maintenance():
         return jsonify({"error": "Bakım kaydı oluşturulamadı"}), 409
 
 
-@maintenance_bp.patch("/maintenance/<int:maintenance_id>")
-@login_required
-@maintenance_bp.put("/maintenance/<int:maintenance_id>")
+@maintenance_bp.route("/maintenance/<int:maintenance_id>", methods=["PATCH", "PUT"])
 @login_required
 def update_maintenance(maintenance_id):
     x = db.session.get(MaintenanceRecord, maintenance_id)
