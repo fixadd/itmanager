@@ -60,7 +60,7 @@ def create_type():
     try:
         if not obj: obj=ProductType(name=name,active=True); db.session.add(obj); db.session.flush()
         obj.active=True
-        db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES('type',:id,'inventory'),('type',:id,'stock') ON CONFLICT DO NOTHING"),{"id":obj.id})
+        db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES('type',:id,:scope) ON CONFLICT DO NOTHING"),{"id":obj.id,"scope":scope})
         _audit("settings.catalog_type_created","product_type",obj.id,{"scope":scope,"name":obj.name});db.session.commit();return jsonify(_type(obj)),201
     except IntegrityError: db.session.rollback();return jsonify({"error":"name_exists"}),409
 
@@ -85,7 +85,7 @@ def delete_type(type_id):
     scope=_scope(request.args.get("scope")); obj=db.session.get(ProductType,type_id)
     if not scope:return jsonify({"error":"invalid_scope"}),400
     if not obj or not _scoped("type",type_id,scope):return jsonify({"error":"not_found"}),404
-    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='type' AND entity_id=:id"),{"id":type_id})
+    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='type' AND entity_id=:id AND scope=:scope"),{"id":type_id,"scope":scope})
     other=db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type='type' AND entity_id=:id LIMIT 1"),{"id":type_id}).first()
     if not other:obj.active=False
     _audit("settings.catalog_type_deleted","product_type",obj.id,{"scope":scope,"name":obj.name});db.session.commit();return jsonify({"ok":True})
@@ -102,8 +102,8 @@ def create_brand():
         if not obj: obj=Brand(name=name,active=True);db.session.add(obj);db.session.flush()
         obj.active=True
         if typ not in obj.product_types: obj.product_types.append(typ)
-        db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES('brand',:id,'inventory'),('brand',:id,'stock') ON CONFLICT DO NOTHING"),{"id":obj.id})
-        db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES('type',:id,'inventory'),('type',:id,'stock') ON CONFLICT DO NOTHING"),{"id":typ.id})
+        db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES('brand',:id,:scope) ON CONFLICT DO NOTHING"),{"id":obj.id,"scope":scope})
+        db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES('type',:id,:scope) ON CONFLICT DO NOTHING"),{"id":typ.id,"scope":scope})
         _audit("settings.catalog_brand_created","brand",obj.id,{"scope":scope,"product_type_id":typ.id});db.session.commit();return jsonify(_brand(obj)),201
     except IntegrityError: db.session.rollback();return jsonify({"error":"name_exists"}),409
 
@@ -132,8 +132,8 @@ def delete_brand(brand_id):
     scope=_scope(request.args.get("scope"));obj=db.session.get(Brand,brand_id)
     if not scope:return jsonify({"error":"invalid_scope"}),400
     if not obj or not _scoped("brand",brand_id,scope):return jsonify({"error":"not_found"}),404
-    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='brand' AND entity_id=:id"),{"id":brand_id})
-    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='model' AND entity_id IN (SELECT id FROM product_models WHERE brand_id=:id)"),{"id":brand_id})
+    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='brand' AND entity_id=:id AND scope=:scope"),{"id":brand_id,"scope":scope})
+    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='model' AND entity_id IN (SELECT id FROM product_models WHERE brand_id=:id) AND scope=:scope"),{"id":brand_id,"scope":scope})
     other=db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type='brand' AND entity_id=:id LIMIT 1"),{"id":brand_id}).first()
     if not other:obj.active=False
     _audit("settings.catalog_brand_deleted","brand",obj.id,{"scope":scope,"name":obj.name});db.session.commit();return jsonify({"ok":True})
@@ -150,7 +150,7 @@ def create_model():
         if not obj:obj=ProductModel(name=name,brand_id=brand.id,product_type_id=typ.id,active=True);db.session.add(obj);db.session.flush()
         obj.active=True
         for et,eid in (("type",typ.id),("brand",brand.id),("model",obj.id)):
-            db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES(:t,:id,'inventory'),(:t,:id,'stock') ON CONFLICT DO NOTHING"),{"t":et,"id":eid})
+            db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES(:t,:id,:scope) ON CONFLICT DO NOTHING"),{"t":et,"id":eid,"scope":scope})
         _audit("settings.catalog_model_created","product_model",obj.id,{"scope":scope,"brand_id":brand.id,"product_type_id":typ.id});db.session.commit();return jsonify(_model(obj)),201
     except IntegrityError: db.session.rollback();return jsonify({"error":"model_exists"}),409
 
