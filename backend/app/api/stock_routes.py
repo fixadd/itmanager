@@ -2,7 +2,7 @@ from decimal import Decimal, InvalidOperation
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
-from .auth_routes import current_user
+from .auth_routes import current_user, login_required
 from ..models import AssignmentHistory, AuditLog, Brand, Inventory, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement
 
 stock_bp = Blueprint("stock", __name__)
@@ -81,6 +81,7 @@ def _payload(data, item=None):
 
 
 @stock_bp.get("/stock")
+@login_required
 def list_stock():
     q = StockItem.query
     search = request.args.get("search", "").strip()
@@ -104,6 +105,7 @@ def list_stock():
 
 
 @stock_bp.get("/stock/summary")
+@login_required
 def stock_summary():
     from datetime import date
     from sqlalchemy import func
@@ -116,6 +118,7 @@ def stock_summary():
     return jsonify({"total": total, "critical": critical, "scrapped": scrapped, "movements_this_month": movements_this_month})
 
 @stock_bp.get("/stock/<int:stock_id>")
+@login_required
 def get_stock(stock_id):
     x = db.session.get(StockItem, stock_id)
     if not x:
@@ -124,6 +127,7 @@ def get_stock(stock_id):
 
 
 @stock_bp.get("/stock/<int:stock_id>/movements")
+@login_required
 def stock_movements(stock_id):
     x = db.session.get(StockItem, stock_id)
     if not x:
@@ -132,6 +136,7 @@ def stock_movements(stock_id):
 
 
 @stock_bp.post("/stock")
+@login_required
 def create_stock():
     data = request.get_json(silent=True) or {}
     try:
@@ -154,7 +159,9 @@ def create_stock():
 
 
 @stock_bp.patch("/stock/<int:stock_id>")
+@login_required
 @stock_bp.put("/stock/<int:stock_id>")
+@login_required
 def update_stock(stock_id):
     x = db.session.get(StockItem, stock_id)
     if not x:
@@ -176,6 +183,7 @@ def update_stock(stock_id):
 
 
 @stock_bp.post("/stock/<int:stock_id>/movement")
+@login_required
 def stock_movement(stock_id):
     x = db.session.get(StockItem, stock_id)
     data = request.get_json(silent=True) or {}
@@ -208,6 +216,7 @@ def stock_movement(stock_id):
 
 
 @stock_bp.post("/stock/<int:stock_id>/assign")
+@login_required
 def assign_stock(stock_id):
     x = db.session.get(StockItem, stock_id)
     data = request.get_json(silent=True) or {}
@@ -230,6 +239,7 @@ def assign_stock(stock_id):
 
 
 @stock_bp.post("/stock/<int:stock_id>/send-to-it")
+@login_required
 def send_stock_to_it(stock_id):
     x = db.session.get(StockItem, stock_id)
     data = request.get_json(silent=True) or {}
@@ -243,6 +253,7 @@ def send_stock_to_it(stock_id):
 
 
 @stock_bp.post("/stock/<int:stock_id>/scrap")
+@login_required
 def scrap_stock(stock_id):
     x = db.session.get(StockItem, stock_id)
     data = request.get_json(silent=True) or {}
