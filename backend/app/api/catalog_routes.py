@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request
+import os, uuid
+from flask import Blueprint, jsonify, request, send_from_directory, current_app
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from ..extensions import db
@@ -7,6 +8,17 @@ from .auth_routes import permission_required, current_user
 
 catalog_bp = Blueprint("catalog", __name__)
 SCOPES = {"inventory", "stock"}
+IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
+IMAGE_MIMES = {"image/png", "image/jpeg", "image/webp"}
+MAX_IMAGE_SIZE = 10 * 1024 * 1024
+
+def _product_image_dir():
+    path = os.path.join(current_app.instance_path, "product_images")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+def _image_url(model_id):
+    return f"/api/settings/product-catalog/model/{model_id}/image"
 
 def _scope(value):
     value = str(value or "inventory").strip().lower()
@@ -23,7 +35,7 @@ def _ids(entity_type, scope):
 
 def _type(x): return {"id":x.id,"name":x.name,"active":x.active}
 def _brand(x): return {"id":x.id,"name":x.name,"active":x.active,"product_type_ids":[t.id for t in x.product_types if t.active]}
-def _model(x): return {"id":x.id,"name":x.name,"active":x.active,"brand_id":x.brand_id,"product_type_id":x.product_type_id}
+def _model(x): return {"id":x.id,"name":x.name,"active":x.active,"brand_id":x.brand_id,"product_type_id":x.product_type_id,"image_path":x.image_path}
 
 def _scoped(entity_type, entity_id, scope):
     return db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type=:t AND entity_id=:id AND scope=:scope"),
@@ -141,6 +153,51 @@ def create_model():
             db.session.execute(text("INSERT INTO product_catalog_scopes(entity_type,entity_id,scope) VALUES(:t,:id,'inventory'),(:t,:id,'stock') ON CONFLICT DO NOTHING"),{"t":et,"id":eid})
         _audit("settings.catalog_model_created","product_model",obj.id,{"scope":scope,"brand_id":brand.id,"product_type_id":typ.id});db.session.commit();return jsonify(_model(obj)),201
     except IntegrityError: db.session.rollback();return jsonify({"error":"model_exists"}),409
+
+@catalog_bp.post("/settings/product-catalog/model/<int:model_id>/image")
+@permission_required("settings.manage")
+def upload_model_image(model_id):
+    obj = db.session.get(ProductModel, model_id)
+    if not obj or not obj.active:
+        return jsonify({"error": "not_found"}), 404
+    f = request.files.get("image")
+    if not f or not f.filename:
+        return jsonify({"error": "image_required"}), 400
+    ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+    if ext not in IMAGE_EXTENSIONS or (f.mimetype or "").lower() not in IMAGE_MIMES:
+        return jsonify({"error": "Sadece PNG, JPG ve WEBP görseller kabul edilir"}), 400
+    f.stream.seek(0, 2)
+    size = f.stream.tell()
+    f.stream.seek(0)
+    if size <= 0 or size > MAX_IMAGE_SIZE:
+        return jsonify({"error": "Görsel 10 MB sınırını aşamaz"}), 400
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    path = os.path.join(_product_image_dir(), filename)
+    old_path = obj.image_path
+    f.save(path)
+    obj.image_path = _image_url(obj.id)
+    try:
+        _audit("settings.product_model_image_updated", "product_model", obj.id, {"filename": filename, "size": size})
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        if os.path.exists(path):
+            os.remove(path)
+        raise
+    if old_path and old_path.startswith("/api/settings/product-catalog/model/"):
+        old_name = old_path.rsplit("/", 1)[-1]
+        old_file = os.path.join(_product_image_dir(), old_name)
+        if os.path.exists(old_file) and old_file != path:
+            os.remove(old_file)
+    return jsonify(_model(obj))
+
+@catalog_bp.get("/settings/product-catalog/model/<int:model_id>/image")
+def get_model_image(model_id):
+    obj = db.session.get(ProductModel, model_id)
+    if not obj or not obj.image_path:
+        return jsonify({"error": "image_not_found"}), 404
+    filename = obj.image_path.rsplit("/", 1)[-1]
+    return send_from_directory(_product_image_dir(), filename, as_attachment=False)
 
 @catalog_bp.patch("/settings/product-catalog/model/<int:model_id>")
 @permission_required("settings.manage")
