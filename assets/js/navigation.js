@@ -84,7 +84,8 @@ function handleNavHash(){
   const page=m?.[1];
   if(!page||!pages[page])return;
   if(page==='inventory' && m[2]){
-    if(window.IT_INVENTORY_API?.openDetail) window.IT_INVENTORY_API.openDetail(Number(m[2]));
+    go('inventory');
+    setTimeout(()=>window.IT_INVENTORY_API?.openDetail(Number(m[2])),0);
     return;
   }
   if(page==='stock' && m[2]){ window.dispatchEvent(new Event('hashchange')); return; }
