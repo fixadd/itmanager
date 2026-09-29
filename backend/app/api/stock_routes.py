@@ -140,7 +140,6 @@ def create_stock():
         x = StockItem(**vals, quantity=Decimal("0"))
         db.session.add(x)
         db.session.flush()
-        x.barcode = f"STK-{x.id:06d}"
         x.quantity = quantity
         db.session.add(StockMovement(stock_item_id=x.id, movement_type="in", quantity=quantity, unit=x.unit, note=data.get("note")))
         _audit("stock.created", x.id, {"quantity": float(quantity)})
