@@ -25,6 +25,27 @@ function editBox(title,fields){
   const body=fields.map((f,i)=>`<div class="mb-3"><label class="form-label">${esc(f.label)}</label>${f.html||`<input class="form-control" data-edit-field="${esc(f.key)}" value="${esc(f.value||'')}" ${f.required?'required':''}>`}</div>`).join('');
   document.body.insertAdjacentHTML('beforeend',`<div class="modal fade" id="${id}" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><form class="modal-content border-0 shadow"><div class="modal-header"><h5 class="modal-title">${esc(title)}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">${body}</div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button><button class="btn btn-primary">Kaydet</button></div></form></div></div>`);
   const el=document.getElementById(id),modal=new bootstrap.Modal(el),form=el.querySelector('form');let done=false;
+  el.querySelectorAll('[data-edit-cascade-source]').forEach(source=>{
+    const targetName=source.dataset.editCascadeSource;
+    const target=el.querySelector(`[data-edit-cascade-target="${targetName}"]`);
+    if(!target)return;
+    const sync=()=>{
+      const value=String(source.value||'');
+      let selectedVisible=false;
+      [...target.options].forEach(option=>{
+        const types=(option.dataset.productTypes||'').split(',').filter(Boolean);
+        const visible=!value||types.includes(value);
+        option.hidden=!visible;
+        if(visible&&option.value===target.value)selectedVisible=true;
+      });
+      if(!selectedVisible){
+        const first=[...target.options].find(option=>!option.hidden&&option.value);
+        target.value=first?.value||'';
+      }
+    };
+    source.addEventListener('change',sync);
+    sync();
+  });
   form.onsubmit=e=>{e.preventDefault();if(!form.reportValidity())return;const out={};fields.forEach(f=>{const node=el.querySelector(`[data-edit-field="${f.key}"]`);out[f.key]=node?.value??''});done=true;modal.hide();resolve(out)};
   el.addEventListener('hidden.bs.modal',()=>{el.remove();if(!done)resolve(null)},{once:true});modal.show();
  });
@@ -88,7 +109,7 @@ async function editMaster(kind,id){
  const item=(catalog?.[kind==='type'?'hardware_types':kind==='brand'?'brands':'models']||[]).find(x=>x.id===id);if(!item)return;
  if(kind==='type'){const out=await editBox('Donanım Tipi Düzenle',[{key:'name',label:'Donanım Tipi',value:item.name,required:true}]);if(!out)return;await req(`/settings/product-catalog/type/${id}?scope=${scope}`,{method:'PATCH',body:JSON.stringify(out)});}
  if(kind==='brand'){const types=catalog.hardware_types||[];const html=`<select class="form-select" data-edit-field="product_type_id">${types.map(t=>`<option value="${t.id}" ${(item.product_type_ids||[]).map(String).includes(String(t.id))?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`;const out=await editBox('Marka Düzenle',[{key:'name',label:'Marka',value:item.name,required:true},{key:'product_type_id',label:'Donanım Tipi',value:item.product_type_ids?.[0],html}]);if(!out)return;await req(`/settings/product-catalog/brand/${id}?scope=${scope}`,{method:'PATCH',body:JSON.stringify({name:out.name,product_type_id:Number(out.product_type_id)})});}
- if(kind==='model'){const types=catalog.hardware_types||[],brands=catalog.brands||[];const th=`<select class="form-select" data-edit-field="product_type_id">${types.map(t=>`<option value="${t.id}" ${String(t.id)===String(item.product_type_id)?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`;const bh=`<select class="form-select" data-edit-field="brand_id">${brands.filter(b=>(b.product_type_ids||[]).map(String).includes(String(item.product_type_id))).map(b=>`<option value="${b.id}" ${String(b.id)===String(item.brand_id)?'selected':''}>${esc(b.name)}</option>`).join('')}</select>`;const out=await editBox('Model Düzenle',[{key:'name',label:'Model',value:item.name,required:true},{key:'product_type_id',label:'Donanım Tipi',value:item.product_type_id,html:th},{key:'brand_id',label:'Marka',value:item.brand_id,html:bh}]);if(!out)return;await req(`/settings/product-catalog/model/${id}?scope=${scope}`,{method:'PATCH',body:JSON.stringify({name:out.name,product_type_id:Number(out.product_type_id),brand_id:Number(out.brand_id)})});}
+ if(kind==='model'){const types=catalog.hardware_types||[],brands=catalog.brands||[];const th=`<select class="form-select" data-edit-field="product_type_id" data-edit-cascade-source="brand_id">${types.map(t=>`<option value="${t.id}" ${String(t.id)===String(item.product_type_id)?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`;const bh=`<select class="form-select" data-edit-field="brand_id" data-edit-cascade-target="brand_id">${brands.map(b=>`<option value="${b.id}" data-product-types="${(b.product_type_ids||[]).join(',')}" ${String(b.id)===String(item.brand_id)?'selected':''}>${esc(b.name)}</option>`).join('')}</select>`;const out=await editBox('Model Düzenle',[{key:'name',label:'Model',value:item.name,required:true},{key:'product_type_id',label:'Donanım Tipi',value:item.product_type_id,html:th},{key:'brand_id',label:'Marka',value:item.brand_id,html:bh}]);if(!out)return;await req(`/settings/product-catalog/model/${id}?scope=${scope}`,{method:'PATCH',body:JSON.stringify({name:out.name,product_type_id:Number(out.product_type_id),brand_id:Number(out.brand_id)})});}
  toast('Tanım güncellendi');await load(scope);
 }
 async function deleteMaster(kind,id,name){if(!(await confirmBox('Tanımı Sil',`“${name}” tanımını ${scope==='inventory'?'Envanter':'Stok'} Takip listesinden kaldırmak istediğinize emin misiniz? Mevcut varlık/stok kayıtları silinmez.`)))return;try{await req(`/settings/product-catalog/${kind}/${id}?scope=${scope}`,{method:'DELETE'});toast('Tanım silindi');await load(scope);}catch(e){toast(msg(e))}}
