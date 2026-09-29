@@ -26,7 +26,7 @@ def _resolve(model, value, field):
     return obj
 
 def _inventory_dict(x):
-    return {"id":x.id,"barcode":x.barcode,"inventory_no":x.inventory_no,"computer_name":x.computer_name,"serial_no":x.serial_no,"machine_no":x.machine_no,"ifs_no":x.ifs_no,"note":x.note,"status":x.status,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"device_type":{"id":x.product_type_id,"name":x.product_type.name} if x.product_type else None,"brand":{"id":x.brand_id,"name":x.brand.name} if x.brand else None,"model":{"id":x.model_id,"name":x.model.name} if x.model else None,"personnel":{"id":x.personnel_id,"name":x.personnel.name} if x.personnel else None,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+    return {"id":x.id,"barcode":x.barcode,"inventory_no":x.inventory_no,"computer_name":x.computer_name,"serial_no":x.serial_no,"machine_no":x.machine_no,"ifs_no":x.ifs_no,"note":x.note,"status":x.status,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"device_type":{"id":x.product_type_id,"name":x.product_type.name} if x.product_type else None,"brand":{"id":x.brand_id,"name":x.brand.name} if x.brand else None,"model":{"id":x.model_id,"name":x.model.name,"image_path":x.model.image_path} if x.model else None,"personnel":{"id":x.personnel_id,"name":x.personnel.name} if x.personnel else None,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 
 @api_bp.get("/master-data")
 def master_data():
