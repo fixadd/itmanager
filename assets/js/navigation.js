@@ -71,17 +71,21 @@ function settings(){return generic('settings')}
 function logs(){return generic('logs')}
 function generic(k){return head(k,btn('Yeni Kayıt'))+filters()+panel(pages[k][0]+' Kayıtları',table(['KAYIT','AÇIKLAMA','SORUMLU','DURUM','TARİH'],[['#1001',pages[k][0]+' örnek kaydı','IT Manager',status('Aktif'),'04.09.2026'],['#1002','Örnek ikinci kayıt','IT Manager',status('İşlemde','info'),'03.09.2026']]))}
 function layout(k){return ({dashboard,barcode,inventory,licenses,stock,maintenance,requests,people,knowledge,scrap,reports,profile,admin,settings,logs}[k]||(()=>generic(k)))()}
-function go(k){if(!pages[k])return;
-// Main navigation owns the active state. Never leave an Admin submenu item active when leaving Admin.
-document.querySelectorAll('.nav-link').forEach(x=>x.classList.remove('active'));
-document.querySelectorAll('.admin-submenu-link').forEach(x=>x.classList.remove('active'));
-document.querySelector(`.nav-link[data-page="${k}"]`)?.classList.add('active');
-if(k!=='admin' && !(k==='stock' && /^#stock\/\d+$/.test(location.hash)))history.replaceState(null,'',location.pathname+location.search+'#'+k);
+function go(k){
+  if(!pages[k])return;
+  document.querySelectorAll('.nav-link').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.admin-submenu-link').forEach(x=>x.classList.remove('active'));
+  document.querySelector('.nav-link[data-page="'+k+'"]')?.classList.add('active');
+  if(k!=='admin' && !(k==='stock' && /^#stock\/\d+$/.test(location.hash))){
+    history.replaceState(null,'',location.pathname+location.search+'#'+k);
+  }
   crumb.textContent=pages[k][0];
   content.innerHTML=layout(k);
   window.scrollTo(0,0);
-  if(k==='dashboard')setTimeout(()=>loadDashboard(),0);
-  if(['inventory','licenses','knowledge','scrap','reports','settings','logs','profile'].includes(k))setTimeout(()=>window.dispatchEvent(new Event('hashchange')),0);
+  if(k==='dashboard')setTimeout(loadDashboard,0);
+  if(['inventory','licenses','knowledge','scrap','reports','settings','logs','profile'].includes(k)){
+    setTimeout(()=>window.dispatchEvent(new Event('hashchange')),0);
+  }
   if(k==='barcode'){
     const run=async()=>{
       const input=document.querySelector('#navBarcode');
@@ -89,18 +93,21 @@ if(k!=='admin' && !(k==='stock' && /^#stock\/\d+$/.test(location.hash)))history.
       const q=input?.value.trim();
       if(!q){box.innerHTML='<div class="alert alert-warning">Barkod girin veya okutun.</div>';return;}
       try{
-        const r=await fetch('/api/barcode/'+encodeURIComponent(q),{headers:{Accept:'application/json'}});
-        const d=await r.json().catch(()=>({}));
-        if(!r.ok)throw new Error(d.error||'Barkod bulunamadı');
-        if(d.detail_url)location.hash=d.detail_url.replace(/^#/,'');
-      }catch(e){box.innerHTML='<div class="alert alert-danger">'+esc(e.message)+'</div>';}
+        const response=await fetch('/api/barcode/'+encodeURIComponent(q),{headers:{Accept:'application/json'}});
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(data.error||'Barkod bulunamadı');
+        if(data.detail_url)location.hash=data.detail_url.replace(/^#/,'');
+      }catch(e){
+        box.innerHTML='<div class="alert alert-danger">'+esc(e.message)+'</div>';
+      }
     };
     document.querySelector('#navBarcodeBtn')?.addEventListener('click',run);
     document.querySelector('#navBarcode')?.addEventListener('keydown',e=>{if(e.key==='Enter')run();});
   }
+}
 function handleNavHash(){
   const raw=location.hash.replace(/^#/,'');
-  const m=raw.match(/^([^/]+)(?:\/(\d+))?/);
+  const m=raw.match(/^([^/]+)(?:\/(d+))?/);
   const page=m?.[1];
   if(!page||!pages[page])return;
   if(page==='inventory' && m[2]){
@@ -108,7 +115,6 @@ function handleNavHash(){
     setTimeout(()=>window.IT_INVENTORY_API?.openDetail(Number(m[2])),0);
     return;
   }
-  if(page==='stock' && m[2]){ window.dispatchEvent(new Event('hashchange')); return; }
   go(page);
 }
 document.addEventListener('click',e=>{
@@ -121,13 +127,13 @@ document.addEventListener('click',e=>{
     const open=!submenu?.classList.contains('open');
     submenu?.classList.toggle('open',open);
     link.setAttribute('aria-expanded',String(open));
-    if(location.hash!=='#admin')location.hash='#admin'; else go('admin');
+    if(location.hash!=='#admin')location.hash='#admin';else go('admin');
     return;
   }
-  if(location.hash!=='#'+page)location.hash='#'+page; else go(page);
+  if(location.hash!=='#'+page)location.hash='#'+page;else go(page);
 });
 window.addEventListener('hashchange',handleNavHash);
 window.IT_NAV={go,handleNavHash};
 const initial=location.hash.replace(/^#/,'').match(/^([^/]+)/)?.[1];
-if(initial&&pages[initial])setTimeout(()=>handleNavHash(),0);
+if(initial&&pages[initial])setTimeout(handleNavHash,0);
 });
