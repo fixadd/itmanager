@@ -41,7 +41,7 @@ function payload(form){
  return {request_no:form.querySelector('[name="order_no"],[name="request_no"]')?.value?.trim(),requester_id:form.querySelector('[name="requester_id"]')?.value||null,department_id:form.querySelector('[name="department_id"]')?.value||null,factory_id:form.querySelector('[name="factory_id"]')?.value||null,priority:form.querySelector('[name="priority"]')?.value||'normal',note:form.querySelector('[name="note"]')?.value||null,items};
 }
 async function save(form){
- if(!form.reportValidity())return null;if(!form.reportValidity())return null;const data=payload(form);if(!data.items.length)throw Error('En az bir talep kalemi ekleyin');
+ if(!form.reportValidity())return null;const data=payload(form);if(!data.items.length)throw Error('En az bir talep kalemi ekleyin');
  const r=await fetch('/api/requests',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(data)});const x=await r.json();if(!r.ok)throw Error(x.error||'Talep kaydedilemedi');return x;
 }
 function notify(msg){if(typeof window.showToast==='function')window.showToast(msg);else alert(msg)}
