@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from ..extensions import db
 from ..models import License, Personnel, AssignmentHistory, AuditLog
-from .auth_routes import current_user
+from .auth_routes import current_user, login_required
 
 license_owner_bp = Blueprint("license_owner", __name__)
 
@@ -13,12 +13,14 @@ def _audit(action, license_id, details):
 
 
 @license_owner_bp.get("/license-owners")
+@login_required
 def owners():
     rows = License.query.all()
     return jsonify({"items": [{"license_id": x.id, "personnel": {"id": x.personnel.id, "name": x.personnel.name} if x.personnel else None} for x in rows]})
 
 
 @license_owner_bp.post("/license-owners/<int:license_id>")
+@login_required
 def assign_owner(license_id):
     license_obj = db.session.get(License, license_id)
     if not license_obj:
@@ -39,6 +41,7 @@ def assign_owner(license_id):
 
 
 @license_owner_bp.get("/license-owners/<int:license_id>/history")
+@login_required
 def owner_history(license_id):
     license_obj=db.session.get(License,license_id)
     if not license_obj:
@@ -48,6 +51,7 @@ def owner_history(license_id):
     return jsonify({"items":[{"id":r.id,"personnel":{"id":r.personnel_id,"name":people.get(r.personnel_id,"—")},"action":r.action,"note":r.note,"created_at":r.created_at.isoformat() if r.created_at else None} for r in rows]})
 
 @license_owner_bp.post("/license-owners/<int:license_id>/clear")
+@login_required
 def clear_owner(license_id):
     license_obj = db.session.get(License, license_id)
     if not license_obj:
