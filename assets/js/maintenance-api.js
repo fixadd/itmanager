@@ -44,6 +44,23 @@ try{
 }catch(e){toast(e.message)}}
 
 document.addEventListener('click',async e=>{
+ const b=e.target.closest('#itManagerModal [data-save]');
+ if(b&&location.hash==='#maintenance'){
+  e.preventDefault();e.stopImmediatePropagation();
+  const editId=b.dataset.maintEdit;
+  if(!editId){await save();return}
+  const form=document.querySelector('#itDynamicForm[data-form-page="maintenance"]');
+  if(!form||!form.reportValidity())return;
+  try{
+   const p=Object.fromEntries(new FormData(form).entries());
+   if(p.cost)p.cost=Number(p.cost);else delete p.cost;
+   await json('/api/maintenance/'+editId,{method:'PATCH',body:JSON.stringify(p)});
+   bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide();
+   toast('Bakım kaydı güncellendi.');
+   await load();
+  }catch(err){toast(err.message)}
+  return;
+ }
  const newBtn=e.target.closest('#maintenanceNew');if(newBtn&&location.hash==='#maintenance'){e.preventDefault();e.stopImmediatePropagation();openCreate();return}
  if(e.target.closest('#maintenanceRefresh')){e.preventDefault();load();return}
  const close=e.target.closest('.maintenance-close');if(close){e.preventDefault();close.closest('.inline-detail')?.remove();return}
@@ -52,7 +69,6 @@ document.addEventListener('click',async e=>{
  if(e.target.closest('.maintenance-actions')){e.preventDefault();e.stopImmediatePropagation();document.querySelectorAll('.row-operation-menu').forEach(x=>x.remove());const m=document.createElement('div');m.className='row-operation-menu';m.innerHTML='<button data-maint-op="detail"><i class="ti ti-eye"></i>Detay</button><button data-maint-op="edit"><i class="ti ti-edit"></i>Düzenle</button><button data-maint-op="status"><i class="ti ti-refresh"></i>Durum Değiştir</button><button data-maint-op="service"><i class="ti ti-truck-delivery"></i>Servise Gönder</button><button data-maint-op="complete"><i class="ti ti-circle-check"></i>Tamamlandı</button>';tr.querySelector('.action-cell').appendChild(m);return}
  const op=e.target.closest('[data-maint-op]');if(op){e.preventDefault();e.stopImmediatePropagation();op.parentElement.remove();operation(id,op.dataset.maintOp)}
 });
-document.addEventListener('click',async e=>{const b=e.target.closest('#itManagerModal [data-save]');if(!b||location.hash!=='#maintenance')return;e.preventDefault();e.stopImmediatePropagation();const editId=b.dataset.maintEdit;if(!editId){save();return}const f=document.querySelector('#itDynamicForm[data-form-page="maintenance"]');if(!f||!f.reportValidity())return;try{const p=Object.fromEntries(new FormData(f).entries());if(p.cost)p.cost=Number(p.cost);else delete p.cost;await json('/api/maintenance/'+editId,{method:'PATCH',body:JSON.stringify(p)});bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide();toast('Bakım kaydı güncellendi.');await load()}catch(err){toast(err.message)}},true);
 let timer;
 document.addEventListener('input',e=>{if(e.target.id==='maintenanceSearch'){clearTimeout(timer);timer=setTimeout(load,250)}});
 document.addEventListener('change',e=>{if(e.target.id==='maintenanceStatus')load()});document.addEventListener('click',e=>{const tab=e.target.closest('[data-maint-tab]');if(!tab)return;const s=document.querySelector('#maintenanceStatus');if(s)s.value=tab.dataset.maintTab==='all'?'':tab.dataset.maintTab;document.querySelectorAll('[data-maint-tab]').forEach(x=>x.classList.remove('active'));tab.classList.add('active');load()});
