@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
 from ..models import AssignmentHistory, AuditLog, Brand, Department, Factory, Inventory, License, LicenseModel, LicenseName, Personnel, ProductModel, ProductType, ScrapRecord, StockItem
-from .auth_routes import current_user
+from .auth_routes import current_user, login_required
 
 api_bp = Blueprint("api", __name__)
 
