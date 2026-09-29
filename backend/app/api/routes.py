@@ -88,7 +88,7 @@ def _inventory_payload(data,item=None):
 @api_bp.post("/inventory")
 def create_inventory():
     try:
-        x=Inventory(**_inventory_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); x.barcode=f"ENV-{x.id:06d}"; _audit("inventory.created","inventory",x.id,{"inventory_no":x.inventory_no}); db.session.commit(); return jsonify(_inventory_dict(x)),201
+        x=Inventory(**_inventory_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); _audit("inventory.created","inventory",x.id,{"inventory_no":x.inventory_no}); db.session.commit(); return jsonify(_inventory_dict(x)),201
     except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
     except Exception as e: db.session.rollback(); return jsonify({"error":"Envanter kaydı oluşturulamadı","detail":str(e)}),409
 
@@ -208,7 +208,7 @@ def get_license(license_id):
 @api_bp.post("/licenses")
 def create_license():
     try:
-        x=License(**_license_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); x.barcode=f"LIC-{x.id:06d}"; _audit("license.created","license",x.id,{"license_name_id":x.license_name_id,"license_model_id":x.license_model_id}); db.session.commit(); return jsonify(_license_dict(x)),201
+        x=License(**_license_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); _audit("license.created","license",x.id,{"license_name_id":x.license_name_id,"license_model_id":x.license_model_id}); db.session.commit(); return jsonify(_license_dict(x)),201
     except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
     except Exception as e: db.session.rollback(); return jsonify({"error":"Lisans kaydı oluşturulamadı","detail":str(e)}),409
 
