@@ -184,11 +184,25 @@ def change_status(maintenance_id):
     if status not in ALLOWED_STATUS:
         return jsonify({"error": "Geçersiz bakım durumu"}), 400
     now = datetime.now(timezone.utc)
-    x.status = status
-    if status in {"in_progress", "service"} and not x.started_at:
-        x.started_at = now
-    if status == "completed" and not x.completed_at:
-        x.completed_at = now
-    _audit("maintenance.status_changed", x.id, {"status": status, "note": data.get("note")})
-    db.session.commit()
-    return jsonify(_dict(x))
+    try:
+        old_status = x.status
+        x.status = status
+        if status in {"in_progress", "service"} and not x.started_at:
+            x.started_at = now
+        if status == "completed":
+            if not x.started_at:
+                x.started_at = now
+            if not x.completed_at:
+                x.completed_at = now
+        else:
+            x.completed_at = None
+        _audit("maintenance.status_changed", x.id, {
+            "from_status": old_status,
+            "status": status,
+            "note": data.get("note"),
+        })
+        db.session.commit()
+        return jsonify(_dict(x))
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Bakım durumu güncellenemedi"}), 409
