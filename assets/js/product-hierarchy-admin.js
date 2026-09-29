@@ -25,7 +25,7 @@ function editBox(title,fields){
   const body=fields.map((f,i)=>`<div class="mb-3"><label class="form-label">${esc(f.label)}</label>${f.html||`<input class="form-control" data-edit-field="${esc(f.key)}" value="${esc(f.value||'')}" ${f.required?'required':''}>`}</div>`).join('');
   document.body.insertAdjacentHTML('beforeend',`<div class="modal fade" id="${id}" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><form class="modal-content border-0 shadow"><div class="modal-header"><h5 class="modal-title">${esc(title)}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">${body}</div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button><button class="btn btn-primary">Kaydet</button></div></form></div></div>`);
   const el=document.getElementById(id),modal=new bootstrap.Modal(el),form=el.querySelector('form');let done=false;
-  form.onsubmit=e=>{e.preventDefault();const out={};fields.forEach(f=>{const node=el.querySelector(`[data-edit-field="${f.key}"]`);out[f.key]=node?.value??''});done=true;modal.hide();resolve(out)};
+  form.onsubmit=e=>{e.preventDefault();if(!form.reportValidity())return;const out={};fields.forEach(f=>{const node=el.querySelector(`[data-edit-field="${f.key}"]`);out[f.key]=node?.value??''});done=true;modal.hide();resolve(out)};
   el.addEventListener('hidden.bs.modal',()=>{el.remove();if(!done)resolve(null)},{once:true});modal.show();
  });
 }
