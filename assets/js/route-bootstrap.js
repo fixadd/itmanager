@@ -9,6 +9,9 @@ window.addEventListener('DOMContentLoaded',()=>{
  const hashRoute=pageFromPath(hash);
  const r=pageFromPath(initialPath);
  const target=hashRoute?.page||r?.page||'dashboard';
- setTimeout(()=>{const a=document.querySelector(`.nav-link[data-page="${target}"]`);if(a)a.click();if(hashRoute?.id&&(hashRoute.page==='inventory'||hashRoute.page==='stock')){const detailHash=`#${hashRoute.page}/${encodeURIComponent(hashRoute.id)}`;if(location.hash===detailHash)window.dispatchEvent(new HashChangeEvent('hashchange'));else location.hash=detailHash;}else if(r?.id&&r.page==='inventory'){const detailHash=`#inventory/${encodeURIComponent(r.id)}`;if(location.hash===detailHash)window.dispatchEvent(new HashChangeEvent('hashchange'));else location.hash=detailHash;}},0);
+ setTimeout(()=>{
+  if(window.IT_NAV?.handleNavHash){window.IT_NAV.handleNavHash();return;}
+  const a=document.querySelector(`.nav-link[data-page="${target}"]`);if(a)a.click();
+},0);
 });
 })();
