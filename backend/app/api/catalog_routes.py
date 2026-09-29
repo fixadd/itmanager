@@ -4,7 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from ..extensions import db
 from ..models import AuditLog, Brand, ProductModel, ProductType
-from .auth_routes import permission_required, current_user, login_required
+from .auth_routes import login_required, permission_required, current_user, login_required
 
 catalog_bp = Blueprint("catalog", __name__)
 SCOPES = {"inventory", "stock"}
@@ -229,6 +229,7 @@ def delete_catalog_model(model_id):
     _audit("settings.catalog_model_deleted","product_model",obj.id,{"scope":scope,"name":obj.name});db.session.commit();return jsonify({"ok":True})
 
 @catalog_bp.get("/settings/license-catalog")
+@login_required
 def list_license_catalog():
     rows=db.session.execute(text("SELECT ln.id AS license_name_id,ln.name AS license_name,ln.active AS license_name_active,lm.id AS model_id,lm.name AS model_name,lm.active AS model_active FROM license_names ln LEFT JOIN license_models lm ON lm.license_name_id=ln.id ORDER BY ln.name,lm.name" )).mappings().all()
     items={}
