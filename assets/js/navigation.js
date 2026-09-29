@@ -77,7 +77,7 @@ function go(k){
   const pageChanged=renderedPage!==k;
   renderedPage=k;
   document.querySelectorAll('.nav-link').forEach(x=>x.classList.remove('active'));
-  document.querySelectorAll('.admin-submenu-link').forEach(x=>x.classList.remove('active'));
+  if(k!=='admin' && !((k==='inventory'||k==='stock'||k==='licenses') && new RegExp('^#'+k+'/(\\d+)$').test(location.hash))){
   document.querySelector('.nav-link[data-page="'+k+'"]')?.classList.add('active');
   if(k!=='admin' && !((k==='inventory'||k==='stock'||k==='licenses') && new RegExp('^#'+k+'\\\\/\\\\d+
     history.replaceState(null,'',location.pathname+location.search+'#'+k);
