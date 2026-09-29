@@ -84,6 +84,8 @@ def get_inventory(inventory_id):
     x=db.session.get(Inventory,inventory_id)
     return jsonify(_inventory_dict(x)) if x else (jsonify({"error":"Envanter kaydı bulunamadı"}),404)
 
+INVENTORY_STATUSES={"active","faulty","maintenance","it","scrapped"}
+
 def _inventory_payload(data,item=None):
     vals={}
     inv=data.get("inventory_no", item.inventory_no if item else None)
@@ -98,13 +100,19 @@ def _inventory_payload(data,item=None):
     if model_value not in (None,""):
         m=_resolve(ProductModel,model_value,"model")
         if m.brand_id!=vals["brand_id"]: raise ValueError("Model markayla eşleşmiyor")
+        if m.product_type_id is not None and m.product_type_id!=vals["product_type_id"]: raise ValueError("Model donanım tipiyle eşleşmiyor")
         vals["model_id"]=m.id
     else: vals["model_id"]=None
     person_value=data.get("person",data.get("personnel_id",item.personnel_id if item else None))
     if person_value not in (None,""): vals["personnel_id"]=_resolve(Personnel,person_value,"personel").id
     else: vals["personnel_id"]=None
     for key in ("computer_name","serial_no","machine_no","ifs_no","note","status"):
-        if key in data: vals[key]=data[key] if data[key] not in ("",None) else None
+        if key in data:
+            value=data[key] if data[key] not in ("",None) else None
+            if key=="status" and value is not None:
+                value=str(value).strip().lower()
+                if value not in INVENTORY_STATUSES: raise ValueError("Geçersiz envanter durumu")
+            vals[key]=value
     return vals
 
 @api_bp.post("/inventory")
@@ -131,23 +139,54 @@ def update_inventory(inventory_id):
 def assign_inventory(inventory_id):
     x=db.session.get(Inventory,inventory_id); data=request.get_json(silent=True) or {}
     if not x:return jsonify({"error":"Envanter kaydı bulunamadı"}),404
+    if x.status=="scrapped":return jsonify({"error":"Hurda durumundaki envanter atanamaz"}),400
     try:
-        p=_resolve(Personnel,data.get("personnel_id",data.get("person")),"personel"); old=x.personnel_id; x.personnel_id=p.id; db.session.add(AssignmentHistory(personnel_id=p.id,asset_type="inventory",asset_id=x.id,action="assign",note=data.get("note"))); _audit("inventory.assigned","inventory",x.id,{"from_personnel_id":old,"to_personnel_id":p.id,"note":data.get("note")}); db.session.commit(); return jsonify(_inventory_dict(x))
-    except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
+        p=_resolve(Personnel,data.get("personnel_id",data.get("person")),"personel")
+        old=x.personnel_id
+        if old!=p.id:
+            if old:
+                db.session.add(AssignmentHistory(personnel_id=old,asset_type="inventory",asset_id=x.id,action="unassign",note=data.get("note")))
+            x.personnel_id=p.id
+            db.session.add(AssignmentHistory(personnel_id=p.id,asset_type="inventory",asset_id=x.id,action="assign",note=data.get("note")))
+        _audit("inventory.assigned","inventory",x.id,{"from_personnel_id":old,"to_personnel_id":p.id,"note":data.get("note")})
+        db.session.commit()
+        return jsonify(_inventory_dict(x))
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({"error":str(e)}),400
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error":"Envanter ataması yapılamadı"}),409
 
 @api_bp.post("/inventory/<int:inventory_id>/mark-faulty")
 @login_required
 def mark_inventory_faulty(inventory_id):
     x=db.session.get(Inventory,inventory_id); data=request.get_json(silent=True) or {}
     if not x:return jsonify({"error":"Envanter kaydı bulunamadı"}),404
-    old=x.status; x.status="faulty"; x.note=data.get("note",x.note); _audit("inventory.mark_faulty","inventory",x.id,{"from_status":old,"note":data.get("note")}); db.session.commit(); return jsonify(_inventory_dict(x))
+    if x.status=="scrapped":return jsonify({"error":"Hurda durumundaki envanter arızalı olarak işaretlenemez"}),400
+    try:
+        old=x.status; x.status="faulty"; x.note=data.get("note",x.note); _audit("inventory.mark_faulty","inventory",x.id,{"from_status":old,"note":data.get("note")}); db.session.commit(); return jsonify(_inventory_dict(x))
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error":"Envanter arızalı olarak işaretlenemedi"}),409
 
 @api_bp.post("/inventory/<int:inventory_id>/send-to-it")
 @login_required
 def send_inventory_to_it(inventory_id):
     x=db.session.get(Inventory,inventory_id); data=request.get_json(silent=True) or {}
     if not x:return jsonify({"error":"Envanter kaydı bulunamadı"}),404
-    old=x.status; old_person=x.personnel_id; x.personnel_id=None; x.status="it"; x.note=data.get("note",x.note); _audit("inventory.sent_to_it","inventory",x.id,{"from_personnel_id":old_person,"from_status":old,"note":data.get("note")}); db.session.commit(); return jsonify(_inventory_dict(x))
+    if x.status=="scrapped":return jsonify({"error":"Hurda durumundaki envanter Bilgi İşleme alınamaz"}),400
+    try:
+        old=x.status; old_person=x.personnel_id
+        if old_person:
+            db.session.add(AssignmentHistory(personnel_id=old_person,asset_type="inventory",asset_id=x.id,action="unassign",note=data.get("note")))
+        x.personnel_id=None; x.status="it"; x.note=data.get("note",x.note)
+        _audit("inventory.sent_to_it","inventory",x.id,{"from_personnel_id":old_person,"from_status":old,"note":data.get("note")})
+        db.session.commit()
+        return jsonify(_inventory_dict(x))
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error":"Envanter Bilgi İşleme gönderilemedi"}),409
 
 @api_bp.post("/inventory/<int:inventory_id>/scrap")
 @login_required
@@ -155,7 +194,19 @@ def scrap_inventory(inventory_id):
     x=db.session.get(Inventory,inventory_id); data=request.get_json(silent=True) or {}; reason=str(data.get("reason","")).strip()
     if not x:return jsonify({"error":"Envanter kaydı bulunamadı"}),404
     if not reason:return jsonify({"error":"Hurda nedeni zorunludur"}),400
-    old=x.status; x.status="scrapped"; x.personnel_id=None; db.session.add(ScrapRecord(source_type="inventory",source_id=x.id,reason=reason,note=data.get("note"))); _audit("inventory.scrapped","inventory",x.id,{"from_status":old,"reason":reason,"note":data.get("note")}); db.session.commit(); return jsonify(_inventory_dict(x))
+    if x.status=="scrapped":return jsonify({"error":"Envanter zaten hurda durumunda"}),400
+    try:
+        old=x.status; old_person=x.personnel_id
+        if old_person:
+            db.session.add(AssignmentHistory(personnel_id=old_person,asset_type="inventory",asset_id=x.id,action="unassign",note=reason))
+        x.status="scrapped"; x.personnel_id=None
+        db.session.add(ScrapRecord(source_type="inventory",source_id=x.id,reason=reason,note=data.get("note")))
+        _audit("inventory.scrapped","inventory",x.id,{"from_status":old,"from_personnel_id":old_person,"reason":reason,"note":data.get("note")})
+        db.session.commit()
+        return jsonify(_inventory_dict(x))
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error":"Envanter hurdaya ayrılamadı"}),409
 
 # -------------------- LICENSE API --------------------
 def _license_effective_status(x):
