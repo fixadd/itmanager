@@ -4,7 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from ..extensions import db
 from ..models import AuditLog, Brand, ProductModel, ProductType
-from .auth_routes import login_required, permission_required, current_user, login_required
+from .auth_routes import login_required, permission_required, current_user
 
 catalog_bp = Blueprint("catalog", __name__)
 SCOPES = {"inventory", "stock"}
@@ -42,6 +42,7 @@ def _scoped(entity_type, entity_id, scope):
                               {"t":entity_type,"id":entity_id,"scope":scope}).first() is not None
 
 @catalog_bp.get("/settings/product-catalog")
+@login_required
 def list_catalog():
     scope = _scope(request.args.get("scope"))
     if not scope: return jsonify({"error":"invalid_scope"}),400
@@ -86,6 +87,7 @@ def delete_type(type_id):
     if not scope:return jsonify({"error":"invalid_scope"}),400
     if not obj or not _scoped("type",type_id,scope):return jsonify({"error":"not_found"}),404
     db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='type' AND entity_id=:id AND scope=:scope"),{"id":type_id,"scope":scope})
+    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='model' AND entity_id IN (SELECT id FROM product_models WHERE product_type_id=:id) AND scope=:scope"),{"id":type_id,"scope":scope})
     other=db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type='type' AND entity_id=:id LIMIT 1"),{"id":type_id}).first()
     if not other:obj.active=False
     _audit("settings.catalog_type_deleted","product_type",obj.id,{"scope":scope,"name":obj.name});db.session.commit();return jsonify({"ok":True})
@@ -223,7 +225,7 @@ def delete_catalog_model(model_id):
     scope=_scope(request.args.get("scope"));obj=db.session.get(ProductModel,model_id)
     if not scope:return jsonify({"error":"invalid_scope"}),400
     if not obj or not _scoped("model",model_id,scope):return jsonify({"error":"not_found"}),404
-    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='model' AND entity_id=:id"),{"id":model_id})
+    db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='model' AND entity_id=:id AND scope=:scope"),{"id":model_id,"scope":scope})
     other=db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type='model' AND entity_id=:id LIMIT 1"),{"id":model_id}).first()
     if not other:obj.active=False
     _audit("settings.catalog_model_deleted","product_model",obj.id,{"scope":scope,"name":obj.name});db.session.commit();return jsonify({"ok":True})
