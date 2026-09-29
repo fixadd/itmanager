@@ -133,3 +133,4 @@ window.addEventListener('hashchange',handleNavHash);
 window.IT_NAV={go,handleNavHash};
 const initial=location.hash.replace(/^#/,'').match(/^([^/]+)/)?.[1];
 if(initial&&pages[initial])setTimeout(handleNavHash,0);
+});
