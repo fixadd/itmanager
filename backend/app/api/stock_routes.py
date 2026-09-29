@@ -35,6 +35,7 @@ def _decimal(value, field="miktar"):
 def _dict(x):
     return {
         "id": x.id,
+        "barcode": x.barcode,
         "product_type": {"id": x.product_type_id, "name": x.product_type.name} if x.product_type else None,
         "brand": {"id": x.brand_id, "name": x.brand.name} if x.brand else None,
         "model": {"id": x.model_id, "name": x.model.name} if x.model else None,
@@ -139,6 +140,7 @@ def create_stock():
         x = StockItem(**vals, quantity=Decimal("0"))
         db.session.add(x)
         db.session.flush()
+        x.barcode = f"STK-{x.id:06d}"
         x.quantity = quantity
         db.session.add(StockMovement(stock_item_id=x.id, movement_type="in", quantity=quantity, unit=x.unit, note=data.get("note")))
         _audit("stock.created", x.id, {"quantity": float(quantity)})
