@@ -158,9 +158,7 @@ def create_stock():
         return jsonify({"error": "Stok kaydı oluşturulamadı", "detail": str(e)}), 409
 
 
-@stock_bp.patch("/stock/<int:stock_id>")
-@login_required
-@stock_bp.put("/stock/<int:stock_id>")
+@stock_bp.route("/stock/<int:stock_id>", methods=["PATCH", "PUT"])
 @login_required
 def update_stock(stock_id):
     x = db.session.get(StockItem, stock_id)
