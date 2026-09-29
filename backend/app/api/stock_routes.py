@@ -38,7 +38,7 @@ def _dict(x):
         "barcode": x.barcode,
         "product_type": {"id": x.product_type_id, "name": x.product_type.name} if x.product_type else None,
         "brand": {"id": x.brand_id, "name": x.brand.name} if x.brand else None,
-        "model": {"id": x.model_id, "name": x.model.name} if x.model else None,
+        "model": {"id": x.model_id, "name": x.model.name, "image_path": x.model.image_path} if x.model else None,
         "quantity": float(x.quantity or 0),
         "unit": x.unit,
         "note": x.note,
