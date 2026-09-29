@@ -114,20 +114,6 @@ function handleNavHash(){
   go(page);
 }
 
-  const link=e.target.closest('.nav-link[data-page]');
-  if(!link)return;
-  e.preventDefault();
-  const page=link.dataset.page;
-  if(page==='admin'){
-    const submenu=document.getElementById('adminSubmenu');
-    const open=!submenu?.classList.contains('open');
-    submenu?.classList.toggle('open',open);
-    link.setAttribute('aria-expanded',String(open));
-    if(location.hash!=='#admin')location.hash='#admin';else go('admin');
-    return;
-  }
-  if(location.hash!=='#'+page)location.hash='#'+page;else go(page);
-});
 document.addEventListener('click',e=>{
   const link=e.target.closest('.nav-link[data-page]');
   if(!link)return;
