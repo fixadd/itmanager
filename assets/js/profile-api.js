@@ -88,12 +88,14 @@ async function load(){
 
 async function saveProfile(e){
  e.preventDefault();
+ if(!e.currentTarget.reportValidity())return;
  try{const d=await req('/profile',{method:'PATCH',body:JSON.stringify({email:document.querySelector('#profileEmail').value.trim()})});window.IT_AUTH_USER=d.user;renderUser(d.user);notice('Profil bilgileriniz güncellendi.')}
  catch(e){notice(e.message,'danger')}
 }
 
 async function changePassword(e){
  e.preventDefault();
+ if(!e.currentTarget.reportValidity())return;
  const a=document.querySelector('#currentPassword').value,b=document.querySelector('#newPassword').value,c=document.querySelector('#newPassword2').value;
  if(b!==c){notice('Yeni şifreler aynı olmalı.','danger');return}
  try{await req('/profile/password',{method:'POST',body:JSON.stringify({current_password:a,new_password:b})});e.target.reset();notice('Şifreniz başarıyla değiştirildi.')}
