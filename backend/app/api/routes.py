@@ -26,7 +26,7 @@ def _resolve(model, value, field):
     return obj
 
 def _inventory_dict(x):
-    return {"id":x.id,"inventory_no":x.inventory_no,"computer_name":x.computer_name,"serial_no":x.serial_no,"machine_no":x.machine_no,"ifs_no":x.ifs_no,"note":x.note,"status":x.status,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"device_type":{"id":x.product_type_id,"name":x.product_type.name} if x.product_type else None,"brand":{"id":x.brand_id,"name":x.brand.name} if x.brand else None,"model":{"id":x.model_id,"name":x.model.name} if x.model else None,"personnel":{"id":x.personnel_id,"name":x.personnel.name} if x.personnel else None,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+    return {"id":x.id,"barcode":x.barcode,"inventory_no":x.inventory_no,"computer_name":x.computer_name,"serial_no":x.serial_no,"machine_no":x.machine_no,"ifs_no":x.ifs_no,"note":x.note,"status":x.status,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"device_type":{"id":x.product_type_id,"name":x.product_type.name} if x.product_type else None,"brand":{"id":x.brand_id,"name":x.brand.name} if x.brand else None,"model":{"id":x.model_id,"name":x.model.name} if x.model else None,"personnel":{"id":x.personnel_id,"name":x.personnel.name} if x.personnel else None,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 
 @api_bp.get("/master-data")
 def master_data():
@@ -88,7 +88,7 @@ def _inventory_payload(data,item=None):
 @api_bp.post("/inventory")
 def create_inventory():
     try:
-        x=Inventory(**_inventory_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); _audit("inventory.created","inventory",x.id,{"inventory_no":x.inventory_no}); db.session.commit(); return jsonify(_inventory_dict(x)),201
+        x=Inventory(**_inventory_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); x.barcode=f"ENV-{x.id:06d}"; _audit("inventory.created","inventory",x.id,{"inventory_no":x.inventory_no}); db.session.commit(); return jsonify(_inventory_dict(x)),201
     except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
     except Exception as e: db.session.rollback(); return jsonify({"error":"Envanter kaydı oluşturulamadı","detail":str(e)}),409
 
@@ -142,7 +142,7 @@ def _license_effective_status(x):
 
 def _license_dict(x):
     days=(x.expires_at-date.today()).days if x.expires_at else None
-    return {"id":x.id,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"starts_at":x.starts_at.isoformat() if x.starts_at else None,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+    return {"id":x.id,"barcode":x.barcode,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"starts_at":x.starts_at.isoformat() if x.starts_at else None,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 
 def _license_payload(data,x=None):
     name_value=data.get("license_name", x.license_name_id if x else None)
@@ -208,7 +208,7 @@ def get_license(license_id):
 @api_bp.post("/licenses")
 def create_license():
     try:
-        x=License(**_license_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); _audit("license.created","license",x.id,{"license_name_id":x.license_name_id,"license_model_id":x.license_model_id}); db.session.commit(); return jsonify(_license_dict(x)),201
+        x=License(**_license_payload(request.get_json(silent=True) or {})); db.session.add(x); db.session.flush(); x.barcode=f"LIC-{x.id:06d}"; _audit("license.created","license",x.id,{"license_name_id":x.license_name_id,"license_model_id":x.license_model_id}); db.session.commit(); return jsonify(_license_dict(x)),201
     except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
     except Exception as e: db.session.rollback(); return jsonify({"error":"Lisans kaydı oluşturulamadı","detail":str(e)}),409
 
