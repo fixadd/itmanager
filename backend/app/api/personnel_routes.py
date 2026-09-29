@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from flask import Blueprint,jsonify,request
 from ..extensions import db
 from ..models import Personnel,Inventory,License,AssignmentHistory,StockMovement,AuditLog
-from .auth_routes import current_user
+from .auth_routes import current_user,login_required
 personnel_bp=Blueprint("personnel",__name__)
 def person_json(p):return {"id":p.id,"employee_no":p.employee_no,"name":p.name,"email":p.email,"active":p.active,"department":{"id":p.department.id,"name":p.department.name} if p.department else None}
 def asset_json(p):
@@ -12,6 +12,7 @@ def asset_json(p):
 def audit(action,entity_type,entity_id,details=None):
  u=current_user();db.session.add(AuditLog(action=action,entity_type=entity_type,entity_id=entity_id,actor_user_id=u.id if u else None,details=details or {}))
 @personnel_bp.get("/personnel")
+@login_required
 def list_personnel():
  q=(request.args.get("q") or "").strip();status=request.args.get("status");query=Personnel.query
  if q:
@@ -25,9 +26,11 @@ def list_personnel():
  for x in p.items:items.append(person_json(x)|{"asset_count":Inventory.query.filter_by(personnel_id=x.id).count()+License.query.filter_by(personnel_id=x.id).count()})
  return jsonify({"items":items,"pagination":{"page":page,"per_page":per_page,"total":p.total,"pages":p.pages},"total":p.total})
 @personnel_bp.get("/personnel/<int:person_id>")
+@login_required
 def get_personnel(person_id):
  p=db.get_or_404(Personnel,person_id);data=person_json(p);data["assets"]=asset_json(p);data["history"]= [{"id":h.id,"asset_type":h.asset_type,"asset_id":h.asset_id,"action":h.action,"note":h.note,"created_at":h.created_at.isoformat()} for h in AssignmentHistory.query.filter_by(personnel_id=p.id).order_by(AssignmentHistory.id.desc()).all()];return jsonify(data)
 @personnel_bp.post("/personnel")
+@login_required
 def create_personnel():
  data=request.get_json(silent=True) or {};name=str(data.get("name") or "").strip()
  if not name:return jsonify({"error":"Personel adı zorunludur."}),400
@@ -40,6 +43,7 @@ def create_personnel():
  except Exception as exc:
   db.session.rollback();return jsonify({"error":"Personel kaydı oluşturulamadı","detail":str(exc)}),409
 @personnel_bp.route("/personnel/<int:person_id>",methods=["PATCH","PUT"])
+@login_required
 def update_personnel(person_id):
  p=db.get_or_404(Personnel,person_id);data=request.get_json(silent=True) or {}
  if "name" in data:
@@ -59,14 +63,18 @@ def update_personnel(person_id):
  except Exception as exc:
   db.session.rollback();return jsonify({"error":"Personel güncellenemedi","detail":str(exc)}),409
 @personnel_bp.post("/personnel/<int:person_id>/toggle")
+@login_required
 def toggle_personnel(person_id):
  p=db.get_or_404(Personnel,person_id);p.active=not p.active;audit("personnel.status_changed","personnel",p.id,{"active":p.active});db.session.commit();return jsonify(person_json(p))
 @personnel_bp.get("/personnel/<int:person_id>/assets")
+@login_required
 def personnel_assets(person_id):db.get_or_404(Personnel,person_id);return jsonify(asset_json(Personnel.query.get(person_id)))
 @personnel_bp.post("/personnel/<int:person_id>/transfer")
+@login_required
 def transfer_assets(person_id):
  source=db.get_or_404(Personnel,person_id);data=request.get_json(silent=True) or {};target=db.session.get(Personnel,int(data.get("target_personnel_id"))) if data.get("target_personnel_id") else None
  if not target or not target.active:return jsonify({"error":"Geçerli hedef personel seçilmelidir"}),400
+ if target.id==source.id:return jsonify({"error":"Kaynak personel ile hedef personel aynı olamaz"}),400
  assets=data.get("assets") or [];note=str(data.get("note") or "").strip() or None
  if not isinstance(assets,list) or not assets:return jsonify({"error":"En az bir varlık seçilmelidir"}),400
  moved=[]
