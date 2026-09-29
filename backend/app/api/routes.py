@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
-from ..models import AssignmentHistory, AuditLog, Brand, Department, Factory, Inventory, License, LicenseModel, LicenseName, Personnel, ProductModel, ProductType, ScrapRecord
+from ..models import AssignmentHistory, AuditLog, Brand, Department, Factory, Inventory, License, LicenseModel, LicenseName, Personnel, ProductModel, ProductType, ScrapRecord, StockItem
 from .auth_routes import current_user
 
 api_bp = Blueprint("api", __name__)
@@ -27,6 +27,22 @@ def _resolve(model, value, field):
 
 def _inventory_dict(x):
     return {"id":x.id,"barcode":x.barcode,"inventory_no":x.inventory_no,"computer_name":x.computer_name,"serial_no":x.serial_no,"machine_no":x.machine_no,"ifs_no":x.ifs_no,"note":x.note,"status":x.status,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"device_type":{"id":x.product_type_id,"name":x.product_type.name} if x.product_type else None,"brand":{"id":x.brand_id,"name":x.brand.name} if x.brand else None,"model":{"id":x.model_id,"name":x.model.name,"image_path":x.model.image_path} if x.model else None,"personnel":{"id":x.personnel_id,"name":x.personnel.name} if x.personnel else None,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+
+@api_bp.get("/barcode/<path:barcode>")
+def barcode_lookup(barcode):
+    code=str(barcode or "").strip().upper()
+    if not code:return jsonify({"error":"Barkod boş olamaz"}),400
+    if code.startswith("ENV-"):
+        x=Inventory.query.filter_by(barcode=code).first()
+        return (jsonify({"type":"inventory","id":x.id,"barcode":x.barcode,"detail_url":f"#inventory/{x.id}","item":_inventory_dict(x)}) if x else (jsonify({"error":"Envanter barkodu bulunamadı"}),404))
+    if code.startswith("STK-"):
+        x=StockItem.query.filter_by(barcode=code).first()
+        if not x:return jsonify({"error":"Stok barkodu bulunamadı"}),404
+        return jsonify({"type":"stock","id":x.id,"barcode":x.barcode,"detail_url":f"#stock/{x.id}","item":{"id":x.id,"barcode":x.barcode,"product_type":{"id":x.product_type_id,"name":x.product_type.name} if x.product_type else None,"brand":{"id":x.brand_id,"name":x.brand.name} if x.brand else None,"model":{"id":x.model_id,"name":x.model.name,"image_path":x.model.image_path} if x.model else None,"quantity":float(x.quantity or 0),"unit":x.unit,"status":x.status}})
+    if code.startswith("LIC-"):
+        x=License.query.filter_by(barcode=code).first()
+        return (jsonify({"type":"license","id":x.id,"barcode":x.barcode,"detail_url":f"#licenses/{x.id}","item":_license_dict(x)}) if x else (jsonify({"error":"Lisans barkodu bulunamadı"}),404))
+    return jsonify({"error":"Geçersiz barkod. STK-, ENV- veya LIC- ile başlamalıdır."}),400
 
 @api_bp.get("/master-data")
 def master_data():
