@@ -4,7 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from ..extensions import db
 from ..models import AuditLog, Brand, ProductModel, ProductType
-from .auth_routes import permission_required, current_user
+from .auth_routes import permission_required, current_user, login_required
 
 catalog_bp = Blueprint("catalog", __name__)
 SCOPES = {"inventory", "stock"}
@@ -192,6 +192,7 @@ def upload_model_image(model_id):
     return jsonify(_model(obj))
 
 @catalog_bp.get("/settings/product-catalog/model/<int:model_id>/image")
+@login_required
 def get_model_image(model_id):
     obj = db.session.get(ProductModel, model_id)
     if not obj or not obj.image_path:
