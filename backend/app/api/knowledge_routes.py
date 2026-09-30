@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
 from ..extensions import db
 from ..models import AuditLog, KnowledgeArticle, KnowledgeAttachment, Personnel, User
 from .auth_routes import current_user, login_required
@@ -53,7 +54,7 @@ def unique_slug(title, current_id=None):
     slug = base
     counter = 2
     while True:
-        query = KnowledgeArticle.query.filter_by(slug=slug)
+        query = KnowledgeArticle.query.options(joinedload(KnowledgeArticle.author)).filter_by(slug=slug)
         if current_id:
             query = query.filter(KnowledgeArticle.id != current_id)
         if not query.first():
