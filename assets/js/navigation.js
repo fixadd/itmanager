@@ -85,7 +85,7 @@ function go(k){
   content.innerHTML=layout(k);
   window.scrollTo(0,0);
   if(k==='dashboard')setTimeout(loadDashboard,0);
-  if(pageChanged&&['inventory','licenses','knowledge','scrap','reports','settings','logs','profile'].includes(k))setTimeout(()=>window.dispatchEvent(new Event('hashchange')),0);
+  if(pageChanged&&['inventory','licenses','reports','settings','logs','profile'].includes(k))setTimeout(()=>window.dispatchEvent(new Event('hashchange')),0);
   if(k==='barcode'){
     const run=async()=>{
       const input=document.querySelector('#navBarcode'),box=document.querySelector('#navBarcodeResult'),q=input?.value.trim();
