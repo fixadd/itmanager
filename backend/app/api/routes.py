@@ -1,8 +1,8 @@
 from datetime import date, timedelta
 from flask import Blueprint, jsonify, request
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from ..extensions import db
-from ..models import AssignmentHistory, AuditLog, Brand, Department, Factory, Inventory, License, LicenseModel, LicenseName, Personnel, ProductModel, ProductType, ScrapRecord, StockItem
+from ..models import AssignmentHistory, AuditLog, Brand, Department, Factory, Inventory, License, LicenseModel, LicenseName, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement, MaintenanceRecord, PurchaseRequest
 from .auth_routes import current_user, login_required
 
 api_bp = Blueprint("api", __name__)
@@ -27,6 +27,39 @@ def _resolve(model, value, field):
 
 def _inventory_dict(x):
     return {"id":x.id,"barcode":x.barcode,"inventory_no":x.inventory_no,"computer_name":x.computer_name,"serial_no":x.serial_no,"machine_no":x.machine_no,"ifs_no":x.ifs_no,"note":x.note,"status":x.status,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"device_type":{"id":x.product_type_id,"name":x.product_type.name} if x.product_type else None,"brand":{"id":x.brand_id,"name":x.brand.name} if x.brand else None,"model":{"id":x.model_id,"name":x.model.name,"image_path":x.model.image_path} if x.model else None,"personnel":{"id":x.personnel_id,"name":x.personnel.name} if x.personnel else None,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+
+@api_bp.get("/dashboard/summary")
+@login_required
+def dashboard_summary():
+    inventory_total = Inventory.query.count()
+    inventory_status = dict(db.session.query(Inventory.status, func.count(Inventory.id)).group_by(Inventory.status).all())
+    type_rows = db.session.query(ProductType.name, func.count(Inventory.id)).join(Inventory, Inventory.product_type_id == ProductType.id).group_by(ProductType.name).order_by(func.count(Inventory.id).desc()).all()
+    stock_in = db.session.query(func.coalesce(func.sum(StockMovement.quantity), 0)).filter(StockMovement.movement_type == "in").scalar() or 0
+    stock_out = db.session.query(func.coalesce(func.sum(StockMovement.quantity), 0)).filter(StockMovement.movement_type == "out").scalar() or 0
+    stock_total = db.session.query(func.coalesce(func.sum(StockItem.quantity), 0)).scalar() or 0
+    maintenance_status = dict(db.session.query(MaintenanceRecord.status, func.count(MaintenanceRecord.id)).group_by(MaintenanceRecord.status).all())
+    request_status = dict(db.session.query(PurchaseRequest.status, func.count(PurchaseRequest.id)).group_by(PurchaseRequest.status).all())
+    monthly_rows = db.session.query(func.date_trunc("month", AuditLog.created_at), func.count(AuditLog.id)).group_by(func.date_trunc("month", AuditLog.created_at)).order_by(func.date_trunc("month", AuditLog.created_at).desc()).limit(4).all()
+    recent = AuditLog.query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(10).all()
+    actor_ids = {x.actor_user_id for x in recent if x.actor_user_id}
+    actors = {u.id: u for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
+    return jsonify({
+        "inventory": {
+            "total": inventory_total,
+            "active": inventory_status.get("active", 0),
+            "faulty": inventory_status.get("faulty", 0),
+            "maintenance": inventory_status.get("maintenance", 0),
+            "it": inventory_status.get("it", 0),
+            "scrapped": inventory_status.get("scrapped", 0),
+            "by_status": [{"label": k, "count": int(v)} for k, v in inventory_status.items()],
+            "by_type": [{"label": k, "count": int(v)} for k, v in type_rows],
+        },
+        "requests": {k: int(v) for k, v in request_status.items()},
+        "maintenance": {k: int(v) for k, v in maintenance_status.items()},
+        "stock": {"in": float(stock_in), "out": float(stock_out), "total_quantity": float(stock_total)},
+        "monthly_activity": [{"month": x.isoformat() if x else None, "count": int(n)} for x, n in monthly_rows],
+        "recent_activity": [{"action": x.action, "actor": actors.get(x.actor_user_id).username if actors.get(x.actor_user_id) else "Sistem", "created_at": x.created_at.isoformat() if x.created_at else None} for x in recent],
+    })
 
 @api_bp.get("/barcode/<path:barcode>")
 @login_required
