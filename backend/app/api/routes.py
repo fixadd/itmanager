@@ -378,7 +378,7 @@ def send_license_to_it(license_id):
     old=x.status; old_person=x.personnel_id
     if old_person:
         db.session.add(AssignmentHistory(personnel_id=old_person,asset_type="license",asset_id=x.id,action="unassign",note=data.get("note")))
-    x.personnel_id=None; x.status="it"; x.note=data.get("note",x.note)
+    x.personnel_id=None; x.status="empty"; x.note=data.get("note",x.note)
     _audit("license.sent_to_it","license",x.id,{"from_status":old,"from_personnel_id":old_person,"note":data.get("note")})
     db.session.commit(); return jsonify(_license_dict(x))
 
