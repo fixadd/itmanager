@@ -329,7 +329,7 @@ def assign_license(license_id):
                 db.session.add(AssignmentHistory(personnel_id=old,asset_type="license",asset_id=x.id,action="unassign",note=data.get("note")))
             x.personnel_id=p.id
             db.session.add(AssignmentHistory(personnel_id=p.id,asset_type="license",asset_id=x.id,action="assign",note=data.get("note")))
-        _audit("license.assigned",x.id,{"from_personnel_id":old,"to_personnel_id":p.id,"note":data.get("note")})
+        _audit("license.assigned","license",x.id,{"from_personnel_id":old,"to_personnel_id":p.id,"note":data.get("note")})
         db.session.commit(); return jsonify(_license_dict(x))
     except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
 
