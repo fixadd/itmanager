@@ -48,6 +48,6 @@ async function load(){
  }
 }
 window.addEventListener('hashchange',()=>setTimeout(load,80));
-document.addEventListener('DOMContentLoaded',()=>setTimeout(load,250));
+
 window.IT_REPORTS_API={load};
 })();
