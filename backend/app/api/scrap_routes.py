@@ -8,12 +8,12 @@ from .auth_routes import permission_required
 scrap_bp = Blueprint("scrap", __name__)
 
 
-def record_json(r):
+def record_json(r, source_cache=None, movement_cache=None):
     source = None
     brand_id = model_id = None
     brand_name = model_name = None
     if r.source_type == "inventory":
-        source = db.session.get(Inventory, r.source_id)
+        source = (source_cache.get(("inventory", r.source_id)) if source_cache is not None else db.session.get(Inventory, r.source_id))
         name = source.inventory_no if source else f"Envanter #{r.source_id}"
         detail = " / ".join(filter(None, [source.computer_name, source.serial_no])) if source else ""
         brand_id = source.brand_id if source else None
@@ -21,13 +21,13 @@ def record_json(r):
         brand_name = source.brand.name if source and source.brand else None
         model_name = source.model.name if source and source.model else None
     elif r.source_type == "license":
-        source = db.session.get(License, r.source_id)
+        source = (source_cache.get(("license", r.source_id)) if source_cache is not None else db.session.get(License, r.source_id))
         name = source.license_name.name if source and source.license_name else f"Lisans #{r.source_id}"
         detail = "Lisans kaydı" if source else ""
     elif r.source_type == "stock":
-        source = db.session.get(StockItem, r.source_id)
+        source = (source_cache.get(("stock", r.source_id)) if source_cache is not None else db.session.get(StockItem, r.source_id))
         name = " ".join(filter(None, [source.brand.name if source and source.brand else "", source.model.name if source and source.model else ""])) if source else f"Stok #{r.source_id}"
-        scrap_movement = (StockMovement.query.filter_by(stock_item_id=r.source_id, movement_type="scrap").order_by(StockMovement.id.desc()).first() if source else None)
+        scrap_movement = (movement_cache.get(r.source_id) if movement_cache is not None else (StockMovement.query.filter_by(stock_item_id=r.source_id, movement_type="scrap").order_by(StockMovement.id.desc()).first() if source else None))
         detail = f"Miktar: {scrap_movement.quantity} {scrap_movement.unit}" if scrap_movement else (f"Miktar: {source.quantity}" if source else "")
         brand_id = source.brand_id if source else None
         model_id = source.model_id if source else None
@@ -123,7 +123,19 @@ def list_scrap():
             and_(ScrapRecord.source_type == "license", ScrapRecord.source_id.in_(license_ids)),
         ))
     pagination = query.order_by(ScrapRecord.scrapped_at.desc(), ScrapRecord.id.desc()).paginate(page=page, per_page=per_page, error_out=False)
-    return jsonify({"items": [record_json(r) for r in pagination.items], "pagination": {"page": pagination.page, "per_page": pagination.per_page, "total": pagination.total, "pages": pagination.pages}})
+    rows = pagination.items
+    source_cache = {}
+    inv_ids = [r.source_id for r in rows if r.source_type == "inventory"]
+    stock_ids = [r.source_id for r in rows if r.source_type == "stock"]
+    license_ids = [r.source_id for r in rows if r.source_type == "license"]
+    for x in Inventory.query.filter(Inventory.id.in_(inv_ids)).all() if inv_ids else []: source_cache[("inventory", x.id)] = x
+    for x in StockItem.query.filter(StockItem.id.in_(stock_ids)).all() if stock_ids else []: source_cache[("stock", x.id)] = x
+    for x in License.query.filter(License.id.in_(license_ids)).all() if license_ids else []: source_cache[("license", x.id)] = x
+    movement_cache = {}
+    if stock_ids:
+        for x in StockMovement.query.filter(StockMovement.stock_item_id.in_(stock_ids), StockMovement.movement_type == "scrap").order_by(StockMovement.id.desc()).all():
+            movement_cache.setdefault(x.stock_item_id, x)
+    return jsonify({"items": [record_json(r, source_cache, movement_cache) for r in rows], "pagination": {"page": pagination.page, "per_page": pagination.per_page, "total": pagination.total, "pages": pagination.pages}})
 
 
 @scrap_bp.get("/scrap/<int:scrap_id>")
