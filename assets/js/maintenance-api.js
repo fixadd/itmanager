@@ -15,15 +15,25 @@ async function refreshStats(){try{const d=await json('/api/maintenance/summary')
 
 async function load(){if(location.hash.slice(1)!=='maintenance')return;const panel=document.querySelector('#pageContent .panel');if(!panel)return;try{const p=new URLSearchParams();const search=document.querySelector('#maintenanceSearch')?.value.trim();const statusValue=document.querySelector('#maintenanceStatus')?.value;if(search)p.set('search',search);if(statusValue)p.set('status',statusValue);p.set('per_page','100');const d=await json('/api/maintenance?'+p);const tbody=panel.querySelector('tbody');if(!tbody)return;tbody.innerHTML='';(d.items||[]).forEach(x=>tbody.appendChild(row(x)));if(!d.items?.length)tbody.innerHTML='<tr><td colspan="8" class="text-center text-secondary py-4">Bakım kaydı bulunamadı.</td></tr>';const sub=panel.querySelector('.panel-head p');if(sub)sub.textContent=`PostgreSQL · ${d.pagination?.total||0} kayıt`;await refreshStats()}catch(e){console.warn(e);toast('Bakım API bağlantısı kurulamadı.')}}
 
-async function openCreate(){
-try{
+let inventoryOptionCache=null;
+let inventoryOptionCacheAt=0;
+async function getInventoryOptions(){
+ const now=Date.now();
+ if(inventoryOptionCache && now-inventoryOptionCacheAt<60000) return inventoryOptionCache;
  const first=await json('/api/inventory?per_page=100&page=1');
  const items=[...(first.items||[])];
  const pages=first.pagination?.pages||1;
- for(let page=2;page<=pages;page++){
-   const d=await json('/api/inventory?per_page=100&page='+page);
-   items.push(...(d.items||[]));
+ if(pages>1){
+   const responses=await Promise.all(Array.from({length:pages-1},(_,i)=>json('/api/inventory?per_page=100&page='+(i+2))));
+   responses.forEach(d=>items.push(...(d.items||[])));
  }
+ inventoryOptionCache=items;
+ inventoryOptionCacheAt=now;
+ return items;
+}
+async function openCreate(){
+try{
+ const items=await getInventoryOptions();
  const options=items.map(x=>`<option value="${x.id}">${esc(x.inventory_no)} — ${esc(x.computer_name||x.serial_no||'')}</option>`).join('');
  const body=`<form id="itDynamicForm" data-form-page="maintenance"><div class="row g-3"><div class="col-md-6"><label class="form-label">Envanter <span class="text-danger">*</span></label><select class="form-select" name="inventory_id" required><option value="">Cihaz seçiniz</option>${options}</select></div><div class="col-md-6"><label class="form-label">Bakım Türü</label><select class="form-select" name="type"><option value="internal">İç Bakım</option><option value="service">Dış Servis / Tamir</option><option value="periodic">Periyodik Bakım</option></select></div><div class="col-md-6"><label class="form-label">Arıza / Konu <span class="text-danger">*</span></label><input class="form-control" name="fault" required></div><div class="col-md-6"><label class="form-label">Servis / Firma</label><input class="form-control" name="service"></div><div class="col-md-6"><label class="form-label">Teknisyen</label><input class="form-control" name="technician"></div><div class="col-md-6"><label class="form-label">Maliyet</label><input class="form-control" type="number" min="0" step="0.01" name="cost"></div><div class="col-md-6"><label class="form-label">Başlangıç</label><input class="form-control" type="datetime-local" name="started_at"></div><div class="col-md-6"><label class="form-label">Bitiş</label><input class="form-control" type="datetime-local" name="completed_at"></div><div class="col-12"><label class="form-label">Açıklama</label><textarea class="form-control" name="description" rows="2"></textarea></div><div class="col-12"><label class="form-label">Not</label><textarea class="form-control" name="note" rows="2"></textarea></div></div></form>`;
  window.ITUI?.modal('Yeni Bakım Kaydı',body);
