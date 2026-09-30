@@ -75,6 +75,7 @@ let renderedPage=null;
 function go(k){
   if(!pages[k])return;
   const pageChanged=renderedPage!==k;
+  if(!pageChanged && k!=='admin')return;
   renderedPage=k;
   document.querySelectorAll('.nav-link').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.admin-submenu-link').forEach(x=>x.classList.remove('active'));
