@@ -122,5 +122,5 @@ async function openCreate(){
 }
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-request-save]');if(!b)return;const f=document.querySelector('#itManagerModal #itDynamicForm[data-form-page="requests"]');if(!f)return;try{const saved=await save(f);if(!saved)return;notify('Satın alma talebi kaydedildi.');bootstrap.Modal.getOrCreateInstance(document.getElementById('itManagerModal')).hide();load()}catch(err){notify(err.message)}},true);
 const observer=new MutationObserver(()=>{const f=document.querySelector('#itDynamicForm[data-form-page="requests"]');if(f)ensureRows(f)});observer.observe(document.body,{childList:true,subtree:true});
-window.addEventListener('hashchange',()=>setTimeout(load,150));document.addEventListener('DOMContentLoaded',()=>setTimeout(load,300));
+window.addEventListener('hashchange',()=>setTimeout(load,150));document.addEventListener('DOMContentLoaded',()=>{if(location.hash==='#requests')setTimeout(load,300)});
 })();
