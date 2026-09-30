@@ -164,6 +164,8 @@ def create_model():
     product_type = db.session.get(ProductType, int(product_type_id)) if product_type_id else None
     if product_type_id and (not product_type or not product_type.active):
         return jsonify({"error": "invalid_product_type"}), 400
+    if product_type and product_type not in brand.product_types:
+        return jsonify({"error": "product_type_not_available_for_brand"}), 400
     if ProductModel.query.filter(db.func.lower(ProductModel.name) == name.lower(), ProductModel.brand_id == brand.id).first():
         return jsonify({"error": "model_exists_for_brand"}), 409
     obj = ProductModel(name=name, brand_id=brand.id, product_type_id=product_type.id if product_type else None,
@@ -198,8 +200,15 @@ def update_model(model_id):
         value = data["product_type_id"]
         product_type = db.session.get(ProductType, int(value)) if value else None
         if value and (not product_type or not product_type.active):
+            db.session.rollback()
             return jsonify({"error": "invalid_product_type"}), 400
+        if product_type and product_type not in obj.brand.product_types:
+            db.session.rollback()
+            return jsonify({"error": "product_type_not_available_for_brand"}), 400
         obj.product_type_id = product_type.id if product_type else None
+    if obj.product_type_id and obj.product_type not in obj.brand.product_types:
+        db.session.rollback()
+        return jsonify({"error": "product_type_not_available_for_brand"}), 400
     if "active" in data:
         obj.active = bool(data["active"])
     conflict = ProductModel.query.filter(db.func.lower(ProductModel.name) == obj.name.lower(),
