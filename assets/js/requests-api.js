@@ -108,9 +108,10 @@ function operationMenu(id){
  const x=current.find(q=>q.id===id);if(!x)return;
  const choices={pending:[['approve','Onayla'],['reject','Reddet'],['cancel','İptal']],approved:[['order','Sipariş Verildi'],['cancel','İptal']],ordered:[['complete','Tamamlandı']],completed:[['transfer','Modüle Aktar']],draft:[['approve','Onayla'],['cancel','İptal']],rejected:[['approve','Tekrar Onaya Al']],cancelled:[['approve','Tekrar Aç']]};
  const opts=choices[x.status]||[];if(!opts.length){notify('Bu talep için yapılacak işlem yok.');return}
- const pick=prompt(opts.map((v,i)=>`${i+1}. ${v[1]}`).join('\\n'));const n=Number(pick);if(!opts[n-1])return;
- if(opts[n-1][0]==='transfer'){transfer(id);return}
- action(id,opts[n-1][0]).then(()=>{notify('Talep güncellendi.');load()}).catch(e=>notify(e.message));
+ if(!window.ITUI){notify('İşlem penceresi açılamadı.');return}
+ const buttons=opts.map(v=>'<button type="button" class="btn '+(v[0]==='reject'||v[0]==='cancel'?'btn-outline-danger':v[0]==='transfer'?'btn-primary':'btn-outline-primary')+'" data-request-op="'+esc(v[0])+'">'+esc(v[1])+'</button>').join('');
+ ITUI.modal('Talep İşlemleri','<div class="d-grid gap-2">'+buttons+'</div>',{size:'modal-sm',footer:'<button class="btn btn-light" data-bs-dismiss="modal">Kapat</button>'});
+ document.querySelectorAll('#itManagerModal [data-request-op]').forEach(btn=>btn.addEventListener('click',async()=>{const op=btn.dataset.requestOp;try{bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide();if(op==='transfer'){await transfer(id);return}await action(id,op);notify('Talep güncellendi.');load()}catch(e){notify(e.message)}},{once:true}));
 }
 function detail(id){
  const x=current.find(q=>q.id===id);if(!x)return;
