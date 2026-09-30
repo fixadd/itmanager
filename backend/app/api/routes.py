@@ -215,7 +215,7 @@ def send_inventory_to_it(inventory_id):
         old=x.status; old_person=x.personnel_id
         if old_person:
             db.session.add(AssignmentHistory(personnel_id=old_person,asset_type="inventory",asset_id=x.id,action="unassign",note=data.get("note")))
-        x.personnel_id=None; x.status="it"; x.note=data.get("note",x.note)
+        x.personnel_id=None; x.status="empty"; x.note=data.get("note",x.note)
         _audit("inventory.sent_to_it","inventory",x.id,{"from_personnel_id":old_person,"from_status":old,"note":data.get("note")})
         db.session.commit()
         return jsonify(_inventory_dict(x))
@@ -298,7 +298,11 @@ def list_licenses():
     license_model_id=request.args.get("license_model_id",type=int)
     if license_name_id:q=q.filter(License.license_name_id==license_name_id)
     if license_model_id:q=q.filter(License.license_model_id==license_model_id)
-    if status:q=q.filter(License.status==status)
+    if status:
+        if status=="assigned": q=q.filter(License.status.notin_(("empty","it","scrapped")))
+        elif status=="unassigned": q=q.filter(License.status.in_(("empty","it")))
+        elif status=="scrapped": q=q.filter(License.status=="scrapped")
+        else: q=q.filter(License.status==status)
     if license_type:q=q.filter(License.license_type==license_type)
     if expiry_status:
         if expiry_status=="timeless":
