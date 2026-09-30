@@ -96,7 +96,7 @@ def _inventory_payload(data,item=None):
         value=data.get(key, getattr(item,dest,None) if item else None)
         if value in (None,""): raise ValueError(f"{key} alanı zorunludur")
         vals[dest]=_resolve(model,value,key).id
-    if vals["brand_id"] not in {b.id for b in db.session.get(Brand, vals["brand_id"]).product_types}:
+    if vals["product_type_id"] not in {p.id for p in db.session.get(Brand, vals["brand_id"]).product_types}:
         raise ValueError("Marka, seçilen donanım tipiyle eşleşmiyor")
     model_value=data.get("model", item.model_id if item else None)
     if model_value not in (None,""):
