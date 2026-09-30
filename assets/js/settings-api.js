@@ -50,5 +50,5 @@
   window.IT_SETTINGS={render:()=>render(document.getElementById('pageContent'))};
   window.addEventListener('hashchange',()=>{if(location.hash.replace('#','').split('?')[0]==='settings')window.IT_SETTINGS.render();});
   window.addEventListener('itmanager:auth',()=>{if(location.hash.replace('#','').split('?')[0]==='settings')window.IT_SETTINGS.render();});
-  document.addEventListener('DOMContentLoaded',()=>{if(location.hash.replace('#','').split('?')[0]==='settings')window.IT_SETTINGS.render();});
+
 })();
