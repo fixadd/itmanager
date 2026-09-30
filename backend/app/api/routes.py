@@ -215,7 +215,7 @@ def send_inventory_to_it(inventory_id):
         old=x.status; old_person=x.personnel_id
         if old_person:
             db.session.add(AssignmentHistory(personnel_id=old_person,asset_type="inventory",asset_id=x.id,action="unassign",note=data.get("note")))
-        x.personnel_id=None; x.status="empty"; x.note=data.get("note",x.note)
+        x.personnel_id=None; x.status="it"; x.note=data.get("note",x.note)
         _audit("inventory.sent_to_it","inventory",x.id,{"from_personnel_id":old_person,"from_status":old,"note":data.get("note")})
         db.session.commit()
         return jsonify(_inventory_dict(x))
