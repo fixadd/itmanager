@@ -50,7 +50,7 @@ async function load(target=1){
   const d=await json('/api/personnel?'+params.toString());page=d.pagination?.page||target;
   const tbody=panel.querySelector('#personnelTable tbody');tbody.innerHTML='';
   (d.items||[]).forEach(p=>tbody.appendChild(tableRow(p)));
-  panel.querySelector('.personnel-count').textContent=`PostgreSQL · ${d.pagination?.total??d.total??0} personel`;
+  const countEl=panel.querySelector('.personnel-count') || panel.querySelector('.panel-head p'); if(countEl)countEl.textContent=`PostgreSQL · ${d.pagination?.total??d.total??0} personel`;
   pager(panel,d.pagination?.total??d.total??0,d.pagination?.pages??1);
  }catch(e){toast(e.message)}
 }
