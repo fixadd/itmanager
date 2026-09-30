@@ -73,7 +73,7 @@ document.addEventListener('click',async e=>{
  }
  const newBtn=e.target.closest('#maintenanceNew');if(newBtn&&location.hash==='#maintenance'){e.preventDefault();e.stopImmediatePropagation();openCreate();return}
  if(e.target.closest('#maintenanceRefresh')){e.preventDefault();load();return}
- const close=e.target.closest('.maintenance-close');if(close){e.preventDefault();close.closest('.inline-detail')?.remove();return}
+ const close=e.target.closest('.maintenance-close');if(close){e.preventDefault();close.closest('.maintenance-inline-detail')?.remove();return}
  const tr=e.target.closest('tr[data-record-type="maintenance"]');if(!tr)return;
  const id=Number(tr.dataset.maintenanceId);
  if(e.target.closest('.maintenance-actions')){e.preventDefault();e.stopImmediatePropagation();document.querySelectorAll('.row-operation-menu').forEach(x=>x.remove());const m=document.createElement('div');m.className='row-operation-menu';m.innerHTML='<button data-maint-op="detail"><i class="ti ti-eye"></i>Detay</button><button data-maint-op="edit"><i class="ti ti-edit"></i>Düzenle</button><button data-maint-op="status"><i class="ti ti-refresh"></i>Durum Değiştir</button><button data-maint-op="service"><i class="ti ti-truck-delivery"></i>Servise Gönder</button><button data-maint-op="complete"><i class="ti ti-circle-check"></i>Tamamlandı</button>';tr.querySelector('.action-cell').appendChild(m);return}
