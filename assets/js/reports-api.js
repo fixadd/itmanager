@@ -16,7 +16,7 @@ async function load(){
   const typeBars=bars(inv.by_type);
   const scrapBars=bars([{label:'Envanter',count:s.inventory},{label:'Lisans',count:s.license},{label:'Stok',count:s.stock}]);
   c.innerHTML=`
-   <div class="page-head"><div><h1>Raporlar</h1><p>Sistemdeki IT varlıkları ve operasyonların güncel özet görünümü.</p></div><div class="page-actions"><button class="btn btn-outline-secondary" id="reportsPrint"><i class="ti ti-printer me-1"></i>Yazdır</button><button class="btn btn-outline-secondary" id="reportsRefresh"><i class="ti ti-refresh me-1"></i>Yenile</button></div></div>
+   <div class="page-head"><div><h1>Raporlar</h1><p>Sistemdeki IT varlıkları ve operasyonların güncel özet görünümü.</p></div><div class="page-actions"><div class="dropdown"><button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown"><i class="ti ti-file-spreadsheet me-1"></i>Excel Dışa Aktar</button><div class="dropdown-menu dropdown-menu-end p-2" style="min-width:240px"><div class="small text-secondary px-2 py-1">Aktarılacak bölümü seçin</div><button class="dropdown-item" data-report-export="inventory">Envanter</button><button class="dropdown-item" data-report-export="licenses">Lisanslar</button><button class="dropdown-item" data-report-export="stock">Stok</button><button class="dropdown-item" data-report-export="people">Personeller</button><button class="dropdown-item" data-report-export="all">Tüm rapor özeti</button></div></div><button class="btn btn-outline-secondary" id="reportsPrint"><i class="ti ti-printer me-1"></i>Yazdır</button><button class="btn btn-outline-secondary" id="reportsRefresh"><i class="ti ti-refresh me-1"></i>Yenile</button></div></div>
    <div class="row g-3 mb-4">
     ${card('Toplam Envanter',inv.total,`${n(inv.active)} aktif · ${n(inv.scrapped)} hurda`)}
     ${card('Toplam Lisans',lic.total,`${n(lic.active)} aktif · ${n(lic.expiring)} süresi yaklaşıyor`)}
@@ -41,6 +41,8 @@ async function load(){
     </div></div></div></div>
    </div>`;
   document.querySelector('#reportsPrint')?.addEventListener('click',()=>window.print());
+  document.querySelectorAll('[data-report-export]').forEach(b=>b.addEventListener('click',()=>exportReport(b.dataset.reportExport,d)));
+  function exportReport(kind,data){const rows=[];if(kind==='inventory'||kind==='all')rows.push(['Envanter','Toplam',data.inventory?.total||0],['Envanter','Aktif',data.inventory?.active||0],['Envanter','Hurda',data.inventory?.scrapped||0]);if(kind==='licenses'||kind==='all')rows.push(['Lisans','Toplam',data.licenses?.total||0],['Lisans','Aktif',data.licenses?.active||0],['Lisans','Süresi yaklaşan',data.licenses?.expiring||0]);if(kind==='stock'||kind==='all')rows.push(['Stok','Kalem',data.stock?.items||0],['Stok','Toplam miktar',data.stock?.total_quantity||0]);if(kind==='people'||kind==='all')rows.push(['Personel','Toplam',data.people?.total||0],['Personel','Aktif',data.people?.active||0]);if(!rows.length)return;const csv='Kategori;Alan;Değer\\n'+rows.map(r=>r.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(';')).join('\\n');const blob=new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='itmanager-rapor-'+kind+'.csv';a.click();URL.revokeObjectURL(a.href)}
   document.querySelector('#reportsRefresh')?.addEventListener('click',load);
  }catch(e){
   console.error(e);
