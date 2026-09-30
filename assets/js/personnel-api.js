@@ -111,6 +111,6 @@ document.addEventListener('click',async e=>{
 document.addEventListener('input',e=>{if(location.hash.slice(1)==='people'&&e.target.id==='personnelSearch'){clearTimeout(window.__personnelSearchTimer);window.__personnelSearchTimer=setTimeout(()=>load(1),300)}});
 document.addEventListener('change',e=>{if(location.hash.slice(1)==='people'&&(e.target.id==='personnelStatus'||e.target.id==='personnelDepartment'))load(1)});
 window.addEventListener('hashchange',()=>{page=1;setTimeout(()=>{loadDepartments();load(1)},100)});
-document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{loadDepartments();load(1)},300));
+document.addEventListener('DOMContentLoaded',()=>{if(location.hash.slice(1)==='people')setTimeout(()=>{loadDepartments();load(1)},300)});
 window.IT_PERSONNEL_API={load,loadDepartments,openForm};
 })();
