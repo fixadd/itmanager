@@ -138,6 +138,7 @@ def transfer_request(request_id):
      if not model.active: raise ValueError("Aktarımda pasif model kullanılamaz")
      if model.brand_id!=brand.id or (model.product_type_id and model.product_type_id!=ptype.id):raise ValueError("Envanter model, marka/donanım tipiyle eşleşmiyor")
     person=_resolve(Personnel,v.get("person"),"personel") if v.get("person") not in (None,"") else None
+    if person and not person.active: raise ValueError("Aktarımda pasif personel kullanılamaz")
     obj=Inventory(inventory_no=str(v["inventory_no"]).strip(),computer_name=v.get("computer_name") or None,serial_no=v.get("serial_no") or None,machine_no=v.get("machine_no") or None,ifs_no=v.get("ifs_no") or None,note=v.get("note") or item.description or None,factory_id=factory.id,department_id=department.id,product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,personnel_id=person.id if person else None)
     db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Envanter","id":obj.id})
    elif item.product_type=="Lisans":
@@ -145,6 +146,7 @@ def transfer_request(request_id):
     if not name.active or not model.active: raise ValueError("Aktarımda pasif lisans master kaydı kullanılamaz")
     if model.license_name_id!=name.id:raise ValueError("Lisans modeli seçilen lisans adına bağlı değil")
     starts=_dt(v.get("starts_at")).date() if v.get("starts_at") else None; expires=_dt(v.get("expires_at")).date() if v.get("expires_at") else None
+    if starts and expires and expires < starts: raise ValueError("Lisans bitiş tarihi başlangıç tarihinden önce olamaz")
     obj=License(license_name_id=name.id,license_model_id=model.id,license_type=v.get("license_type") or "subscription",license_key=v.get("license_key") or None,email=v.get("email") or None,password=v.get("password") or None,starts_at=starts,expires_at=expires,note=v.get("note") or item.description or None,status="active")
     db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Lisans","id":obj.id})
    else:
