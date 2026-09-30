@@ -215,7 +215,14 @@ def create_role():
     if Role.query.filter(db.func.lower(Role.name) == name.lower()).first():
         return jsonify({"error": "role_exists"}), 409
     role = Role(name=name, description=str(data.get("description") or "").strip() or None, active=bool(data.get("active", True)))
-    role.permissions = Permission.query.filter(Permission.id.in_([int(x) for x in data.get("permission_ids", [])])).all() if data.get("permission_ids") else []
+    try:
+        permission_ids = [int(x) for x in data.get("permission_ids", [])]
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid_permission_ids"}), 400
+    permissions = Permission.query.filter(Permission.id.in_(permission_ids)).all() if permission_ids else []
+    if len({p.id for p in permissions}) != len(set(permission_ids)):
+        return jsonify({"error": "invalid_permission_ids"}), 400
+    role.permissions = permissions
     db.session.add(role)
     db.session.flush()
     audit("role_created", "role", role.id, {"name": role.name})
@@ -242,8 +249,14 @@ def update_role(role_id):
     if "active" in data:
         role.active = bool(data["active"])
     if "permission_ids" in data:
-        ids = [int(x) for x in data.get("permission_ids", [])]
-        role.permissions = Permission.query.filter(Permission.id.in_(ids)).all() if ids else []
+        try:
+            ids = [int(x) for x in data.get("permission_ids", [])]
+        except (TypeError, ValueError):
+            return jsonify({"error": "invalid_permission_ids"}), 400
+        permissions = Permission.query.filter(Permission.id.in_(ids)).all() if ids else []
+        if len({p.id for p in permissions}) != len(set(ids)):
+            return jsonify({"error": "invalid_permission_ids"}), 400
+        role.permissions = permissions
     audit("role_updated", "role", role.id, {"name": role.name})
     db.session.commit()
     return jsonify({"id": role.id, "name": role.name, "description": role.description, "active": role.active,
