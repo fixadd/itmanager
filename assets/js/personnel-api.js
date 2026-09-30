@@ -35,7 +35,7 @@ function pager(panel,total,pages){
 }
 
 async function loadDepartments(){
- try{const d=await json('/api/master-data/departments');departments=d||[]}catch{departments=[]}
+ try{const d=await json('/api/settings/departments?per_page=100');departments=d||[]}catch{departments=[]}
  const sel=document.querySelector('#personnelDepartment');if(sel)sel.innerHTML='<option value="">Tüm Departmanlar</option>'+departments.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
 }
 
