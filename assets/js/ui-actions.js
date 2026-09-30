@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   const actionsFor=()=>{const p=page(),a=[{id:'edit',text:'Düzenle',icon:'pencil',class:'btn-primary'}];if(p.includes('inventory'))a.push({id:'assign',text:'Zimmet / Devir',icon:'transfer',class:'btn-outline-primary'},{id:'maintenance',text:'Bakım Kaydı',icon:'tool',class:'btn-outline-warning'});else if(p.includes('licenses'))a.push({id:'assign',text:'Lisans Ata',icon:'user-plus',class:'btn-outline-primary'},{id:'history',text:'Lisans Geçmişi',icon:'history',class:'btn-outline-secondary'});else if(p.includes('stock'))a.push({id:'out',text:'Stok Çıkışı',icon:'arrow-up-right',class:'btn-outline-primary'},{id:'history',text:'Stok Hareketleri',icon:'history',class:'btn-outline-secondary'});return a;};
   document.addEventListener('click',e=>{
     const eye=e.target.closest('.table tbody .ti-eye');
-    if(!eye || eye.closest('tr[data-record-type="inventory"]')) return;
+    const currentPage=page();
+    if(!eye || ['inventory','licenses','stock','maintenance','requests','people','knowledge','scrap','reports','admin','settings','logs','profile'].includes(currentPage)) return;
     e.stopImmediatePropagation();e.preventDefault();
     const tr=eye.closest('tr'),fields=recordFields(tr),title=fields[0]?.value||fields[1]?.value||'Kayıt',m=modal(title,fields,actionsFor());
     m.addEventListener('click',ev=>{const b=ev.target.closest('[data-action]');if(!b)return;m.remove();toast(`${b.textContent.trim()} işlemi açıldı.`);});
