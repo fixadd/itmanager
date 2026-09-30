@@ -27,17 +27,31 @@ function render(items){
 let requestMasterData=null;
 async function loadRequestMasterData(){
  if(requestMasterData)return requestMasterData;
- const r=await fetch('/api/master-data',{headers:{Accept:'application/json'}});
- if(!r.ok)throw Error('Ana veriler alınamadı');
- const d=await r.json();
+ const headers={Accept:'application/json'};
+ const [g,inv,stock,lic,pers]=await Promise.all([
+  fetch('/api/settings/product-hierarchy',{headers}),
+  fetch('/api/settings/product-catalog?scope=inventory',{headers}),
+  fetch('/api/settings/product-catalog?scope=stock',{headers}),
+  fetch('/api/settings/license-catalog',{headers}),
+  fetch('/api/settings/personnel?per_page=100',{headers})
+ ]);
+ if(!g.ok||!inv.ok||!stock.ok||!lic.ok)throw Error('Ana veriler alınamadı');
+ const [gd,id,sd,ld,pd]=await Promise.all([g.json(),inv.json(),stock.json(),lic.json(),pers.ok?pers.json():Promise.resolve({items:[]})]);
  requestMasterData={
-  inventoryTypes:d.hardware_types||[],
-  brands:d.brands||[],
-  models:d.models||[],
-  factories:d.factories||[],
-  departments:d.departments||[],
-  personnel:d.personnel||[],
-  licenses:d.licenses||[]
+  inventoryTypes:id.hardware_types||[],
+  inventoryBrands:id.brands||[],
+  inventoryModels:id.models||[],
+  stockTypes:sd.hardware_types||[],
+  stockBrands:sd.brands||[],
+  stockModels:sd.models||[],
+  brands:id.brands||[],
+  models:id.models||[],
+  factories:gd.factories||[],
+  departments:gd.departments||[],
+  personnel:pd.items||[],
+  licenseNames:ld.names||ld.license_names||[],
+  licenseModels:ld.models||[],
+  licenses:ld.names||ld.license_names||[]
  };
  window.IT_MASTER_DATA=requestMasterData;
  return requestMasterData;
