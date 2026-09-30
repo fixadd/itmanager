@@ -40,7 +40,7 @@ async function loadDepartments(){
 }
 
 async function load(target=1){
- if(location.hash.slice(1)!=='people')return;
+ if(!['people','personnel'].includes(location.hash.slice(1)))return;
  const panel=document.querySelector('#personnelPanel');if(!panel)return;
  const q=document.querySelector('#personnelSearch')?.value.trim()||'';
  const status=document.querySelector('#personnelStatus')?.value||'';
