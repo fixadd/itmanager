@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
 
 from ..extensions import db
 from ..models import AuditLog, Inventory, MaintenanceRecord
@@ -101,7 +102,7 @@ def _payload(data, existing=None):
 @maintenance_bp.get("/maintenance")
 @login_required
 def list_maintenance():
-    q = MaintenanceRecord.query.join(Inventory)
+    q = MaintenanceRecord.query.join(Inventory).options(joinedload(MaintenanceRecord.inventory).joinedload(Inventory.personnel))
     search = request.args.get("search", "").strip()
     status = request.args.get("status", "").strip()
     if search:
