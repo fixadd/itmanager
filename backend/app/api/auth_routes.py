@@ -120,7 +120,10 @@ def create_user():
         return jsonify({"error": "username_and_password_required", "detail": "Password must be at least 8 characters."}), 400
     if User.query.filter(db.func.lower(User.username) == username.lower()).first():
         return jsonify({"error": "username_exists"}), 409
-    user = User(username=username, email=str(data.get("email") or "").strip() or None,
+    email = str(data.get("email") or "").strip() or None
+    if email and User.query.filter(db.func.lower(User.email) == email.lower()).first():
+        return jsonify({"error": "email_exists"}), 409
+    user = User(username=username, email=email,
                 password_hash=generate_password_hash(password), active=bool(data.get("active", True)))
     if data.get("role_id"):
         role = db.session.get(Role, int(data["role_id"]))
@@ -155,7 +158,10 @@ def update_user(user_id):
             return jsonify({"error": "username_exists"}), 409
         user.username = username
     if "email" in data:
-        user.email = str(data["email"] or "").strip() or None
+        email = str(data["email"] or "").strip() or None
+        if email and User.query.filter(db.func.lower(User.email) == email.lower(), User.id != user.id).first():
+            return jsonify({"error": "email_exists"}), 409
+        user.email = email
     if "active" in data:
         if current_user().id == user.id and not bool(data["active"]):
             return jsonify({"error": "cannot_disable_current_user"}), 400
@@ -302,7 +308,10 @@ def update_profile():
     user = current_user()
     data = request.get_json(silent=True) or {}
     if "email" in data:
-        user.email = str(data["email"] or "").strip() or None
+        email = str(data["email"] or "").strip() or None
+        if email and User.query.filter(db.func.lower(User.email) == email.lower(), User.id != user.id).first():
+            return jsonify({"error": "email_exists"}), 409
+        user.email = email
     audit("profile_updated", "user", user.id)
     db.session.commit()
     return jsonify({"user": user_json(user)})
