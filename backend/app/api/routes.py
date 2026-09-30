@@ -225,6 +225,8 @@ def _license_dict(x):
     days=(x.expires_at-date.today()).days if x.expires_at else None
     return {"id":x.id,"barcode":x.barcode,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"starts_at":x.starts_at.isoformat() if x.starts_at else None,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 
+LICENSE_STATUSES={"active","empty","it","scrapped"}
+
 def _license_payload(data,x=None):
     name_value=data.get("license_name", x.license_name_id if x else None)
     if name_value in (None,""): raise ValueError("license_name alanı zorunludur")
@@ -245,6 +247,12 @@ def _license_payload(data,x=None):
         value=data["expires_at"]
         try: vals["expires_at"]=date.fromisoformat(value) if value else None
         except (TypeError,ValueError): raise ValueError("Geçersiz bitiş tarihi")
+    if vals.get("status") is not None:
+        vals["status"]=str(vals["status"]).strip().lower()
+        if vals["status"] not in LICENSE_STATUSES: raise ValueError("Geçersiz lisans durumu")
+    starts=vals.get("starts_at", x.starts_at if x else None)
+    expires=vals.get("expires_at", x.expires_at if x else None)
+    if starts and expires and expires < starts: raise ValueError("Bitiş tarihi başlangıç tarihinden önce olamaz")
     return vals
 
 @api_bp.get("/licenses")
@@ -314,7 +322,15 @@ def assign_license(license_id):
     x=db.session.get(License,license_id); data=request.get_json(silent=True) or {}
     if not x:return jsonify({"error":"Lisans kaydı bulunamadı"}),404
     try:
-        p=_resolve(Personnel,data.get("personnel_id",data.get("person")),"personel"); db.session.add(AssignmentHistory(personnel_id=p.id,asset_type="license",asset_id=x.id,action="assign",note=data.get("note"))); _audit("license.assigned","license",x.id,{"to_personnel_id":p.id,"note":data.get("note")}); db.session.commit(); return jsonify(_license_dict(x))
+        p=_resolve(Personnel,data.get("personnel_id",data.get("person")),"personel")
+        old=x.personnel_id
+        if old != p.id:
+            if old:
+                db.session.add(AssignmentHistory(personnel_id=old,asset_type="license",asset_id=x.id,action="unassign",note=data.get("note")))
+            x.personnel_id=p.id
+            db.session.add(AssignmentHistory(personnel_id=p.id,asset_type="license",asset_id=x.id,action="assign",note=data.get("note")))
+        _audit("license.assigned",x.id,{"from_personnel_id":old,"to_personnel_id":p.id,"note":data.get("note")})
+        db.session.commit(); return jsonify(_license_dict(x))
     except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
 
 @api_bp.post("/licenses/<int:license_id>/send-to-it")
