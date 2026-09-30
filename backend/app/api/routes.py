@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func, or_
 from ..extensions import db
-from ..models import AssignmentHistory, AuditLog, Brand, Department, Factory, Inventory, License, LicenseModel, LicenseName, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement, MaintenanceRecord, PurchaseRequest
+from ..models import AssignmentHistory, AuditLog, Brand, Department, Factory, Inventory, License, LicenseModel, LicenseName, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement, MaintenanceRecord, PurchaseRequest, User
 from .auth_routes import current_user, login_required
 
 api_bp = Blueprint("api", __name__)
