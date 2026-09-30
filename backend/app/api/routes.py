@@ -338,7 +338,12 @@ def assign_license(license_id):
 def send_license_to_it(license_id):
     x=db.session.get(License,license_id); data=request.get_json(silent=True) or {}
     if not x:return jsonify({"error":"Lisans kaydı bulunamadı"}),404
-    old=x.status; x.status="it"; x.note=data.get("note",x.note); _audit("license.sent_to_it","license",x.id,{"from_status":old,"note":data.get("note")}); db.session.commit(); return jsonify(_license_dict(x))
+    old=x.status; old_person=x.personnel_id
+    if old_person:
+        db.session.add(AssignmentHistory(personnel_id=old_person,asset_type="license",asset_id=x.id,action="unassign",note=data.get("note")))
+    x.personnel_id=None; x.status="it"; x.note=data.get("note",x.note)
+    _audit("license.sent_to_it","license",x.id,{"from_status":old,"from_personnel_id":old_person,"note":data.get("note")})
+    db.session.commit(); return jsonify(_license_dict(x))
 
 @api_bp.post("/licenses/<int:license_id>/scrap")
 @login_required
