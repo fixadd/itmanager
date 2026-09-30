@@ -351,4 +351,14 @@ def scrap_license(license_id):
     x=db.session.get(License,license_id); data=request.get_json(silent=True) or {}; reason=str(data.get("reason","")).strip()
     if not x:return jsonify({"error":"Lisans kaydı bulunamadı"}),404
     if not reason:return jsonify({"error":"Hurda nedeni zorunludur"}),400
-    old=x.status; x.status="scrapped"; db.session.add(ScrapRecord(source_type="license",source_id=x.id,reason=reason,note=data.get("note"))); _audit("license.scrapped","license",x.id,{"from_status":old,"reason":reason,"note":data.get("note")}); db.session.commit(); return jsonify(_license_dict(x))
+    if x.status=="scrapped": return jsonify({"error":"Lisans zaten hurda durumunda"}),400
+    try:
+        old=x.status; old_person=x.personnel_id
+        if old_person:
+            db.session.add(AssignmentHistory(personnel_id=old_person,asset_type="license",asset_id=x.id,action="unassign",note=reason))
+        x.status="scrapped"; x.personnel_id=None
+        db.session.add(ScrapRecord(source_type="license",source_id=x.id,reason=reason,note=data.get("note")))
+        _audit("license.scrapped","license",x.id,{"from_status":old,"from_personnel_id":old_person,"reason":reason,"note":data.get("note")})
+        db.session.commit(); return jsonify(_license_dict(x))
+    except Exception:
+        db.session.rollback(); return jsonify({"error":"Lisans hurdaya ayrılamadı"}),409
