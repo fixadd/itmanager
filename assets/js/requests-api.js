@@ -53,7 +53,7 @@ async function loadRequestMasterData(){
   licenseModels:ld.models||[],
   licenses:ld.names||ld.license_names||[]
  };
- window.IT_MASTER_DATA=requestMasterData;
+ window.IT_MASTER_DATA=requestMasterData; window.IT_REQUEST_MASTER_DATA=requestMasterData;
  return requestMasterData;
 }
 function itemRow(item={}){
@@ -132,7 +132,7 @@ async function openCreate(){
  try{await loadRequestMasterData()}catch(e){notify(e.message);return}
  const form=window.IT_FORM_RENDER?.('requests')||'<form id="itDynamicForm" data-form-page="requests"></form>';
  if(window.ITUI)ITUI.modal('Yeni Satın Alma Talebi',form,{footer:'<button class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button class="btn btn-primary" data-request-save>Talebi Kaydet</button>'});
- const f=document.querySelector('#itManagerModal #itDynamicForm');if(f){f.querySelector('#requestRows')?.insertAdjacentHTML('beforeend',itemRow());const d=window.IT_MASTER_DATA||requestMasterData||{};const requester=f.querySelector('[name="requester_id"]');if(requester){requester.innerHTML='<option value="">Giriş yapan kullanıcı</option>'+(d.personnel||[]).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');}const current=window.IT_CURRENT_USER?.personnel_id||window.IT_CURRENT_USER?.personnel?.id;if(current&&requester)requester.value=String(current);}
+ const f=document.querySelector('#itManagerModal #itDynamicForm');if(f){f.querySelector('#requestRows')?.insertAdjacentHTML('beforeend',itemRow());const d=window.IT_MASTER_DATA||window.IT_REQUEST_MASTER_DATA||{};const requester=f.querySelector('[name="requester_id"]');if(requester){requester.innerHTML='<option value="">Giriş yapan kullanıcı</option>'+(d.personnel||[]).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');}const current=window.IT_CURRENT_USER?.personnel_id||window.IT_CURRENT_USER?.personnel?.id;if(current&&requester)requester.value=String(current);}
 }
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-request-save]');if(!b)return;const f=document.querySelector('#itManagerModal #itDynamicForm[data-form-page="requests"]');if(!f)return;try{const saved=await save(f);if(!saved)return;notify('Satın alma talebi kaydedildi.');bootstrap.Modal.getOrCreateInstance(document.getElementById('itManagerModal')).hide();load()}catch(err){notify(err.message)}},true);
 const observer=new MutationObserver(()=>{const f=document.querySelector('#itDynamicForm[data-form-page="requests"]');if(f)ensureRows(f)});observer.observe(document.body,{childList:true,subtree:true});
