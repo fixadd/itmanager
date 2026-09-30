@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from ..extensions import db
 from ..models import License, LicenseName, LicenseModel, AuditLog
-from .auth_routes import current_user
+from .auth_routes import current_user, login_required
 
 license_catalog_record_bp = Blueprint("license_catalog_record", __name__)
 
@@ -16,6 +16,7 @@ def _dict(x):
     return {"id":x.id,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"note":x.note,"status":x.status}
 
 @license_catalog_record_bp.get("/license-catalog/records")
+@login_required
 def list_records():
     q=License.query.join(LicenseName).outerjoin(LicenseModel,License.license_model_id==LicenseModel.id)
     search=request.args.get("search","").strip()
@@ -25,6 +26,7 @@ def list_records():
     return jsonify({"items":[_dict(x) for x in p.items],"pagination":{"total":p.total,"pages":p.pages}})
 
 @license_catalog_record_bp.post("/license-catalog/records")
+@login_required
 def create_record():
     data=request.get_json(silent=True) or {}
     try:
