@@ -103,6 +103,6 @@ async function changePassword(e){
 }
 
 window.addEventListener('hashchange',()=>setTimeout(load,80));
-document.addEventListener('DOMContentLoaded',()=>setTimeout(load,350));
+
 window.IT_PROFILE_API={load};
 })();
