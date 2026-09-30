@@ -35,7 +35,7 @@
       state.pagination = data.pagination || state.pagination;
       render();
       renderPagination();
-      await loadCategories();
+      if (!state.categories.length) await loadCategories();
     } catch (e) {
       console.warn(e);
       const tbody = document.querySelector('#knowledgeTableBody');
@@ -43,7 +43,8 @@
     }
   }
 
-  async function loadCategories() {
+  async function loadCategories(force = false) {
+    if (!force && state.categories.length) return state.categories;
     try {
       const res = await fetch(`${API}/categories`);
       if (!res.ok) return;
