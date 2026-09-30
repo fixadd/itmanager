@@ -33,7 +33,7 @@ def _inventory_dict(x):
 def dashboard_summary():
     inventory_total = Inventory.query.count()
     inventory_status = dict(db.session.query(Inventory.status, func.count(Inventory.id)).group_by(Inventory.status).all())
-    type_rows = db.session.query(ProductType.name, func.count(Inventory.id)).join(Inventory, Inventory.product_type_id == ProductType.id).group_by(ProductType.name).order_by(func.count(Inventory.id).desc()).all()
+    type_rows = db.session.query(ProductType.name, func.count(Inventory.id)).outerjoin(Inventory, Inventory.product_type_id == ProductType.id).filter(ProductType.active == True).group_by(ProductType.name).order_by(func.count(Inventory.id).desc()).all()
     stock_in = db.session.query(func.coalesce(func.sum(StockMovement.quantity), 0)).filter(StockMovement.movement_type == "in").scalar() or 0
     stock_out = db.session.query(func.coalesce(func.sum(StockMovement.quantity), 0)).filter(StockMovement.movement_type == "out").scalar() or 0
     stock_total = db.session.query(func.coalesce(func.sum(StockItem.quantity), 0)).scalar() or 0
