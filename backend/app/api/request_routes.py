@@ -78,6 +78,8 @@ def update_request(request_id):
 def _set_status(request_id,status):
  x=db.session.get(PurchaseRequest,request_id);data=request.get_json(silent=True) or {}
  if not x:return jsonify({"error":"Talep bulunamadı"}),404
+ allowed={"draft":{"pending","cancelled"},"pending":{"approved","rejected","cancelled"},"approved":{"ordered","cancelled"},"ordered":{"completed","cancelled"},"completed":set(),"rejected":set(),"cancelled":set()}
+ if status not in allowed.get(x.status,set()):return jsonify({"error":f"Talep durumu {x.status} iken {status} yapılamaz"}),409
  old=x.status;x.status=status
  if status=="approved":x.approved_at=datetime.now(timezone.utc);x.approved_by=data.get("approved_by") or (current_user().username if current_user() else "Sistem")
  if status=="completed" and not x.completed_at:x.completed_at=datetime.now(timezone.utc)
