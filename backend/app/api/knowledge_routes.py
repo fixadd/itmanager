@@ -147,7 +147,8 @@ def create_article():
     if not title or not content:
         return jsonify({"error": "title ve content zorunludur"}), 400
 
-    author_id = data.get("author_id")
+    user = current_user()
+    author_id = data.get("author_id") or (user.personnel.id if user and user.personnel else None)
     if author_id and not db.session.get(Personnel, author_id):
         return jsonify({"error": "Geçersiz author_id"}), 400
 
