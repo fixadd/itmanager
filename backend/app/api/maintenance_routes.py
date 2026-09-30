@@ -57,6 +57,8 @@ def _payload(data, existing=None):
         inventory = None
     if not inventory:
         raise ValueError("Geçerli bir envanter seçilmelidir")
+    if inventory.status == "scrapped":
+        raise ValueError("Hurda durumundaki envanter için bakım kaydı oluşturulamaz")
 
     status = str(data.get("status", existing.status if existing else "pending")).strip().lower()
     if status not in ALLOWED_STATUS:
@@ -73,8 +75,13 @@ def _payload(data, existing=None):
     now = datetime.now(timezone.utc)
     if status in {"in_progress", "service"} and not started_at:
         started_at = now
-    if status == "completed" and not completed_at:
-        completed_at = now
+    if status == "completed":
+        if not started_at:
+            started_at = now
+        if not completed_at:
+            completed_at = now
+    else:
+        completed_at = None
 
     return {
         "inventory_id": inventory.id,
