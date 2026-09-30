@@ -73,5 +73,5 @@ let timer;
 document.addEventListener('input',e=>{if(e.target.id==='maintenanceSearch'){clearTimeout(timer);timer=setTimeout(load,250)}});
 document.addEventListener('change',e=>{if(e.target.id==='maintenanceStatus')load()});document.addEventListener('click',e=>{const tab=e.target.closest('[data-maint-tab]');if(!tab)return;const s=document.querySelector('#maintenanceStatus');if(s)s.value=tab.dataset.maintTab==='all'?'':tab.dataset.maintTab;document.querySelectorAll('[data-maint-tab]').forEach(x=>x.classList.remove('active'));tab.classList.add('active');load()});
 window.addEventListener('hashchange',()=>setTimeout(load,100));
-document.addEventListener('DOMContentLoaded',()=>setTimeout(load,250));
+document.addEventListener('DOMContentLoaded',()=>{if(location.hash==='#maintenance')setTimeout(load,250)});
 })();
