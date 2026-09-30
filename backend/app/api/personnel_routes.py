@@ -23,7 +23,11 @@ def list_personnel():
  page=max(request.args.get("page",1,type=int),1);per_page=min(max(request.args.get("per_page",100,type=int),1),100)
  p=query.order_by(Personnel.name.asc()).paginate(page=page,per_page=per_page,error_out=False)
  items=[]
- for x in p.items:items.append(person_json(x)|{"asset_count":Inventory.query.filter_by(personnel_id=x.id).count()+License.query.filter_by(personnel_id=x.id).count()})
+ ids=[x.id for x in p.items]
+ inventory_counts={k:int(v) for k,v in db.session.query(Inventory.personnel_id,func.count(Inventory.id)).filter(Inventory.personnel_id.in_(ids)).group_by(Inventory.personnel_id).all()} if ids else {}
+ license_counts={k:int(v) for k,v in db.session.query(License.personnel_id,func.count(License.id)).filter(License.personnel_id.in_(ids)).group_by(License.personnel_id).all()} if ids else {}
+ for x in p.items:
+  items.append(person_json(x)|{"asset_count":inventory_counts.get(x.id,0)+license_counts.get(x.id,0)})
  return jsonify({"items":items,"pagination":{"page":page,"per_page":per_page,"total":p.total,"pages":p.pages},"total":p.total})
 @personnel_bp.get("/personnel/<int:person_id>")
 @login_required
