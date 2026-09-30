@@ -195,6 +195,8 @@ def stock_movement(stock_id):
         movement_type = str(data.get("type", "")).lower().strip()
         if movement_type not in ("in", "out"):
             raise ValueError("Hareket tipi in veya out olmalıdır")
+        if x.status == "scrapped":
+            raise ValueError("Hurda durumundaki stokta hareket yapılamaz")
         quantity = _decimal(data.get("quantity"))
         if movement_type == "out" and quantity > x.quantity:
             raise ValueError("Yetersiz stok miktarı")
@@ -208,6 +210,8 @@ def stock_movement(stock_id):
                 raise ValueError("Geçersiz envanter")
             inventory_id = inventory.id
         x.quantity = x.quantity + quantity if movement_type == "in" else x.quantity - quantity
+        if x.quantity > 0 and x.status == "available":
+            x.status = "available"
         db.session.add(StockMovement(stock_item_id=x.id, movement_type=movement_type, quantity=quantity, unit=x.unit, personnel_id=personnel_id, inventory_id=inventory_id, note=data.get("note")))
         _audit(f"stock.{movement_type}", x.id, {"quantity": float(quantity), "personnel_id": personnel_id, "inventory_id": inventory_id, "note": data.get("note")})
         db.session.commit()
@@ -225,6 +229,8 @@ def assign_stock(stock_id):
     if not x:
         return jsonify({"error": "Stok kaydı bulunamadı"}), 404
     try:
+        if x.status == "scrapped":
+            raise ValueError("Hurda durumundaki stok atanamaz")
         p = _resolve(Personnel, data.get("personnel_id", data.get("person")), "personel")
         quantity = _decimal(data.get("quantity", 1))
         if quantity > x.quantity:
@@ -247,6 +253,8 @@ def send_stock_to_it(stock_id):
     data = request.get_json(silent=True) or {}
     if not x:
         return jsonify({"error": "Stok kaydı bulunamadı"}), 404
+    if x.status == "scrapped":
+        return jsonify({"error": "Hurda durumundaki stok Bilgi İşlem'e gönderilemez"}),400
     x.status = "it"
     x.note = data.get("note", x.note)
     _audit("stock.sent_to_it", x.id, {"note": data.get("note")})
