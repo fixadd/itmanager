@@ -2,7 +2,7 @@ from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from flask import Blueprint,jsonify,request
 from ..extensions import db
-from ..models import Personnel,Inventory,License,AssignmentHistory,StockMovement,AuditLog
+from ..models import Personnel,Department,Inventory,License,AssignmentHistory,StockMovement,AuditLog
 from .auth_routes import current_user,login_required
 personnel_bp=Blueprint("personnel",__name__)
 def person_json(p):return {"id":p.id,"employee_no":p.employee_no,"name":p.name,"email":p.email,"active":p.active,"department":{"id":p.department.id,"name":p.department.name} if p.department else None}
@@ -34,7 +34,11 @@ def get_personnel(person_id):
 def create_personnel():
  data=request.get_json(silent=True) or {};name=str(data.get("name") or "").strip()
  if not name:return jsonify({"error":"Personel adı zorunludur."}),400
- p=Personnel(employee_no=str(data.get("employee_no") or "").strip() or None,name=name,email=str(data.get("email") or "").strip() or None,department_id=data.get("department_id") or None,active=bool(data.get("active",True)))
+ department_id=data.get("department_id") or None
+ if department_id:
+  department=db.session.get(Department,int(department_id))
+  if not department or not department.active:return jsonify({"error":"Geçerli ve aktif bir departman seçilmelidir."}),400
+ p=Personnel(employee_no=str(data.get("employee_no") or "").strip() or None,name=name,email=str(data.get("email") or "").strip() or None,department_id=department_id,active=bool(data.get("active",True)))
  db.session.add(p)
  try:
   db.session.flush();audit("personnel.created","personnel",p.id,{"name":p.name});db.session.commit();return jsonify(person_json(p)),201
@@ -50,7 +54,13 @@ def update_personnel(person_id):
   name=str(data["name"] or "").strip()
   if not name:return jsonify({"error":"Personel adı zorunludur."}),400
   p.name=name
- for key in ("employee_no","email","department_id","active"):
+ if "department_id" in data:
+  department_id=data.get("department_id") or None
+  if department_id:
+   department=db.session.get(Department,int(department_id))
+   if not department or not department.active:return jsonify({"error":"Geçerli ve aktif bir departman seçilmelidir."}),400
+  p.department_id=department_id
+ for key in ("employee_no","email","active"):
   if key in data:
    value=data[key]
    if key=="employee_no":value=str(value or "").strip() or None
