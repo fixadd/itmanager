@@ -137,7 +137,7 @@
     if (operation === 'assign') {
       let data;
       try {
-        data = await api('/api/master-data');
+        data = await api('/api/settings/personnel?per_page=100');
       } catch (error) {
         return showModal(
           'Personel Ataması',
@@ -148,7 +148,7 @@
 
       return showModal(
         'Personel Ataması',
-        `<div class="mb-3"><label class="form-label">Personel <span class="text-danger">*</span></label><select name="personnel_id" class="form-select" required><option value="">Personel seçin</option>${(data.personnel || []).map((person) => `<option value="${esc(person.id)}">${esc(person.name)}</option>`).join('')}</select></div><div><label class="form-label">Not</label><textarea name="note" class="form-control" rows="3" placeholder="Atama notu"></textarea></div>`,
+        `<div class="mb-3"><label class="form-label">Personel <span class="text-danger">*</span></label><select name="personnel_id" class="form-select" required><option value="">Personel seçin</option>${(data.items || data.personnel || data || []).map((person) => `<option value="${esc(person.id)}">${esc(person.name)}</option>`).join('')}</select></div><div><label class="form-label">Not</label><textarea name="note" class="form-control" rows="3" placeholder="Atama notu"></textarea></div>`,
         async (form) => {
           const personnelId = String(form.get('personnel_id') || '');
           if (!personnelId) throw new Error('Personel seçimi zorunludur.');
