@@ -282,7 +282,7 @@ def _license_effective_status(x):
 
 def _license_dict(x):
     days=(x.expires_at-date.today()).days if x.expires_at else None
-    return {"id":x.id,"barcode":x.barcode,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"starts_at":x.starts_at.isoformat() if x.starts_at else None,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+    return {"id":x.id,"barcode":x.barcode,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"starts_at":x.starts_at.isoformat() if x.starts_at else None,"license_key":x.license_key,"email":x.email,"has_password":bool(x.password),"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 
 LICENSE_STATUSES={"active","empty","it","scrapped"}
 
