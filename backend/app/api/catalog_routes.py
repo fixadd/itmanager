@@ -88,6 +88,22 @@ def delete_type(type_id):
     if not obj or not _scoped("type",type_id,scope):return jsonify({"error":"not_found"}),404
     db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='type' AND entity_id=:id AND scope=:scope"),{"id":type_id,"scope":scope})
     db.session.execute(text("DELETE FROM product_catalog_scopes WHERE entity_type='model' AND entity_id IN (SELECT id FROM product_models WHERE product_type_id=:id) AND scope=:scope"),{"id":type_id,"scope":scope})
+    db.session.execute(text("""
+        DELETE FROM product_catalog_scopes
+        WHERE entity_type='brand'
+          AND scope=:scope
+          AND entity_id IN (
+              SELECT b.id
+              FROM brands b
+              WHERE NOT EXISTS (
+                  SELECT 1
+                  FROM product_type_brands ptb
+                  JOIN product_catalog_scopes pts
+                    ON pts.entity_type='type' AND pts.entity_id=ptb.product_type_id AND pts.scope=:scope
+                  WHERE ptb.brand_id=b.id
+              )
+          )
+    """),{"scope":scope})
     other=db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type='type' AND entity_id=:id LIMIT 1"),{"id":type_id}).first()
     if not other:obj.active=False
     _audit("settings.catalog_type_deleted","product_type",obj.id,{"scope":scope,"name":obj.name});db.session.commit();return jsonify({"ok":True})
