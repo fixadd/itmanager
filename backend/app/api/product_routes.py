@@ -11,7 +11,7 @@ def _name_exists(model,name,exclude_id=None):
  q=model.query.filter(db.func.lower(model.name)==name.lower());return q.filter(model.id!=exclude_id).first() if exclude_id else q.first()
 def _scope_ids(entity_type,scope="inventory"):
  return [r[0] for r in db.session.execute(
-     text("SELECT entity_id FROM product_catalog_scopes WHERE entity_type=:t AND scope=:s"),
+     text("SELECT entity_id FROM product_catalog_scopes WHERE entity_type=:t AND scope=:scope"),
      {"t":entity_type,"scope":scope}
  ).all()]
 def _type_json(x):return {"id":x.id,"name":x.name,"active":x.active,"brand_ids":[b.id for b in x.brands if b.active]}
