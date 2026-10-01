@@ -99,7 +99,7 @@ def list_stock():
     status = request.args.get("status", "").strip()
     if search:
         term = f"%{search}%"
-        q = q.join(ProductType).join(Brand).outerjoin(ProductModel).filter(or_(ProductType.name.ilike(term), Brand.name.ilike(term), ProductModel.name.ilike(term), StockItem.id == int(search) if search.isdigit() else False))
+        q = q.join(ProductType).join(Brand).outerjoin(ProductModel).filter(or_(ProductType.name.ilike(term), Brand.name.ilike(term), ProductModel.name.ilike(term), StockItem.barcode.ilike(term), StockItem.id == int(search) if search.isdigit() else False))
     if status:
         q = q.filter(StockItem.status == status)
     for field, key in ((StockItem.product_type_id, "product_type_id"), (StockItem.brand_id, "brand_id"), (StockItem.model_id, "model_id")):
