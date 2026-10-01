@@ -68,8 +68,12 @@ def _payload(data, item=None):
     brand = _resolve(Brand, brand_value, "marka")
     model_value = data.get("model", item.model_id if item else None)
     model = _resolve(ProductModel, model_value, "model") if model_value not in (None, "") else None
+    if not product_type.active or not brand.active:
+        raise ValueError("Pasif master kayıt kullanılamaz")
     if product_type.id not in {p.id for p in brand.product_types}:
         raise ValueError("Marka, seçilen donanım tipiyle eşleşmiyor")
+    if model and not model.active:
+        raise ValueError("Pasif model kullanılamaz")
     if model and model.brand_id != brand.id:
         raise ValueError("Model markayla eşleşmiyor")
     if model and model.product_type_id is not None and model.product_type_id != product_type.id:
