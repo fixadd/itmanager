@@ -35,10 +35,20 @@ function pager(panel,total,pages){
 }
 
 async function loadDepartments(){
- try{const d=await json('/api/settings/departments?per_page=100');departments=Array.isArray(d)?d:(d.items||d.departments||[])}catch{departments=[]}
- const sel=document.querySelector('#personnelDepartment');if(sel)sel.innerHTML='<option value="">Tüm Departmanlar</option>'+departments.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+ try{
+  const all=[];
+  for(let p=1;p<=100;p++){
+   const d=await json('/api/settings/departments?per_page=100&page='+p);
+   const items=Array.isArray(d)?d:(d.items||d.departments||[]);
+   if(!Array.isArray(items)||!items.length)break;
+   all.push(...items.filter(x=>x.active!==false));
+   const pages=Number(d.pagination?.pages||1);
+   if(p>=pages||items.length<100)break;
+  }
+  departments=all;
+ }catch{departments=[]}
+ const sel=document.querySelector('#personnelDepartment');if(sel)sel.innerHTML='<option value="">Tüm Departmanlar</option>'+departments.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('');
 }
-
 async function load(target=1){
  if(!['people','personnel'].includes(location.hash.slice(1)))return;
  const panel=document.querySelector('#personnelPanel');if(!panel)return;
