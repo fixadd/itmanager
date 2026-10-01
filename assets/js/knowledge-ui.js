@@ -38,7 +38,7 @@
       }, f.dataset.id || null);
       bootstrap.Modal.getInstance(document.querySelector('#knowledgeEditModal'))?.hide();
       await window.IT_KNOWLEDGE_API.load();
-    } catch(err) { alert(err.message); }
+    } catch(err) { window.itToast?.(err.message); }
   });
 
   window.addEventListener('hashchange', () => setTimeout(renderPage, 0));
