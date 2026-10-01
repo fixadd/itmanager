@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db
 from ..models import AuditLog, Brand, Department, Factory, LicenseName, ProductModel, ProductType
-from .auth_routes import permission_required
+from .auth_routes import login_required, permission_required
 
 settings_bp = Blueprint("settings", __name__)
 
@@ -48,6 +48,7 @@ def _name_payload(data, model, obj=None):
 
 
 @settings_bp.get("/settings/summary")
+@login_required
 def settings_summary():
     result = {}
     for key, (model, _) in RESOURCES.items():
@@ -59,6 +60,7 @@ def settings_summary():
 
 
 @settings_bp.get("/settings/<string:resource>")
+@login_required
 def list_settings(resource):
     entry = RESOURCES.get(resource)
     if not entry:
@@ -138,6 +140,7 @@ def delete_setting(resource, item_id):
 
 
 @settings_bp.get("/settings/models")
+@login_required
 def list_models():
     query = ProductModel.query
     brand_id = request.args.get("brand_id", type=int)
@@ -146,7 +149,7 @@ def list_models():
         query = query.filter(ProductModel.brand_id == brand_id)
     if product_type_id:
         query = query.filter(ProductModel.product_type_id == product_type_id)
-    return jsonify({"items": [_model_json(x) for x in query.order_by(ProductModel.name).all()]})
+    return jsonify({"items": [_model_json(x) for x in query.order_by(model.name).all()})
 
 
 @settings_bp.post("/settings/models")
@@ -173,7 +176,7 @@ def create_model():
     db.session.add(obj)
     db.session.flush()
     _audit("settings.model_created", "product_model", obj.id, {"name": obj.name, "brand_id": obj.brand_id,
-                                                                   "product_type_id": obj.product_type_id})
+                                                               "product_type_id": obj.product_type_id})
     db.session.commit()
     return jsonify(_model_json(obj)), 201
 
@@ -228,6 +231,7 @@ def update_model(model_id):
 
 
 @settings_bp.get("/settings/connections")
+@login_required
 def connections():
     from flask import current_app
     uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
