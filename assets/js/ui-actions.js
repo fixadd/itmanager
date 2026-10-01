@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const p=page(),title=t||'Yeni Kayıt';
     // These modules own their create buttons/forms. Do not intercept their
     // controls in the generic capture-phase handler.
-    if(['admin','people','knowledge','requests'].includes(p)) return;
+    if(['admin','people','knowledge','requests','licenses','stock','maintenance'].includes(p)) return;
     e.preventDefault();e.stopImmediatePropagation();
     if(window.ITUI&&window.IT_FORM_RENDER&&['inventory','licenses','stock','requests','knowledge'].includes(p)){ITUI.modal(title,IT_FORM_RENDER(p,title),{size:p==='inventory'?'modal-xl':'modal-lg'});return;}
     const labels=p.includes('licenses')?['Lisans Adı','Lisans Anahtarı','E-posta','Şifre','Not']:p.includes('stock')?['Donanım Tipi','Marka','Model','Miktar','Not']:p.includes('requests')?['Sipariş No','Talep Sahibi','Ürün Tipi','Donanım Tipi','Miktar','Marka','Model','Açıklama']:p.includes('people')?['Ad Soyad','Sicil No','Departman','Fabrika','Pozisyon','Durum']:['Başlık','Kategori','Açıklama','Durum'];
