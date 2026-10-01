@@ -299,7 +299,7 @@ def _license_effective_status(x):
 
 def _license_dict(x):
     days=(x.expires_at-date.today()).days if x.expires_at else None
-    return {"id":x.id,"barcode":x.barcode,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"starts_at":x.starts_at.isoformat() if x.starts_at else None,"license_key":x.license_key,"email":x.email,"has_password":bool(x.password),"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+    return {"id":x.id,"barcode":x.barcode,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"starts_at":x.starts_at.isoformat() if x.starts_at else None,"license_key":x.license_key,"email":x.email,"has_password":bool(x.password),"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"inventory_id":x.inventory_id,"inventory":{"id":x.inventory.id,"inventory_no":x.inventory.inventory_no,"computer_name":x.inventory.computer_name} if x.inventory else None,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 
 LICENSE_STATUSES={"active","empty","it","scrapped"}
 
@@ -313,7 +313,7 @@ def _license_payload(data,x=None):
     if not name.active or not model.active: raise ValueError("Pasif lisans master kaydı kullanılamaz")
     if model.license_name_id!=name.id: raise ValueError("Lisans modeli, seçilen lisans adına bağlı değil")
     vals={"license_name_id":name.id,"license_model_id":model.id}
-    for key in ("license_type","license_key","email","password","note","status"):
+    for key in ("license_type","license_key","email","password","note","status","inventory_id"):
         if key in data: vals[key]=data[key] if data[key] not in ("",None) else None
     if x is None and "license_type" not in vals: vals["license_type"]="subscription"
     if "starts_at" in data:
@@ -324,6 +324,14 @@ def _license_payload(data,x=None):
         value=data["expires_at"]
         try: vals["expires_at"]=date.fromisoformat(value) if value else None
         except (TypeError,ValueError): raise ValueError("Geçersiz bitiş tarihi")
+    if "inventory_id" in vals:
+        inv_id=vals["inventory_id"]
+        if inv_id in ("",None): vals["inventory_id"]=None
+        else:
+            inv=db.session.get(Inventory,int(inv_id))
+            if not inv: raise ValueError("Envanter kaydı bulunamadı")
+            if inv.status=="scrapped": raise ValueError("Hurda durumundaki envantere lisans bağlanamaz")
+            vals["inventory_id"]=inv.id
     if vals.get("status") is not None:
         vals["status"]=str(vals["status"]).strip().lower()
         if vals["status"] not in LICENSE_STATUSES: raise ValueError("Geçersiz lisans durumu")
@@ -342,6 +350,8 @@ def list_licenses():
     license_model_id=request.args.get("license_model_id",type=int)
     if license_name_id:q=q.filter(License.license_name_id==license_name_id)
     if license_model_id:q=q.filter(License.license_model_id==license_model_id)
+    inventory_id=request.args.get("inventory_id",type=int)
+    if inventory_id:q=q.filter(License.inventory_id==inventory_id)
     if status:
         if status=="assigned": q=q.filter(License.status.notin_(("empty","it","scrapped")))
         elif status=="unassigned": q=q.filter(License.status.in_(("empty","it")))
@@ -396,6 +406,26 @@ def update_license(license_id):
         before=_license_dict(x); [setattr(x,k,v) for k,v in _license_payload(request.get_json(silent=True) or {},x).items()]; db.session.flush(); _audit("license.updated","license",x.id,{"before":before,"after":_license_dict(x)}); db.session.commit(); return jsonify(_license_dict(x))
     except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
     except Exception as e: db.session.rollback(); return jsonify({"error":"Lisans güncellenemedi","detail":str(e)}),409
+
+@api_bp.post("/licenses/<int:license_id>/assign-inventory")
+@login_required
+def assign_license_inventory(license_id):
+    x=db.session.get(License,license_id); data=request.get_json(silent=True) or {}
+    if not x:return jsonify({"error":"Lisans kaydı bulunamadı"}),404
+    try:
+        value=data.get("inventory_id")
+        if value in (None,""): x.inventory_id=None
+        else:
+            inv=db.session.get(Inventory,int(value))
+            if not inv: raise ValueError("Envanter kaydı bulunamadı")
+            if inv.status=="scrapped": raise ValueError("Hurda durumundaki envantere lisans bağlanamaz")
+            x.inventory_id=inv.id
+        _audit("license.inventory_assigned","license",x.id,{"inventory_id":x.inventory_id,"note":data.get("note")})
+        db.session.commit(); return jsonify(_license_dict(x))
+    except (ValueError,TypeError) as e:
+        db.session.rollback(); return jsonify({"error":str(e)}),400
+    except Exception:
+        db.session.rollback(); return jsonify({"error":"Lisans envantere bağlanamadı"}),409
 
 @api_bp.post("/licenses/<int:license_id>/assign")
 @login_required
