@@ -49,9 +49,10 @@ def list_requests():
  q=PurchaseRequest.query;search=request.args.get("search","").strip();status=request.args.get("status","").strip();priority=request.args.get("priority","").strip()
  if search:
   term=f"%{search}%";q=q.outerjoin(Personnel,PurchaseRequest.requester_id==Personnel.id).filter(or_(PurchaseRequest.request_no.ilike(term),Personnel.name.ilike(term)))
- if status:q=q.filter(PurchaseRequest.status==status)
  if priority:q=q.filter(PurchaseRequest.priority==priority)
- page=max(request.args.get("page",1,type=int),1);per_page=min(max(request.args.get("per_page",25,type=int),1),100);p=q.order_by(PurchaseRequest.id.desc()).paginate(page=page,per_page=per_page,error_out=False);return jsonify({"items":[_dict(x) for x in p.items],"pagination":{"page":page,"per_page":per_page,"total":p.total,"pages":p.pages}})
+ status_counts={s:q.filter(PurchaseRequest.status==s).count() for s in STATUSES}
+ if status:q=q.filter(PurchaseRequest.status==status)
+ page=max(request.args.get("page",1,type=int),1);per_page=min(max(request.args.get("per_page",25,type=int),1),100);p=q.order_by(PurchaseRequest.id.desc()).paginate(page=page,per_page=per_page,error_out=False);return jsonify({"items":[_dict(x) for x in p.items],"pagination":{"page":page,"per_page":per_page,"total":p.total,"pages":p.pages},"status_counts":status_counts})
 @requests_bp.get("/requests/<int:request_id>")
 @login_required
 def get_request(request_id):
