@@ -186,7 +186,12 @@ def update_inventory(inventory_id):
     x=db.session.get(Inventory,inventory_id)
     if not x:return jsonify({"error":"Envanter kaydı bulunamadı"}),404
     try:
-        before=_inventory_dict(x); [setattr(x,k,v) for k,v in _inventory_payload(request.get_json(silent=True) or {},x).items()]; db.session.flush(); _audit("inventory.updated","inventory",x.id,{"before":before,"after":_inventory_dict(x)}); db.session.commit(); return jsonify(_inventory_dict(x))
+        payload=_inventory_payload(request.get_json(silent=True) or {},x)
+        if "status" in payload and payload["status"]=="scrapped" and x.status!="scrapped":
+            raise ValueError("Hurda durumu için Hurdaya Ayır işlemini kullanın")
+        if x.status=="scrapped" and "status" in payload and payload["status"]!="scrapped":
+            raise ValueError("Hurda kaydı normal düzenleme ile geri alınamaz")
+        before=_inventory_dict(x); [setattr(x,k,v) for k,v in payload.items()]; db.session.flush(); _audit("inventory.updated","inventory",x.id,{"before":before,"after":_inventory_dict(x)}); db.session.commit(); return jsonify(_inventory_dict(x))
     except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
     except Exception as e: db.session.rollback(); return jsonify({"error":"Envanter kaydı güncellenemedi","detail":str(e)}),409
 
