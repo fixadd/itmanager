@@ -32,7 +32,7 @@ function filters(root){
     model.disabled=true;
   };
   const fillModels=()=>{
-    const bs=models.filter(x=>String(x.brand_id)===String(brand.value)&&(!type.value||String(x.product_type_id)===String(type.value)));
+    const bs=models.filter(x=>String(x.brand_id)===String(brand.value)&&(!type.value||(!x.product_type_id||String(x.product_type_id)===String(type.value))));
     model.innerHTML='<option value="">Tüm Modeller</option>'+bs.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
     model.disabled=!brand.value;
   };
