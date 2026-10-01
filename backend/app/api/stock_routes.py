@@ -68,7 +68,7 @@ def _payload(data, item=None):
     brand = _resolve(Brand, brand_value, "marka")
     model_value = data.get("model", item.model_id if item else None)
     model = _resolve(ProductModel, model_value, "model") if model_value not in (None, "") else None
-    if brand.id not in {p.id for p in brand.product_types}:
+    if product_type.id not in {p.id for p in brand.product_types}:
         raise ValueError("Marka, seçilen donanım tipiyle eşleşmiyor")
     if model and model.brand_id != brand.id:
         raise ValueError("Model markayla eşleşmiyor")
