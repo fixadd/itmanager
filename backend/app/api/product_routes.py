@@ -3,7 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from ..extensions import db
 from ..models import AuditLog, Brand, Department, Factory, ProductModel, ProductType, product_type_brands
-from .auth_routes import permission_required, current_user
+from .auth_routes import login_required, permission_required, current_user
 product_bp = Blueprint("products", __name__)
 def _audit(action, entity_type, entity_id, details=None):
  user=current_user();db.session.add(AuditLog(action=action,entity_type=entity_type,entity_id=entity_id,actor_user_id=user.id if user else None,details=details or {}))
@@ -12,12 +12,13 @@ def _name_exists(model,name,exclude_id=None):
 def _scope_ids(entity_type,scope="inventory"):
  return [r[0] for r in db.session.execute(
      text("SELECT entity_id FROM product_catalog_scopes WHERE entity_type=:t AND scope=:s"),
-     {"t":entity_type,"s":scope}
+     {"t":entity_type,"scope":scope}
  ).all()]
 def _type_json(x):return {"id":x.id,"name":x.name,"active":x.active,"brand_ids":[b.id for b in x.brands if b.active]}
 def _brand_json(x):return {"id":x.id,"name":x.name,"active":x.active,"product_type_ids":[t.id for t in x.product_types if t.active]}
 def _model_json(x):return {"id":x.id,"name":x.name,"active":x.active,"image_path":x.image_path,"brand_id":x.brand_id,"product_type_id":x.product_type_id,"brand":{"id":x.brand.id,"name":x.brand.name} if x.brand else None,"product_type":{"id":x.product_type.id,"name":x.product_type.name} if x.product_type else None}
 @product_bp.get("/settings/product-hierarchy")
+@login_required
 def hierarchy():
  tids,bids,mids=_scope_ids("type"),_scope_ids("brand"),_scope_ids("model")
  types=ProductType.query.filter(ProductType.active.is_(True),ProductType.id.in_(tids) if tids else False).order_by(ProductType.name).all();brands=Brand.query.filter(Brand.active.is_(True),Brand.id.in_(bids) if bids else False).order_by(Brand.name).all();models=ProductModel.query.filter(ProductModel.active.is_(True),ProductModel.id.in_(mids) if mids else False).order_by(ProductModel.name).all();factories=Factory.query.filter_by(active=True).order_by(Factory.name).all();departments=Department.query.filter_by(active=True).order_by(Department.name).all()
