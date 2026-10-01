@@ -87,13 +87,29 @@ def _set_status(request_id,status):
 @requests_bp.get("/requests/transfer-options")
 @login_required
 def transfer_options():
+ def scoped(scope, entity_type, model_cls):
+  ids=db.session.execute(text("SELECT entity_id FROM product_catalog_scopes WHERE entity_type=:t AND scope=:s"),{"t":entity_type,"s":scope}).scalars().all()
+  if not ids:return []
+  return model_cls.query.filter(model_cls.active.is_(True),model_cls.id.in_(ids)).order_by(model_cls.name).all()
+ inventory_types=scoped("inventory","type",ProductType)
+ inventory_brands=scoped("inventory","brand",Brand)
+ inventory_models=scoped("inventory","model",ProductModel)
+ stock_types=scoped("stock","type",ProductType)
+ stock_brands=scoped("stock","brand",Brand)
+ stock_models=scoped("stock","model",ProductModel)
+ def pack_types(rows): return [{"id":x.id,"name":x.name} for x in rows]
+ def pack_brands(rows): return [{"id":x.id,"name":x.name,"product_type_ids":[t.id for t in x.product_types if t.active]} for x in rows]
+ def pack_models(rows): return [{"id":x.id,"name":x.name,"brand_id":x.brand_id,"product_type_id":x.product_type_id} for x in rows]
  return jsonify({
   "factories":[{"id":x.id,"name":x.name} for x in Factory.query.filter_by(active=True).order_by(Factory.name).all()],
   "departments":[{"id":x.id,"name":x.name} for x in Department.query.filter_by(active=True).order_by(Department.name).all()],
   "personnel":[{"id":x.id,"name":x.name} for x in Personnel.query.filter_by(active=True).order_by(Personnel.name).all()],
-  "hardware_types":[{"id":x.id,"name":x.name} for x in ProductType.query.filter_by(active=True).order_by(ProductType.name).all()],
-  "brands":[{"id":x.id,"name":x.name} for x in Brand.query.filter_by(active=True).order_by(Brand.name).all()],
-  "models":[{"id":x.id,"name":x.name,"brand_id":x.brand_id,"product_type_id":x.product_type_id} for x in ProductModel.query.filter_by(active=True).order_by(ProductModel.name).all()],
+  "inventory_hardware_types":pack_types(inventory_types),
+  "inventory_brands":pack_brands(inventory_brands),
+  "inventory_models":pack_models(inventory_models),
+  "stock_hardware_types":pack_types(stock_types),
+  "stock_brands":pack_brands(stock_brands),
+  "stock_models":pack_models(stock_models),
   "license_names":[{"id":x.id,"name":x.name} for x in LicenseName.query.filter_by(active=True).order_by(LicenseName.name).all()],
   "license_models":[{"id":x.id,"name":x.name,"license_name_id":x.license_name_id} for x in LicenseModel.query.filter_by(active=True).order_by(LicenseModel.name).all()]
  })
