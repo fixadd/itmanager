@@ -3,15 +3,16 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const labels={draft:'Taslak',pending:'Bekliyor',approved:'Onaylandı',rejected:'Reddedildi',ordered:'Sipariş Verildi',completed:'Tamamlandı',cancelled:'İptal'};
 const badge=s=>`<span class="status ${s==='rejected'||s==='cancelled'?'danger':s==='pending'?'warning':s==='completed'?'success':'info'}">${esc(labels[s]||s)}</span>`;
-let current=[];
-async function load(){
+let current=[];let currentPage=1;let totalPages=1;
+function renderPagination(){const box=document.querySelector('#requestPagination');if(!box)return;box.innerHTML=totalPages<=1?'':`<div class="d-flex justify-content-center gap-1 mt-3">${Array.from({length:totalPages},(_,i)=>`<button type="button" class="btn btn-sm ${i+1===currentPage?'btn-primary':'btn-outline-secondary'} request-page" data-page="${i+1}">${i+1}</button>`).join('')}</div>`}
+async function load(pageNo=1){
  try{
   if(page()!=='requests')return;
-  const p=new URLSearchParams({per_page:'100'});
+  const p=new URLSearchParams({per_page:'25',page:String(pageNo)});
   const s=document.querySelector('#requestSearch')?.value.trim(),st=document.querySelector('#requestStatus')?.value,pr=document.querySelector('#requestPriority')?.value;
   if(s)p.set('search',s); if(st)p.set('status',st); if(pr)p.set('priority',pr);
   const r=await fetch('/api/requests?'+p.toString(),{headers:{Accept:'application/json'}});if(!r.ok)throw Error();
-  const data=await r.json();current=data.items||[];window.IT_REQUESTS=current;render(current);
+  const data=await r.json();current=data.items||[];currentPage=data.pagination?.page||pageNo;totalPages=data.pagination?.pages||1;window.IT_REQUESTS=current;render(current);renderPagination();
   ['pending','approved','ordered','completed'].forEach(k=>{const el=document.querySelector('#requestStat'+k[0].toUpperCase()+k.slice(1));if(el)el.textContent=current.filter(x=>x.status===k).length});
  }catch(e){console.warn('Talep API yüklenemedi',e)}
 }
@@ -140,7 +141,7 @@ async function detail(id){
 document.addEventListener('click',async e=>{
  const add=e.target.closest('#addRequestRow');if(add){e.preventDefault();try{await loadRequestMasterData();document.querySelector('#requestRows')?.insertAdjacentHTML('beforeend',itemRow());bindRequestRow(document.querySelector('#requestRows')?.lastElementChild);}catch(err){notify(err.message)}return}
  const newBtn=e.target.closest('#requestNew');if(newBtn){e.preventDefault();openCreate();return}
- const refresh=e.target.closest('#requestRefresh');if(refresh){e.preventDefault();load();return}
+ const refresh=e.target.closest('#requestRefresh');if(refresh){e.preventDefault();load(1);return} const pg=e.target.closest('.request-page');if(pg){e.preventDefault();load(Number(pg.dataset.page)||1);return}
  const rm=e.target.closest('.req-remove,.remove-request-row');if(rm){rm.closest('.request-api-row,.request-extra-row')?.remove();return}
  const det=e.target.closest('.request-detail');if(det){detail(Number(det.dataset.id));return}
  const act=e.target.closest('.request-actions');if(act){operationMenu(Number(act.dataset.id));return}
