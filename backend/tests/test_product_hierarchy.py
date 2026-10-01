@@ -26,6 +26,8 @@ def test_product_hierarchy_endpoint_exposes_type_brand_model_links(client, app):
         product_type.brands.append(brand)
         model = ProductModel(name="TestModel", brand=brand, product_type=product_type)
         db.session.add_all([product_type, brand, model])
+        db.session.flush()
+        db.session.execute(db.text("INSERT INTO product_catalog_scopes (entity_type,entity_id,scope) VALUES ('type',:id,'inventory'),('brand',:brand_id,'inventory'),('model',:model_id,'inventory') ON CONFLICT DO NOTHING"), {"id": product_type.id, "brand_id": brand.id, "model_id": model.id})
         db.session.commit()
         type_id, brand_id, model_id = product_type.id, brand.id, model.id
 
