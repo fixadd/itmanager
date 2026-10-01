@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 from flask import Blueprint, jsonify, request
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 from ..extensions import db
 from ..models import AssignmentHistory, AuditLog, Brand, Department, Factory, Inventory, License, LicenseModel, LicenseName, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement, MaintenanceRecord, PurchaseRequest, User
 from .auth_routes import current_user, login_required
@@ -24,6 +24,10 @@ def _resolve(model, value, field):
     obj = db.session.get(model, int(value)) if str(value).isdigit() else _find_by_name(model, value)
     if not obj or getattr(obj, "active", True) is False: raise ValueError(f"Geçersiz {field}")
     return obj
+
+def _catalog_scoped(entity_type, entity_id, scope):
+    return db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type=:t AND entity_id=:id AND scope=:scope"),
+                              {"t": entity_type, "id": entity_id, "scope": scope}).first() is not None
 
 def _inventory_dict(x):
     return {"id":x.id,"barcode":x.barcode,"inventory_no":x.inventory_no,"computer_name":x.computer_name,"serial_no":x.serial_no,"machine_no":x.machine_no,"ifs_no":x.ifs_no,"note":x.note,"status":x.status,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"device_type":{"id":x.product_type_id,"name":x.product_type.name} if x.product_type else None,"brand":{"id":x.brand_id,"name":x.brand.name} if x.brand else None,"model":{"id":x.model_id,"name":x.model.name,"image_path":x.model.image_path} if x.model else None,"personnel":{"id":x.personnel_id,"name":x.personnel.name} if x.personnel else None,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
@@ -81,7 +85,16 @@ def barcode_lookup(barcode):
 @api_bp.get("/master-data")
 @login_required
 def master_data():
-    return jsonify({"factories":_items(Factory),"departments":_items(Department),"personnel":_items(Personnel),"hardware_types":_items(ProductType),"brands":[{"id":x.id,"name":x.name,"product_type_ids":[p.id for p in x.product_types if p.active]} for x in Brand.query.filter_by(active=True).order_by(Brand.name).all()],"models":[{"id":x.id,"name":x.name,"brand_id":x.brand_id,"product_type_id":x.product_type_id} for x in ProductModel.query.filter_by(active=True).order_by(ProductModel.name).all()],"licenses":_items(LicenseName)})
+    scope=str(request.args.get("scope") or "inventory").strip().lower()
+    if scope not in {"inventory", "stock"}: scope="inventory"
+    tids={r[0] for r in db.session.execute(text("SELECT entity_id FROM product_catalog_scopes WHERE entity_type='type' AND scope=:scope"), {"scope":scope}).all()}
+    bids={r[0] for r in db.session.execute(text("SELECT entity_id FROM product_catalog_scopes WHERE entity_type='brand' AND scope=:scope"), {"scope":scope}).all()}
+    mids={r[0] for r in db.session.execute(text("SELECT entity_id FROM product_catalog_scopes WHERE entity_type='model' AND scope=:scope"), {"scope":scope}).all()}
+    return jsonify({"factories":_items(Factory),"departments":_items(Department),"personnel":_items(Personnel),
+                    "hardware_types":[{"id":x.id,"name":x.name} for x in ProductType.query.filter(ProductType.active.is_(True),ProductType.id.in_(tids) if tids else False).order_by(ProductType.name).all()],
+                    "brands":[{"id":x.id,"name":x.name,"product_type_ids":[p.id for p in x.product_types if p.active and p.id in tids]} for x in Brand.query.filter(Brand.active.is_(True),Brand.id.in_(bids) if bids else False).order_by(Brand.name).all()],
+                    "models":[{"id":x.id,"name":x.name,"brand_id":x.brand_id,"product_type_id":x.product_type_id} for x in ProductModel.query.filter(ProductModel.active.is_(True),ProductModel.id.in_(mids) if mids else False).order_by(ProductModel.name).all()],
+                    "licenses":_items(LicenseName)})
 
 @api_bp.get("/master-data/<string:resource>")
 @login_required
@@ -132,12 +145,16 @@ def _inventory_payload(data,item=None):
     masters=(db.session.get(Factory, vals["factory_id"]),db.session.get(Department, vals["department_id"]),db.session.get(ProductType, vals["product_type_id"]),db.session.get(Brand, vals["brand_id"]))
     if not all(obj and obj.active for obj in masters):
         raise ValueError("Pasif master kayıt kullanılamaz")
+    if not _catalog_scoped("type", vals["product_type_id"], "inventory") or not _catalog_scoped("brand", vals["brand_id"], "inventory"):
+        raise ValueError("Seçilen donanım tipi veya marka Envanter Takip kataloğunda tanımlı değil")
     if vals["product_type_id"] not in {p.id for p in masters[3].product_types}:
         raise ValueError("Marka, seçilen donanım tipiyle eşleşmiyor")
     model_value=data.get("model", item.model_id if item else None)
     if model_value not in (None,""):
         m=_resolve(ProductModel,model_value,"model")
         if not m.active: raise ValueError("Pasif model kullanılamaz")
+        if not _catalog_scoped("model", m.id, "inventory"):
+            raise ValueError("Seçilen model Envanter Takip kataloğunda tanımlı değil")
         if m.brand_id!=vals["brand_id"]: raise ValueError("Model markayla eşleşmiyor")
         if m.product_type_id is not None and m.product_type_id!=vals["product_type_id"]: raise ValueError("Model donanım tipiyle eşleşmiyor")
         vals["model_id"]=m.id
