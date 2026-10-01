@@ -10,12 +10,10 @@ def _audit(action, entity_type, entity_id, details=None):
 def _name_exists(model,name,exclude_id=None):
  q=model.query.filter(db.func.lower(model.name)==name.lower());return q.filter(model.id!=exclude_id).first() if exclude_id else q.first()
 def _scope_ids(entity_type,scope="inventory"):
- scoped={r[0] for r in db.session.execute(text("SELECT entity_id FROM product_catalog_scopes WHERE entity_type=:t AND scope=:s"),{"t":entity_type,"s":scope}).all()}
- all_ids={r[0] for r in db.session.execute(text(f"SELECT id FROM {'product_types' if entity_type=='type' else 'brands' if entity_type=='brand' else 'product_models'}"))}
- unscoped={r[0] for r in db.session.execute(text("SELECT x.id FROM (SELECT id FROM product_types) x LEFT JOIN product_catalog_scopes s ON s.entity_id=x.id AND s.entity_type='type' WHERE s.entity_id IS NULL")).all()} if entity_type=='type' else set()
- if entity_type=='brand':unscoped={r[0] for r in db.session.execute(text("SELECT x.id FROM (SELECT id FROM brands) x LEFT JOIN product_catalog_scopes s ON s.entity_id=x.id AND s.entity_type='brand' WHERE s.entity_id IS NULL")).all()}
- if entity_type=='model':unscoped={r[0] for r in db.session.execute(text("SELECT x.id FROM (SELECT id FROM product_models) x LEFT JOIN product_catalog_scopes s ON s.entity_id=x.id AND s.entity_type='model' WHERE s.entity_id IS NULL")).all()}
- return list(scoped|unscoped)
+ return [r[0] for r in db.session.execute(
+     text("SELECT entity_id FROM product_catalog_scopes WHERE entity_type=:t AND scope=:s"),
+     {"t":entity_type,"s":scope}
+ ).all()]
 def _type_json(x):return {"id":x.id,"name":x.name,"active":x.active,"brand_ids":[b.id for b in x.brands if b.active]}
 def _brand_json(x):return {"id":x.id,"name":x.name,"active":x.active,"product_type_ids":[t.id for t in x.product_types if t.active]}
 def _model_json(x):return {"id":x.id,"name":x.name,"active":x.active,"image_path":x.image_path,"brand_id":x.brand_id,"product_type_id":x.product_type_id,"brand":{"id":x.brand.id,"name":x.brand.name} if x.brand else None,"product_type":{"id":x.product_type.id,"name":x.product_type.name} if x.product_type else None}
