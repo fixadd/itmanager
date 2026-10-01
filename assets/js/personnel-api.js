@@ -84,8 +84,16 @@ async function openDetail(id,tr){
 }
 
 async function chooseTarget(sourceId,assets){
- const list=await json('/api/personnel?per_page=100&status=active');
- const options=(list.items||[]).filter(p=>p.id!==sourceId).map(p=>`<option value="${p.id}">${esc(p.employee_no||'—')} · ${esc(p.name)}</option>`).join('');
+ const all=[];
+ for(let p=1;p<=100;p++){
+  const list=await json('/api/personnel?per_page=100&status=active&page='+p);
+  const items=list.items||list.personnel||[];
+  if(!Array.isArray(items)||!items.length)break;
+  all.push(...items);
+  const pages=Number(list.pagination?.pages||1);
+  if(p>=pages||items.length<100)break;
+ }
+ const options=all.filter(p=>p.id!==sourceId).map(p=>'<option value="'+p.id+'">'+esc(p.employee_no||'—')+' · '+esc(p.name)+'</option>').join('');
  if(!options){toast('Aktif hedef personel bulunamadı.');return}
  const body=`<form id="transferForm"><div class="mb-3"><label class="form-label">Yeni personel</label><select class="form-select" name="target_personnel_id" required><option value="">Seçiniz</option>${options}</select></div><div><label class="form-label">Devir notu</label><textarea class="form-control" name="note" rows="3" placeholder="İsteğe bağlı"></textarea></div></form>`;
  const m=modal('Varlık Devir',body,'Devret');
