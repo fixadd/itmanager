@@ -133,8 +133,9 @@ def article_history(article_id):
 @login_required
 def get_article(article_id):
     article = db.get_or_404(KnowledgeArticle, article_id)
-    article.view_count += 1
-    db.session.commit()
+    if request.args.get("view") == "1":
+        article.view_count += 1
+        db.session.commit()
     return jsonify(article_json(article, include_content=True))
 
 
