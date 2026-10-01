@@ -60,6 +60,7 @@ def _source_ids_for_search(term):
             Inventory.inventory_no.ilike(pattern),
             Inventory.serial_no.ilike(pattern),
             Inventory.computer_name.ilike(pattern),
+            Inventory.note.ilike(pattern),
         )
     )
     from ..models import Brand, ProductModel, LicenseModel, LicenseName
