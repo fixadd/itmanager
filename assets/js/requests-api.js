@@ -26,18 +26,30 @@ function render(items){
  body.innerHTML=items.length?items.map(x=>`<tr data-request-id="${x.id}"><td><strong>${esc(x.request_no)}</strong></td><td>${esc(x.requester?.name||'—')}</td><td>${esc(x.items?.map(i=>`${i.product_type}${i.model?' · '+i.model:''} × ${i.quantity}` ).join(', ')||'—')}</td><td>${esc(x.priority==='urgent'?'Acil':x.priority==='high'?'Yüksek':x.priority==='low'?'Düşük':'Normal')}</td><td>${badge(x.status)}</td><td>${x.requested_at?new Date(x.requested_at).toLocaleDateString('tr-TR'):'—'}</td><td><div class="btn-group btn-group-sm"><button class="btn btn-light request-detail" data-id="${x.id}"><i class="ti ti-eye"></i></button><button class="btn btn-light request-actions" data-id="${x.id}"><i class="ti ti-dots"></i></button></div></td></tr>`).join(''):`<tr><td colspan="7" class="text-center text-muted py-4">Henüz satın alma talebi bulunmuyor.</td></tr>`;
 }
 let requestMasterData=null;
+async function loadAllRequestPersonnel(headers){
+ const personnel=[];
+ for(let pageNo=1;;pageNo++){
+  const response=await fetch('/api/settings/personnel?per_page=100&page='+pageNo,{headers});
+  if(!response.ok)break;
+  const data=await response.json();
+  const items=data.items||[];
+  personnel.push(...items);
+  if(items.length<100||(data.pagination?.pages&&pageNo>=data.pagination.pages))break;
+ }
+ return personnel;
+}
 async function loadRequestMasterData(){
  if(requestMasterData)return requestMasterData;
  const headers={Accept:'application/json'};
- const [g,inv,stock,lic,pers]=await Promise.all([
+ const [g,inv,stock,lic]=await Promise.all([
   fetch('/api/settings/product-hierarchy',{headers}),
   fetch('/api/settings/product-catalog?scope=inventory',{headers}),
   fetch('/api/settings/product-catalog?scope=stock',{headers}),
-  fetch('/api/settings/license-catalog',{headers}),
-  fetch('/api/settings/personnel?per_page=100',{headers})
+  fetch('/api/settings/license-catalog',{headers})
  ]);
  if(!g.ok||!inv.ok||!stock.ok||!lic.ok)throw Error('Ana veriler alınamadı');
- const [gd,id,sd,ld,pd]=await Promise.all([g.json(),inv.json(),stock.json(),lic.json(),pers.ok?pers.json():Promise.resolve({items:[]})]);
+ const [gd,id,sd,ld]=await Promise.all([g.json(),inv.json(),stock.json(),lic.json()]);
+ const personnel=await loadAllRequestPersonnel(headers);
  requestMasterData={
   inventoryTypes:id.hardware_types||[],
   inventoryBrands:id.brands||[],
@@ -49,7 +61,7 @@ async function loadRequestMasterData(){
   models:id.models||[],
   factories:gd.factories||[],
   departments:gd.departments||[],
-  personnel:pd.items||[],
+  personnel,
   licenseNames:ld.names||ld.license_names||[],
   licenseModels:ld.models||[],
   licenses:ld.names||ld.license_names||[]
