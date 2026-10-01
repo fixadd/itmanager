@@ -130,6 +130,23 @@ def get_inventory(inventory_id):
     x=db.session.get(Inventory,inventory_id)
     return jsonify(_inventory_dict(x)) if x else (jsonify({"error":"Envanter kaydı bulunamadı"}),404)
 
+@api_bp.get("/inventory/<int:inventory_id>/history")
+@login_required
+def inventory_history(inventory_id):
+    x=db.session.get(Inventory, inventory_id)
+    if not x:
+        return jsonify({"error":"Envanter kaydı bulunamadı"}),404
+    rows=AuditLog.query.filter_by(entity_type="inventory", entity_id=inventory_id).order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(100).all()
+    labels={
+        "inventory.created":"Envanter oluşturuldu",
+        "inventory.updated":"Envanter güncellendi",
+        "inventory.assigned":"Envanter atandı",
+        "inventory.mark_faulty":"Arızalı işaretlendi",
+        "inventory.sent_to_it":"Bilgi İşleme gönderildi",
+        "inventory.scrapped":"Hurdaya ayrıldı",
+    }
+    return jsonify({"items":[{"id":r.id,"action":r.action,"action_label":labels.get(r.action,r.action),"details":r.details or {},"created_at":r.created_at.isoformat() if r.created_at else None} for r in rows]})
+
 INVENTORY_STATUSES={"active","faulty","maintenance","it","scrapped"}
 
 def _inventory_payload(data,item=None):
