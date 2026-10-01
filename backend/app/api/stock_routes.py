@@ -78,10 +78,13 @@ def _payload(data, item=None):
         raise ValueError("Model markayla eşleşmiyor")
     if model and model.product_type_id is not None and model.product_type_id != product_type.id:
         raise ValueError("Model donanım tipiyle eşleşmiyor")
+    barcode = data.get("barcode", item.barcode if item else None)
+    barcode = str(barcode).strip() if barcode not in (None, "") else None
     return {
         "product_type_id": product_type.id,
         "brand_id": brand.id,
         "model_id": model.id if model else None,
+        "barcode": barcode,
         "quantity": _decimal(data.get("quantity", item.quantity if item else 0)),
         "unit": str(data.get("unit", item.unit if item else "Adet") or "Adet").strip(),
         "note": data.get("note", item.note if item else None),
