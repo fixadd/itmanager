@@ -1,6 +1,6 @@
 from decimal import Decimal, InvalidOperation
 from flask import Blueprint, jsonify, request
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from ..extensions import db
 from .auth_routes import current_user, login_required
 from ..models import AssignmentHistory, AuditLog, Brand, Inventory, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement
@@ -20,6 +20,10 @@ def _resolve(model, value, field):
     if not obj or getattr(obj, "active", True) is False:
         raise ValueError(f"Geçersiz {field}")
     return obj
+
+def _catalog_scoped(entity_type, entity_id, scope):
+    return db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type=:t AND entity_id=:id AND scope=:scope"),
+                              {"t": entity_type, "id": entity_id, "scope": scope}).first() is not None
 
 
 def _decimal(value, field="miktar"):
@@ -70,10 +74,14 @@ def _payload(data, item=None):
     model = _resolve(ProductModel, model_value, "model") if model_value not in (None, "") else None
     if not product_type.active or not brand.active:
         raise ValueError("Pasif master kayıt kullanılamaz")
+    if not _catalog_scoped("type", product_type.id, "stock") or not _catalog_scoped("brand", brand.id, "stock"):
+        raise ValueError("Seçilen donanım tipi veya marka Stok Takip kataloğunda tanımlı değil")
     if product_type.id not in {p.id for p in brand.product_types}:
         raise ValueError("Marka, seçilen donanım tipiyle eşleşmiyor")
     if model and not model.active:
         raise ValueError("Pasif model kullanılamaz")
+    if model and not _catalog_scoped("model", model.id, "stock"):
+        raise ValueError("Seçilen model Stok Takip kataloğunda tanımlı değil")
     if model and model.brand_id != brand.id:
         raise ValueError("Model markayla eşleşmiyor")
     if model and model.product_type_id is not None and model.product_type_id != product_type.id:
