@@ -149,7 +149,7 @@ def list_models():
         query = query.filter(ProductModel.brand_id == brand_id)
     if product_type_id:
         query = query.filter(ProductModel.product_type_id == product_type_id)
-    return jsonify({"items": [_model_json(x) for x in query.order_by(model.name).all()})
+    return jsonify({"items": [_model_json(x) for x in query.order_by(ProductModel.name).all()]})
 
 
 @settings_bp.post("/settings/models")
