@@ -129,11 +129,15 @@ def _inventory_payload(data,item=None):
         value=data.get(key, getattr(item,dest,None) if item else None)
         if value in (None,""): raise ValueError(f"{key} alanı zorunludur")
         vals[dest]=_resolve(model,value,key).id
-    if vals["product_type_id"] not in {p.id for p in db.session.get(Brand, vals["brand_id"]).product_types}:
+    masters=(db.session.get(Factory, vals["factory_id"]),db.session.get(Department, vals["department_id"]),db.session.get(ProductType, vals["product_type_id"]),db.session.get(Brand, vals["brand_id"]))
+    if not all(obj and obj.active for obj in masters):
+        raise ValueError("Pasif master kayıt kullanılamaz")
+    if vals["product_type_id"] not in {p.id for p in masters[3].product_types}:
         raise ValueError("Marka, seçilen donanım tipiyle eşleşmiyor")
     model_value=data.get("model", item.model_id if item else None)
     if model_value not in (None,""):
         m=_resolve(ProductModel,model_value,"model")
+        if not m.active: raise ValueError("Pasif model kullanılamaz")
         if m.brand_id!=vals["brand_id"]: raise ValueError("Model markayla eşleşmiyor")
         if m.product_type_id is not None and m.product_type_id!=vals["product_type_id"]: raise ValueError("Model donanım tipiyle eşleşmiyor")
         vals["model_id"]=m.id
@@ -267,6 +271,7 @@ def _license_payload(data,x=None):
     model_value=data.get("license_model_id", data.get("license_model", x.license_model_id if x else None))
     if model_value in (None,""): raise ValueError("license_model_id alanı zorunludur")
     model=_resolve(LicenseModel,model_value,"lisans modeli")
+    if not name.active or not model.active: raise ValueError("Pasif lisans master kaydı kullanılamaz")
     if model.license_name_id!=name.id: raise ValueError("Lisans modeli, seçilen lisans adına bağlı değil")
     vals={"license_name_id":name.id,"license_model_id":model.id}
     for key in ("license_type","license_key","email","password","note","status"):
