@@ -33,7 +33,11 @@ def create_brand_for_types():
  types=ProductType.query.filter(ProductType.id.in_(ids),ProductType.active.is_(True)).all()
  if len(types)!=len(ids):return jsonify({"error":"invalid_product_types"}),400
  brand=Brand(name=name,active=bool(data.get("active",True)));brand.product_types=types;db.session.add(brand)
- try:db.session.flush();_audit("settings.brand_created","brand",brand.id,{"name":brand.name,"product_type_ids":sorted(ids)});db.session.commit();return jsonify(_brand_json(brand)),201
+ try:
+  db.session.flush()
+  db.session.execute(text("INSERT INTO product_catalog_scopes (entity_type,entity_id,scope) VALUES ('brand',:id,'inventory') ON CONFLICT DO NOTHING"),{"id":brand.id})
+  for t in types: db.session.execute(text("INSERT INTO product_catalog_scopes (entity_type,entity_id,scope) VALUES ('type',:id,'inventory') ON CONFLICT DO NOTHING"),{"id":t.id})
+  _audit("settings.brand_created","brand",brand.id,{"name":brand.name,"product_type_ids":sorted(ids)});db.session.commit();return jsonify(_brand_json(brand)),201
  except IntegrityError:db.session.rollback();return jsonify({"error":"name_exists"}),409
 @product_bp.patch("/settings/product-hierarchy/brand/<int:brand_id>")
 @permission_required("settings.manage")
@@ -60,5 +64,10 @@ def create_model_in_hierarchy():
  if product_type not in brand.product_types:return jsonify({"error":"brand_not_linked_to_product_type"}),400
  if ProductModel.query.filter(db.func.lower(ProductModel.name)==name.lower(),ProductModel.brand_id==brand.id,ProductModel.product_type_id==product_type.id).first():return jsonify({"error":"model_exists"}),409
  obj=ProductModel(name=name,brand_id=brand.id,product_type_id=product_type.id,active=bool(data.get("active",True)));db.session.add(obj)
- try:db.session.flush();_audit("settings.model_created","product_model",obj.id,{"name":name,"brand_id":brand.id,"product_type_id":product_type.id});db.session.commit();return jsonify(_model_json(obj)),201
+ try:
+  db.session.flush()
+  db.session.execute(text("INSERT INTO product_catalog_scopes (entity_type,entity_id,scope) VALUES ('model',:id,'inventory') ON CONFLICT DO NOTHING"),{"id":obj.id})
+  db.session.execute(text("INSERT INTO product_catalog_scopes (entity_type,entity_id,scope) VALUES ('brand',:id,'inventory') ON CONFLICT DO NOTHING"),{"id":brand.id})
+  db.session.execute(text("INSERT INTO product_catalog_scopes (entity_type,entity_id,scope) VALUES ('type',:id,'inventory') ON CONFLICT DO NOTHING"),{"id":product_type.id})
+  _audit("settings.model_created","product_model",obj.id,{"name":name,"brand_id":brand.id,"product_type_id":product_type.id});db.session.commit();return jsonify(_model_json(obj)),201
  except IntegrityError:db.session.rollback();return jsonify({"error":"model_exists_for_brand"}),409
