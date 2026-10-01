@@ -113,8 +113,8 @@ function operationMenu(id){
  ITUI.modal('Talep İşlemleri','<div class="d-grid gap-2">'+buttons+'</div>',{size:'modal-sm',footer:'<button class="btn btn-light" data-bs-dismiss="modal">Kapat</button>'});
  document.querySelectorAll('#itManagerModal [data-request-op]').forEach(btn=>btn.addEventListener('click',async()=>{const op=btn.dataset.requestOp;try{bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide();if(op==='transfer'){await transfer(id);return}await action(id,op);notify('Talep güncellendi.');load()}catch(e){notify(e.message)}},{once:true}));
 }
-function detail(id){
- const x=current.find(q=>q.id===id);if(!x)return;
+async function detail(id){
+ let x=current.find(q=>q.id===id);if(!x){try{x=await json('/api/requests/'+id)}catch(e){notify(e.message);return}}
  const body='<div class="detail-grid"><div><span>Talep No</span><strong>'+esc(x.request_no)+'</strong></div><div><span>Talep Sahibi</span><strong>'+esc(x.requester?.name||'—')+'</strong></div><div><span>Departman</span><strong>'+esc(x.department?.name||'—')+'</strong></div><div><span>Fabrika</span><strong>'+esc(x.factory?.name||'—')+'</strong></div><div><span>Öncelik</span><strong>'+esc(x.priority)+'</strong></div><div><span>Durum</span><strong>'+esc(labels[x.status]||x.status)+'</strong></div></div><hr><h6>Talep Kalemleri</h6><div class="table-responsive"><table class="table"><thead><tr><th>Tip</th><th>Ürün</th><th>Marka</th><th>Model</th><th>Miktar</th><th>Açıklama</th></tr></thead><tbody>'+x.items.map(i=>'<tr><td>'+esc(i.product_type)+'</td><td>'+esc(i.device_type||'—')+'</td><td>'+esc(i.brand||'—')+'</td><td>'+esc(i.model||'—')+'</td><td>'+esc(i.quantity)+' '+esc(i.unit)+'</td><td>'+esc(i.description||'—')+'</td></tr>').join('')+'</tbody></table></div>' +(x.note?'<div class="mt-3"><strong>Not:</strong> '+esc(x.note)+'</div>':'');
  if(window.ITUI)ITUI.modal('Satın Alma Talebi Detayı',body,{footer:'<button class="btn btn-light" data-bs-dismiss="modal">Kapat</button>'});else notify(x.request_no);
 }
