@@ -66,7 +66,7 @@ def list_settings(resource):
     if not entry:
         return jsonify({"error": "unknown_resource"}), 404
     model, _ = entry
-    return jsonify({"items": [_basic(x) for x in model.query.order_by(ProductModel.name).all()]})
+    return jsonify({"items": [_basic(x) for x in model.query.order_by(model.name).all()]})
 
 
 @settings_bp.post("/settings/<string:resource>")
