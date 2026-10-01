@@ -13,7 +13,7 @@ def _resolve(model, value):
     return obj
 
 def _dict(x):
-    return {"id":x.id,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"license_key":x.license_key,"email":x.email,"password":x.password,"expires_at":x.expires_at.isoformat() if x.expires_at else None,"note":x.note,"status":x.status}
+    return {"id":x.id,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id} if x.license_model else None,"license_type":x.license_type,"license_key":x.license_key,"email":x.email,"has_password":bool(x.password),"expires_at":x.expires_at.isoformat() if x.expires_at else None,"note":x.note,"status":x.status}
 
 @license_catalog_record_bp.get("/license-catalog/records")
 @login_required
