@@ -165,7 +165,9 @@ def transfer_request(request_id):
     if model.license_name_id!=name.id:raise ValueError("Lisans modeli seçilen lisans adına bağlı değil")
     starts=_dt(v.get("starts_at")).date() if v.get("starts_at") else None; expires=_dt(v.get("expires_at")).date() if v.get("expires_at") else None
     if starts and expires and expires < starts: raise ValueError("Lisans bitiş tarihi başlangıç tarihinden önce olamaz")
-    obj=License(license_name_id=name.id,license_model_id=model.id,license_type=v.get("license_type") or "subscription",license_key=v.get("license_key") or None,email=v.get("email") or None,password=v.get("password") or None,starts_at=starts,expires_at=expires,note=v.get("note") or item.description or None,status="active")
+    person=_resolve(Personnel,v.get("person"),"personel") if v.get("person") not in (None,"") else None
+    if person and not person.active: raise ValueError("Aktarımda pasif personel kullanılamaz")
+    obj=License(license_name_id=name.id,license_model_id=model.id,license_type=v.get("license_type") or "subscription",license_key=v.get("license_key") or None,email=v.get("email") or None,password=v.get("password") or None,starts_at=starts,expires_at=expires,note=v.get("note") or item.description or None,status="active",personnel_id=person.id if person else None)
     db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Lisans","id":obj.id})
    else:
     ptype=_resolve(ProductType,v.get("device_type") or item.device_type,"donanım tipi"); brand=_resolve(Brand,v.get("brand") or item.brand,"marka"); model=None
