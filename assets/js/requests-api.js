@@ -13,7 +13,7 @@ async function load(pageNo=1){
   if(s)p.set('search',s); if(st)p.set('status',st); if(pr)p.set('priority',pr);
   const r=await fetch('/api/requests?'+p.toString(),{headers:{Accept:'application/json'}});if(!r.ok)throw Error();
   const data=await r.json();current=data.items||[];currentPage=data.pagination?.page||pageNo;totalPages=data.pagination?.pages||1;window.IT_REQUESTS=current;render(current);renderPagination();
-  ['pending','approved','ordered','completed'].forEach(k=>{const el=document.querySelector('#requestStat'+k[0].toUpperCase()+k.slice(1));if(el)el.textContent=current.filter(x=>x.status===k).length});
+  const counts=data.status_counts||{};['pending','approved','ordered','completed'].forEach(k=>{const el=document.querySelector('#requestStat'+k[0].toUpperCase()+k.slice(1));if(el)el.textContent=Number(counts[k]||0)});
  }catch(e){console.warn('Talep API yüklenemedi',e)}
 }
 function page(){return location.hash.replace(/^#\/?/,'').split('/')[0]}
