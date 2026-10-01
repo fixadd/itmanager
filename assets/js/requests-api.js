@@ -76,7 +76,7 @@ async function save(form){
  if(!form.reportValidity())return null;const data=payload(form);if(!data.items.length)throw Error('En az bir talep kalemi ekleyin');
  const r=await fetch('/api/requests',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(data)});const x=await r.json();if(!r.ok)throw Error(x.error||'Talep kaydedilemedi');return x;
 }
-function notify(msg){if(typeof window.showToast==='function')window.showToast(msg);else alert(msg)}
+function notify(msg){if(typeof window.showToast==='function')return window.showToast(msg);if(typeof window.itToast==='function')return window.itToast(msg);console.error(msg)}
 async function action(id,endpoint){const r=await fetch(`/api/requests/${id}/${endpoint}`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const x=await r.json();if(!r.ok)throw Error(x.error||'İşlem başarısız');return x}
 async function transfer(id){
  try{
@@ -116,7 +116,7 @@ function operationMenu(id){
 function detail(id){
  const x=current.find(q=>q.id===id);if(!x)return;
  const body='<div class="detail-grid"><div><span>Talep No</span><strong>'+esc(x.request_no)+'</strong></div><div><span>Talep Sahibi</span><strong>'+esc(x.requester?.name||'—')+'</strong></div><div><span>Departman</span><strong>'+esc(x.department?.name||'—')+'</strong></div><div><span>Fabrika</span><strong>'+esc(x.factory?.name||'—')+'</strong></div><div><span>Öncelik</span><strong>'+esc(x.priority)+'</strong></div><div><span>Durum</span><strong>'+esc(labels[x.status]||x.status)+'</strong></div></div><hr><h6>Talep Kalemleri</h6><div class="table-responsive"><table class="table"><thead><tr><th>Tip</th><th>Ürün</th><th>Marka</th><th>Model</th><th>Miktar</th><th>Açıklama</th></tr></thead><tbody>'+x.items.map(i=>'<tr><td>'+esc(i.product_type)+'</td><td>'+esc(i.device_type||'—')+'</td><td>'+esc(i.brand||'—')+'</td><td>'+esc(i.model||'—')+'</td><td>'+esc(i.quantity)+' '+esc(i.unit)+'</td><td>'+esc(i.description||'—')+'</td></tr>').join('')+'</tbody></table></div>' +(x.note?'<div class="mt-3"><strong>Not:</strong> '+esc(x.note)+'</div>':'');
- if(window.ITUI)ITUI.modal('Satın Alma Talebi Detayı',body,{footer:'<button class="btn btn-light" data-bs-dismiss="modal">Kapat</button>'});else alert(x.request_no);
+ if(window.ITUI)ITUI.modal('Satın Alma Talebi Detayı',body,{footer:'<button class="btn btn-light" data-bs-dismiss="modal">Kapat</button>'});else notify(x.request_no);
 }
 document.addEventListener('click',async e=>{
  const add=e.target.closest('#addRequestRow');if(add){e.preventDefault();try{await loadRequestMasterData();document.querySelector('#requestRows')?.insertAdjacentHTML('beforeend',itemRow());}catch(err){notify(err.message)}return}
