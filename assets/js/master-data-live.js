@@ -5,9 +5,26 @@ const bind=async form=>{
  try{
   const page=form.dataset.formPage;
   if(page==='inventory'||page==='stock'||page==='licenses')return;
-  const r=await fetch('/api/master-data',{headers:{Accept:'application/json'}});
-  if(!r.ok)return;
-  const globals=await r.json();
+  const [hierarchy,personnelResponse]=await Promise.all([
+   fetch('/api/settings/product-hierarchy',{headers:{Accept:'application/json'}}),
+   fetch('/api/settings/personnel?per_page=100&page=1',{headers:{Accept:'application/json'}})
+  ]);
+  if(!hierarchy.ok||!personnelResponse.ok)return;
+  const globals=await hierarchy.json();
+  const firstPersonnel=await personnelResponse.json();
+  const personnel=[...(firstPersonnel.items||firstPersonnel.personnel||[])];
+  const pages=Number(firstPersonnel.pagination?.pages||1);
+  if(pages>1){
+   const responses=await Promise.all(
+    Array.from({length:pages-1},(_,i)=>fetch('/api/settings/personnel?per_page=100&page='+(i+2),{headers:{Accept:'application/json'}}))
+   );
+   for(const response of responses){
+    if(!response.ok)continue;
+    const data=await response.json();
+    personnel.push(...(data.items||data.personnel||[]));
+   }
+  }
+  globals.personnel=personnel;
   const fill=(sel,items,placeholder='Seçiniz')=>{
    if(!sel)return;
    const current=sel.value;
