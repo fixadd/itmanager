@@ -6,8 +6,16 @@
   const req=(p,o)=>window.IT_AUTH.request(p,o);
   async function usersView(root){
     if(!can('users.manage')){root.innerHTML=shell('Yetkisiz','Bu bölümü görüntülemek için erişiminiz bulunmuyor.','<div class="alert alert-danger mb-0">users.manage yetkisi gerekli.</div>');return;}
-    const [{items:users},{items:roles},personnelData]=await Promise.all([req('/users'),req('/roles'),req('/personnel?per_page=100')]);
-    const personnel=personnelData.items||[];
+    const [{items:users},{items:roles}]=await Promise.all([req('/users'),req('/roles')]);
+    const personnel=[];
+    for(let page=1;page<=100;page++){
+      const personnelData=await req('/personnel?per_page=100&page='+page);
+      const items=personnelData.items||personnelData.personnel||[];
+      if(!Array.isArray(items)||!items.length)break;
+      personnel.push(...items);
+      const pages=Number(personnelData.pagination?.pages||1);
+      if(page>=pages||items.length<100)break;
+    }
     root.innerHTML=shell('Kullanıcılar','Sistem kullanıcılarını, rollerini, personel bağlantılarını ve erişim durumlarını yönetin.',`
       <div class="d-flex justify-content-between gap-2 mb-3">
         <div class="input-group" style="max-width:380px"><span class="input-group-text"><i class="ti ti-search"></i></span><input id="adminUserSearch" class="form-control" placeholder="Kullanıcı, e-posta veya personel"></div>
