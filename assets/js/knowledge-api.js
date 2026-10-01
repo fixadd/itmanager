@@ -7,6 +7,21 @@
     draft: { label: 'Taslak', badge: 'bg-secondary' },
     archived: { label: 'Arşiv', badge: 'bg-warning text-dark' }
   };
+  const notify = msg => {
+    if (typeof window.showToast === 'function') return window.showToast(msg);
+    if (typeof window.itToast === 'function') return window.itToast(msg);
+    if (window.ITUI?.toast) return window.ITUI.toast(msg);
+    console.error(msg);
+  };
+  function confirmAction(title, message) {
+    return new Promise(resolve => {
+      if (!window.ITUI) return resolve(true);
+      const id = 'knowledgeConfirm_' + Date.now();
+      ITUI.modal(title, '<p class="mb-0">' + esc(message) + '</p>', {footer:'<button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button type="button" class="btn btn-danger" id="' + id + '">Devam Et</button>'});
+      document.getElementById(id)?.addEventListener('click', () => { bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide(); resolve(true); }, {once:true});
+      document.getElementById('itManagerModal')?.addEventListener('hidden.bs.modal', () => resolve(false), {once:true});
+    });
+  }
 
   function formatSize(bytes) {
     const n = Number(bytes || 0);
@@ -213,7 +228,7 @@
 
   async function show(a) {
     const modal = document.querySelector('#knowledgeModal');
-    if (!modal || !window.bootstrap) { alert(`${a.title}\n\n${a.content}`); return; }
+    if (!modal || !window.bootstrap) { notify(a.title + '\n\n' + a.content); return; }
     const meta = statusMeta[a.status] || statusMeta.draft;
     const [history] = await Promise.all([getHistory(a.id)]);
     modal.querySelector('.modal-title').textContent = a.title;
@@ -235,7 +250,7 @@
       if (b.dataset.knowledgeDeleteAttachment) {
         const form = document.querySelector('#knowledgeEditForm');
         const id = form?.dataset.id;
-        if (!id || !confirm('Bu ek dosya silinsin mi?')) return;
+        if (!id || !(await confirmAction('Ek Dosyayı Sil', 'Bu ek dosya silinsin mi?'))) return;
         await deleteAttachment(id, b.dataset.knowledgeDeleteAttachment);
         return refreshEditorAttachments(id);
       }
@@ -247,7 +262,7 @@
         await change(id, action);
         await load(state.pagination.page);
       }
-    } catch(err) { alert(err.message); }
+    } catch(err) { notify(err.message); }
   });
 
   document.addEventListener('change', async e => {
@@ -260,7 +275,7 @@
       try {
         await uploadAttachment(id, file);
         await refreshEditorAttachments(id);
-      } catch (err) { alert(err.message); }
+      } catch (err) { notify(err.message); }
     }
     if (e.target.id === 'knowledgeCategory' || e.target.id === 'knowledgeStatus') load(1);
   });
