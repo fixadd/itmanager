@@ -84,9 +84,17 @@ async function transfer(id){
   const firstData=await first.json();
   if(first.ok){notify('Talep ilgili modüle aktarıldı.');load();return}
   if(!firstData.requires_input)throw Error(firstData.error||'Aktarım başarısız');
-  const x=current.find(q=>q.id===id); if(!x)throw Error('Talep bulunamadı');
-  const options=await (await fetch('/api/requests/transfer-options',{headers:{Accept:'application/json'}})).json();
-  openTransferForm(x,options);
+   let x=current.find(q=>q.id===id);
+   if(!x){
+    const rr=await fetch(`/api/requests/${id}`,{headers:{Accept:'application/json'}});
+    const dd=await rr.json();
+    if(!rr.ok)throw Error(dd.error||'Talep bulunamadı');
+    x=dd;
+    current.push(x);
+   }
+   const options=await (await fetch('/api/requests/transfer-options',{headers:{Accept:'application/json'}})).json();
+   if(!options||options.error)throw Error(options?.error||'Aktarım seçenekleri alınamadı');
+   openTransferForm(x,options);
  }catch(e){notify(e.message)}
 }
 const optionList=(arr,selected='')=>'<option value="">Seçiniz</option>'+(arr||[]).map(v=>'<option value="'+esc(v.id)+'"'+(String(v.id)===String(selected)?' selected':'')+'>'+esc(v.name)+'</option>').join('');
