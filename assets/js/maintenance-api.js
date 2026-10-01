@@ -13,8 +13,10 @@ const renderDetail=x=>`<tr class="inline-detail maintenance-inline-detail"><td c
 
 async function refreshStats(){try{const d=await json('/api/maintenance/summary');const map={service:'maintenanceStatService',pending:'maintenanceStatPending',completed:'maintenanceStatCompleted'};Object.entries(map).forEach(([k,id])=>{const el=document.getElementById(id);if(el)el.textContent=d[k]??0})}catch(e){console.warn(e)}}
 
-async function load(){if(location.hash.slice(1)!=='maintenance')return;const panel=document.querySelector('#pageContent .panel');if(!panel)return;try{const p=new URLSearchParams();const search=document.querySelector('#maintenanceSearch')?.value.trim();const statusValue=document.querySelector('#maintenanceStatus')?.value;if(search)p.set('search',search);if(statusValue)p.set('status',statusValue);p.set('per_page','100');const d=await json('/api/maintenance?'+p);const tbody=panel.querySelector('tbody');if(!tbody)return;tbody.innerHTML='';(d.items||[]).forEach(x=>tbody.appendChild(row(x)));if(!d.items?.length)tbody.innerHTML='<tr><td colspan="8" class="text-center text-secondary py-4">Bakım kaydı bulunamadı.</td></tr>';const sub=panel.querySelector('.panel-head p');if(sub)sub.textContent=`PostgreSQL · ${d.pagination?.total||0} kayıt`;await refreshStats()}catch(e){console.warn(e);toast('Bakım API bağlantısı kurulamadı.')}}
+async function load(page=1){if(location.hash.slice(1)!=='maintenance')return;const panel=document.querySelector('#pageContent .panel');if(!panel)return;try{const p=new URLSearchParams();const search=document.querySelector('#maintenanceSearch')?.value.trim();const statusValue=document.querySelector('#maintenanceStatus')?.value;if(search)p.set('search',search);if(statusValue)p.set('status',statusValue);p.set('page',page);p.set('per_page','25');const d=await json('/api/maintenance?'+p);const tbody=panel.querySelector('tbody');if(!tbody)return;tbody.innerHTML='';(d.items||[]).forEach(x=>tbody.appendChild(row(x)));if(!d.items?.length)tbody.innerHTML='<tr><td colspan="8" class="text-center text-secondary py-4">Bakım kaydı bulunamadı.</td></tr>';const sub=panel.querySelector('.panel-head p');if(sub)sub.textContent=`PostgreSQL · ${d.pagination?.total||0} kayıt`;renderPagination(d.pagination);await refreshStats()}catch(e){console.warn(e);toast('Bakım API bağlantısı kurulamadı.')}}
 
+
+function renderPagination(p){const box=document.querySelector('#maintenancePagination');if(!box)return;if(!p||p.pages<=1){box.innerHTML='';return}let h='<button class="btn btn-sm btn-outline-secondary" data-maint-page="'+(p.page-1)+'" '+(p.page<=1?'disabled':'')+'>‹</button>';for(let i=Math.max(1,p.page-2);i<=Math.min(p.pages,p.page+2);i++)h+='<button class="btn btn-sm '+(i===p.page?'btn-primary':'btn-outline-secondary')+'" data-maint-page="'+i+'">'+i+'</button>';h+='<button class="btn btn-sm btn-outline-secondary" data-maint-page="'+(p.page+1)+'" '+(p.page>=p.pages?'disabled':'')+'>›</button>';box.innerHTML='<div class="d-flex justify-content-between align-items-center mt-3"><small class="text-secondary">'+p.total+' kayıt · Sayfa '+p.page+'/'+p.pages+'</small><div class="btn-group">'+h+'</div></div>'}
 let inventoryOptionCache=null;
 let inventoryOptionCacheAt=0;
 async function getInventoryOptions(){
@@ -71,6 +73,7 @@ document.addEventListener('click',async e=>{
   }catch(err){toast(err.message)}
   return;
  }
+ const pageBtn=e.target.closest('[data-maint-page]');if(pageBtn){e.preventDefault();load(Number(pageBtn.dataset.maintPage));return}
  const newBtn=e.target.closest('#maintenanceNew');if(newBtn&&location.hash==='#maintenance'){e.preventDefault();e.stopImmediatePropagation();openCreate();return}
  if(e.target.closest('#maintenanceRefresh')){e.preventDefault();load();return}
  const close=e.target.closest('.maintenance-close');if(close){e.preventDefault();close.closest('.maintenance-inline-detail')?.remove();return}
