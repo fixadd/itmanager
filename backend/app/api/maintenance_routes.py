@@ -84,6 +84,16 @@ def _payload(data, existing=None):
         if not completed_at:
             completed_at = now
 
+    cost_value = data.get("cost", existing.cost if existing else None)
+    if cost_value not in (None, ""):
+        try:
+            from decimal import Decimal, InvalidOperation
+            cost_value = Decimal(str(cost_value))
+        except (InvalidOperation, TypeError, ValueError):
+            raise ValueError("Geçersiz maliyet")
+        if cost_value < 0:
+            raise ValueError("Maliyet 0'dan küçük olamaz")
+
     return {
         "inventory_id": inventory.id,
         "maintenance_type": maintenance_type,
@@ -94,7 +104,7 @@ def _payload(data, existing=None):
         "started_at": started_at,
         "completed_at": completed_at,
         "status": status,
-        "cost": data.get("cost", existing.cost if existing else None),
+        "cost": cost_value,
         "note": data.get("note", existing.note if existing else None),
     }
 
@@ -107,7 +117,7 @@ def list_maintenance():
     status = request.args.get("status", "").strip()
     if search:
         term = f"%{search}%"
-        q = q.filter(or_(Inventory.inventory_no.ilike(term), Inventory.computer_name.ilike(term), Inventory.serial_no.ilike(term), MaintenanceRecord.fault.ilike(term), MaintenanceRecord.technician.ilike(term), MaintenanceRecord.service.ilike(term)))
+        q = q.filter(or_(Inventory.inventory_no.ilike(term), Inventory.computer_name.ilike(term), Inventory.serial_no.ilike(term), MaintenanceRecord.fault.ilike(term), MaintenanceRecord.description.ilike(term), MaintenanceRecord.note.ilike(term), MaintenanceRecord.technician.ilike(term), MaintenanceRecord.service.ilike(term)))
     if status:
         q = q.filter(MaintenanceRecord.status == status)
     page = max(request.args.get("page", 1, type=int), 1)
