@@ -114,8 +114,8 @@
     wrap.innerHTML = `<div class="d-flex justify-content-between align-items-center mt-3"><small class="text-secondary">${p.total} makale</small><div class="btn-group">${buttons.join('')}</div></div>`;
   }
 
-  async function get(id) {
-    const r = await fetch(`${API}/${id}`);
+  async function get(id, incrementView = false) {
+    const r = await fetch(`${API}/${id}${incrementView ? '?view=1' : ''}`);
     if (!r.ok) throw new Error('Makale alınamadı');
     return r.json();
   }
@@ -255,7 +255,7 @@
         return refreshEditorAttachments(id);
       }
       const id = b.dataset.knowledgeView || b.dataset.knowledgeEdit || b.dataset.knowledgePublish || b.dataset.knowledgeArchive || b.dataset.knowledgeRestore;
-      if (b.dataset.knowledgeView) show(await get(id));
+      if (b.dataset.knowledgeView) show(await get(id, true));
       else if (b.dataset.knowledgeEdit) openEditor(await get(id));
       else {
         const action = b.dataset.knowledgePublish ? 'publish' : b.dataset.knowledgeArchive ? 'archive' : 'restore';
