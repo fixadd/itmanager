@@ -3,7 +3,7 @@ from sqlalchemy import and_, or_
 
 from ..extensions import db
 from ..models import Inventory, License, StockItem, StockMovement, ScrapRecord
-from .auth_routes import permission_required
+from .auth_routes import login_required, permission_required
 
 scrap_bp = Blueprint("scrap", __name__)
 
@@ -89,6 +89,7 @@ def _source_ids_for_search(term):
 
 
 @scrap_bp.get("/scrap")
+@login_required
 def list_scrap():
     q = (request.args.get("q") or "").strip()
     source_type = (request.args.get("source_type") or "").strip()
@@ -139,11 +140,13 @@ def list_scrap():
 
 
 @scrap_bp.get("/scrap/<int:scrap_id>")
+@login_required
 def get_scrap(scrap_id):
     return jsonify(record_json(db.get_or_404(ScrapRecord, scrap_id)))
 
 
 @scrap_bp.get("/scrap/summary")
+@login_required
 def scrap_summary():
     from sqlalchemy import func
     rows = db.session.query(ScrapRecord.source_type, func.count(ScrapRecord.id)).group_by(ScrapRecord.source_type).all()
@@ -153,6 +156,7 @@ def scrap_summary():
 
 
 @scrap_bp.get("/scrap/reasons")
+@login_required
 def reasons():
     rows = db.session.query(ScrapRecord.reason).distinct().order_by(ScrapRecord.reason.asc()).all()
     return jsonify([x[0] for x in rows if x[0]])
