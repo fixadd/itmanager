@@ -71,8 +71,10 @@ def _payload(data, existing=None):
     if not fault:
         raise ValueError("Arıza / konu zorunludur")
 
-    started_at = _dt(data.get("started_at", existing.started_at if existing else None))
-    completed_at = _dt(data.get("completed_at", existing.completed_at if existing else None))
+    # Bakım zamanları kullanıcıdan alınmaz; durum geçişi backend tarafından belirlenir.
+    # Mevcut kayıt düzenlenirken daha önce oluşmuş başlangıç zamanı korunur.
+    started_at = existing.started_at if existing else None
+    completed_at = existing.completed_at if existing and status == "completed" else None
     now = datetime.now(timezone.utc)
     if status in {"in_progress", "service"} and not started_at:
         started_at = now
@@ -81,8 +83,6 @@ def _payload(data, existing=None):
             started_at = now
         if not completed_at:
             completed_at = now
-    else:
-        completed_at = None
 
     return {
         "inventory_id": inventory.id,
