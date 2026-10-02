@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import joinedload
 
 from ..extensions import db
@@ -136,8 +136,19 @@ def list_scrap():
     for x in License.query.options(joinedload(License.license_name), joinedload(License.license_model)).filter(License.id.in_(license_ids)).all() if license_ids else []: source_cache[("license", x.id)] = x
     movement_cache = {}
     if stock_ids:
-        for x in StockMovement.query.filter(StockMovement.stock_item_id.in_(stock_ids), StockMovement.movement_type == "scrap").order_by(StockMovement.id.desc()).all():
-            movement_cache.setdefault(x.stock_item_id, x)
+        latest_ids = [
+            row[0]
+            for row in db.session.query(func.max(StockMovement.id))
+            .filter(
+                StockMovement.stock_item_id.in_(stock_ids),
+                StockMovement.movement_type == "scrap",
+            )
+            .group_by(StockMovement.stock_item_id)
+            .all()
+        ]
+        if latest_ids:
+            for x in StockMovement.query.filter(StockMovement.id.in_(latest_ids)).all():
+                movement_cache[x.stock_item_id] = x
     return jsonify({"items": [record_json(r, source_cache, movement_cache) for r in rows], "pagination": {"page": pagination.page, "per_page": pagination.per_page, "total": pagination.total, "pages": pagination.pages}})
 
 
