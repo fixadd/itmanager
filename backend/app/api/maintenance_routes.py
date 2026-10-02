@@ -109,6 +109,13 @@ def _payload(data, existing=None):
     }
 
 
+@maintenance_bp.get("/maintenance/inventory-options")
+@login_required
+def maintenance_inventory_options():
+    rows = Inventory.query.with_entities(Inventory.id, Inventory.inventory_no, Inventory.computer_name, Inventory.serial_no, Inventory.status).order_by(Inventory.inventory_no.asc()).all()
+    return jsonify({"items": [{"id": x.id, "inventory_no": x.inventory_no, "computer_name": x.computer_name, "serial_no": x.serial_no, "status": x.status} for x in rows]})
+
+
 @maintenance_bp.get("/maintenance")
 @login_required
 def list_maintenance():
