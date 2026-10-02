@@ -29,5 +29,5 @@ const wire=()=>{
  bind('phDepartmentForm','departments','Departman');
 };
 document.addEventListener('DOMContentLoaded',wire);
-new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});
+// Product hierarchy admin binds its own dynamically-rendered forms.\n// A global MutationObserver here caused unnecessary work on every DOM mutation.\n
 })();
