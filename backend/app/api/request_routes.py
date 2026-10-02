@@ -94,7 +94,9 @@ def transfer_options():
  def scoped(scope, entity_type, model_cls):
   ids=db.session.execute(text("SELECT entity_id FROM product_catalog_scopes WHERE entity_type=:t AND scope=:s"),{"t":entity_type,"s":scope}).scalars().all()
   if not ids:return []
-  query=model_cls.query\n  if model_cls is Brand: query=query.options(selectinload(Brand.product_types))\n  return query.filter(model_cls.active.is_(True),model_cls.id.in_(ids)).order_by(model_cls.name).all()
+  query=model_cls.query
+  if model_cls is Brand: query=query.options(selectinload(Brand.product_types))
+  return query.filter(model_cls.active.is_(True),model_cls.id.in_(ids)).order_by(model_cls.name).all()
  inventory_types=scoped("inventory","type",ProductType)
  inventory_brands=scoped("inventory","brand",Brand)
  inventory_models=scoped("inventory","model",ProductModel)
