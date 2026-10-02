@@ -2,6 +2,7 @@ from datetime import datetime,timezone
 from uuid import uuid4
 from flask import Blueprint,jsonify,request
 from sqlalchemy import or_,text
+from sqlalchemy.orm import joinedload, selectinload
 from ..extensions import db
 from ..models import AuditLog,Brand,Department,Factory,Inventory,License,LicenseModel,LicenseName,Personnel,ProductModel,ProductType,PurchaseRequest,PurchaseRequestItem,StockItem,StockMovement
 from .auth_routes import current_user,login_required
@@ -46,7 +47,7 @@ def _payload(data,existing=None):
 @requests_bp.get("/requests")
 @login_required
 def list_requests():
- q=PurchaseRequest.query;search=request.args.get("search","").strip();status=request.args.get("status","").strip();priority=request.args.get("priority","").strip()
+ q=PurchaseRequest.query.options(joinedload(PurchaseRequest.requester),joinedload(PurchaseRequest.department),joinedload(PurchaseRequest.factory),selectinload(PurchaseRequest.items));search=request.args.get("search","").strip();status=request.args.get("status","").strip();priority=request.args.get("priority","").strip()
  if search:
   term=f"%{search}%";q=q.outerjoin(Personnel,PurchaseRequest.requester_id==Personnel.id).filter(or_(PurchaseRequest.request_no.ilike(term),Personnel.name.ilike(term)))
  if priority:q=q.filter(PurchaseRequest.priority==priority)
