@@ -29,8 +29,8 @@ def safe_details(details):
     return clean(details) if isinstance(details, dict) else {}
 
 
-def log_json(log):
-    actor = db.session.get(User, log.actor_user_id) if log.actor_user_id else None
+def log_json(log, actors=None):
+    actor = actors.get(log.actor_user_id) if actors is not None and log.actor_user_id else (db.session.get(User, log.actor_user_id) if log.actor_user_id else None)
     return {
         "id": log.id,
         "action": log.action,
@@ -78,8 +78,10 @@ def list_logs():
     pagination = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
+    actor_ids = {x.actor_user_id for x in pagination.items if x.actor_user_id}
+    actors = {u.id: u for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
     return jsonify({
-        "items": [log_json(x) for x in pagination.items],
+        "items": [log_json(x, actors) for x in pagination.items],
         "pagination": {
             "page": pagination.page,
             "per_page": pagination.per_page,
