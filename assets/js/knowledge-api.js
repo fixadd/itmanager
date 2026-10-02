@@ -33,6 +33,9 @@
 
   async function load(page = state.pagination.page || 1) {
     if (location.hash.replace('#','') !== 'knowledge') return;
+    loadController?.abort();
+    loadController = new AbortController();
+    const signal = loadController.signal;
     try {
       const params = new URLSearchParams();
       const q = document.querySelector('#knowledgeSearch')?.value?.trim();
@@ -52,6 +55,7 @@
       renderPagination();
       if (!state.categories.length) loadCategories();
     } catch (e) {
+      if (e.name === 'AbortError') return;
       console.warn(e);
       const tbody = document.querySelector('#knowledgeTableBody');
       if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Bilgi bankası yüklenemedi.</td></tr>';
