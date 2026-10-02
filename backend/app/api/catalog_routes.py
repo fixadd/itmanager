@@ -228,7 +228,7 @@ def get_model_image(model_id):
     prefix = f"product_model_{model_id}."
     candidates = [name for name in os.listdir(directory) if name.startswith(prefix)]
     if not candidates:
-        audit = AuditLog.query.filter_by(action="settings.product_model_image_updated", entity_type="product_model", entity_id=model_id).order_by(AuditLog.id.desc()).first()
+        audit = AuditLog.query.filter_by(action="settings.license_model_image_updated", entity_type="license_model", entity_id=model_id).order_by(AuditLog.id.desc()).first()
         filename = (audit.details or {}).get("filename") if audit else None
         if not filename or not os.path.isfile(os.path.join(directory, filename)):
             return jsonify({"error": "image_file_not_found"}), 404
