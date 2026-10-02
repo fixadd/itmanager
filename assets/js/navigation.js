@@ -28,8 +28,11 @@ function dashboard(){return head('dashboard')+`
 
 async function loadDashboard(){
   const box=document.getElementById('dashboardLive');if(!box)return;
+  dashboardController?.abort();
+  dashboardController=new AbortController();
+  const signal=dashboardController.signal;
   try{
-    const r=await fetch('/api/dashboard/summary',{headers:{Accept:'application/json'}});
+    const r=await fetch('/api/dashboard/summary',{headers:{Accept:'application/json'},signal});
     const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Dashboard verileri alınamadı');
     const inv=d.inventory||{}, req=d.requests||{}, m=d.maintenance||{}, stock=d.stock||{};
     const fmt=n=>Number(n||0).toLocaleString('tr-TR');
@@ -53,7 +56,12 @@ async function loadDashboard(){
     const actionNames={'inventory.created':'Envanter oluşturuldu','inventory.assigned':'Envanter zimmetlendi','inventory.sent_to_it':'Envanter Bilgi İşleme gönderildi','inventory.scrapped':'Envanter hurdaya ayrıldı','stock.created':'Stok oluşturuldu','stock.movement':'Stok hareketi','maintenance.created':'Bakım kaydı oluşturuldu','maintenance.updated':'Bakım kaydı güncellendi','request.created':'Satın alma talebi oluşturuldu','settings.catalog_model_created':'Model oluşturuldu'};
     document.getElementById('dashRecent').innerHTML=(d.recent_activity||[]).map(x=>`<div class="activity"><div class="activity-icon"><i class="ti ti-history"></i></div><div><strong>${esc(actionNames[x.action]||x.action||'İşlem')}</strong><span>${esc(x.actor)} · ${x.created_at?new Date(x.created_at).toLocaleString('tr-TR'):'-'}</span></div></div>`).join('')||'<span class="text-secondary">Henüz işlem kaydı yok.</span>';
     box.textContent='Veriler güncel.';
-  }catch(e){box.textContent='Dashboard verileri yüklenemedi: '+e.message;box.className='alert alert-warning mb-3';}
+  }catch(e){
+    if(e.name==='AbortError')return;
+    if(!document.getElementById('dashboardLive'))return;
+    box.textContent='Dashboard verileri yüklenemedi: '+e.message;
+    box.className='alert alert-warning mb-3';
+  }
 }
 function barcode(){return head('barcode')+`<div class="barcode-hero"><i class="ti ti-barcode"></i><h3>Barkod Ara</h3><p>Stok, envanter veya lisans barkodunu okutun ya da barkod numarasını girin.</p><div class="barcode-search"><input id="navBarcode" autofocus placeholder="STK-000001 / ENV-000001 / LIC-000001" autocomplete="off"><button class="btn btn-primary" id="navBarcodeBtn"><i class="ti ti-search me-1"></i>Ara</button></div><small class="text-muted d-block mt-3">USB barkod okuyucu klavye gibi çalışır; okutma sonrası Enter yeterlidir.</small></div><div id="navBarcodeResult"></div>`}
 function inventory(){return '<div id="inventoryScreen"></div>'}
@@ -72,6 +80,7 @@ function logs(){return '<div id="logsScreen"></div>'}
 function generic(k){return head(k,btn('Yeni Kayıt'))+filters()+panel(pages[k][0]+' Kayıtları',table(['KAYIT','AÇIKLAMA','SORUMLU','DURUM','TARİH'],[['#1001',pages[k][0]+' örnek kaydı','IT Manager',status('Aktif'),'04.09.2026'],['#1002','Örnek ikinci kayıt','IT Manager',status('İşlemde','info'),'03.09.2026']]))}
 function layout(k){return ({dashboard,barcode,inventory,licenses,stock,maintenance,requests,people,knowledge,scrap,reports,profile,admin,settings,logs}[k]||(()=>generic(k)))()}
 let renderedPage=null;
+let dashboardController=null;
 function go(k){
   if(!pages[k])return;
   const pageChanged=renderedPage!==k;
