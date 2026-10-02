@@ -2,7 +2,7 @@
 'use strict';
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const toast=m=>window.itToast?.(m);
-const api=async(url,opts={})=>{const r=await fetch(url,{headers:{Accept:'application/json','Content-Type':'application/json'},...opts});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||`HTTP ${r.status}`);return d};
+const inventoryScreenApi=async(url,opts={})=>{const r=await fetch(url,{headers:{Accept:'application/json','Content-Type':'application/json'},...opts});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||`HTTP ${r.status}`);return d};
 const sm={active:['Aktif','success'],faulty:['Arızalı','danger'],maintenance:['Bakımda','warning'],it:['Bilgi İşlem','info'],scrapped:['Hurda','danger']};
 let md=null,loading=false,searchTimer=null;
 const status=s=>{const a=sm[s]||[s||'Bilinmiyor','secondary'];return `<span class="status ${a[1]}">${esc(a[0])}</span>`};
