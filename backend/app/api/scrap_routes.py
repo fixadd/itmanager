@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import and_, or_
+from sqlalchemy.orm import joinedload
 
 from ..extensions import db
 from ..models import Inventory, License, StockItem, StockMovement, ScrapRecord
@@ -130,9 +131,9 @@ def list_scrap():
     inv_ids = [r.source_id for r in rows if r.source_type == "inventory"]
     stock_ids = [r.source_id for r in rows if r.source_type == "stock"]
     license_ids = [r.source_id for r in rows if r.source_type == "license"]
-    for x in Inventory.query.filter(Inventory.id.in_(inv_ids)).all() if inv_ids else []: source_cache[("inventory", x.id)] = x
-    for x in StockItem.query.filter(StockItem.id.in_(stock_ids)).all() if stock_ids else []: source_cache[("stock", x.id)] = x
-    for x in License.query.filter(License.id.in_(license_ids)).all() if license_ids else []: source_cache[("license", x.id)] = x
+    for x in Inventory.query.options(joinedload(Inventory.brand), joinedload(Inventory.model)).filter(Inventory.id.in_(inv_ids)).all() if inv_ids else []: source_cache[("inventory", x.id)] = x
+    for x in StockItem.query.options(joinedload(StockItem.brand), joinedload(StockItem.model)).filter(StockItem.id.in_(stock_ids)).all() if stock_ids else []: source_cache[("stock", x.id)] = x
+    for x in License.query.options(joinedload(License.license_name), joinedload(License.license_model)).filter(License.id.in_(license_ids)).all() if license_ids else []: source_cache[("license", x.id)] = x
     movement_cache = {}
     if stock_ids:
         for x in StockMovement.query.filter(StockMovement.stock_item_id.in_(stock_ids), StockMovement.movement_type == "scrap").order_by(StockMovement.id.desc()).all():
