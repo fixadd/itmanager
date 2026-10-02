@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_, text
+from sqlalchemy.orm import joinedload
 from ..extensions import db
 from .auth_routes import current_user, login_required
 from ..models import AssignmentHistory, AuditLog, Brand, Inventory, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement
@@ -102,7 +103,7 @@ def _payload(data, item=None):
 @stock_bp.get("/stock")
 @login_required
 def list_stock():
-    q = StockItem.query
+    q = StockItem.query.options(joinedload(StockItem.product_type),joinedload(StockItem.brand),joinedload(StockItem.model))
     search = request.args.get("search", "").strip()
     status = request.args.get("status", "").strip()
     if search:
@@ -139,7 +140,7 @@ def stock_summary():
 @stock_bp.get("/stock/<int:stock_id>")
 @login_required
 def get_stock(stock_id):
-    x = db.session.get(StockItem, stock_id)
+    x = StockItem.query.options(joinedload(StockItem.product_type),joinedload(StockItem.brand),joinedload(StockItem.model)).filter_by(id=stock_id).first()
     if not x:
         return jsonify({"error": "Stok kaydı bulunamadı"}), 404
     return jsonify(_dict(x))
