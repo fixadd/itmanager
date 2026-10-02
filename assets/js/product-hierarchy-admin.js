@@ -130,6 +130,7 @@ document.addEventListener('click',e=>{
  const lmd=e.target.closest('[data-license-delete-model]');if(lmd){deleteLicenseModel(Number(lmd.dataset.licenseDeleteModel),lmd.dataset.name);return;}
 },true);
 document.addEventListener('itmanager:admin-view',e=>{if(e.detail==='products'&&can())load('inventory').catch(err=>toast(msg(err)));});
+window.IT_PRODUCT_CATALOG_ADMIN={render:()=>load(scope)};
 window.addEventListener('hashchange',()=>{if(location.hash==='#admin'&&document.querySelector('[data-admin-view="products"].active'))load(scope).catch(()=>{});});
 new MutationObserver(()=>{if(document.getElementById('phFactoryAddForm'))bindGlobals();}).observe(document.body,{childList:true,subtree:true});
 })();
