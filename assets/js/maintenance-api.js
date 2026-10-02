@@ -38,16 +38,6 @@ try{
  document.querySelector('#itManagerModal [data-save]')?.removeAttribute('data-maint-edit');
 }catch(e){toast(e.message)}
 }
-async function __legacy_openCreate_disabled(){
-try{
- const items=await getInventoryOptions();
- const options=items.filter(x=>x.status!=='scrapped').map(x=>`<option value="${x.id}">${esc(x.inventory_no)} — ${esc(x.computer_name||x.serial_no||'')}</option>`).join('');
- const body=`<form id="itDynamicForm" data-form-page="maintenance"><div class="row g-3"><div class="col-md-6"><label class="form-label">Envanter <span class="text-danger">*</span></label><select class="form-select" name="inventory_id" required><option value="">Cihaz seçiniz</option>${options}</select></div><div class="col-md-6"><label class="form-label">Bakım Türü</label><select class="form-select" name="type"><option value="internal">İç Bakım</option><option value="service">Dış Servis / Tamir</option><option value="periodic">Periyodik Bakım</option></select></div><div class="col-md-6"><label class="form-label">Arıza / Konu <span class="text-danger">*</span></label><input class="form-control" name="fault" required></div><div class="col-md-6"><label class="form-label">Servis / Firma</label><input class="form-control" name="service"></div><div class="col-md-6"><label class="form-label">Teknisyen</label><input class="form-control" name="technician"></div><div class="col-md-6"><label class="form-label">Maliyet</label><input class="form-control" type="number" min="0" step="0.01" name="cost"></div><div class="col-12"><label class="form-label">Açıklama</label><textarea class="form-control" name="description" rows="2"></textarea></div><div class="col-12"><label class="form-label">Not</label><textarea class="form-control" name="note" rows="2"></textarea></div></div></form>`;
- window.ITUI?.modal('Yeni Bakım Kaydı',body);
- document.querySelector('#itManagerModal [data-save]')?.removeAttribute('data-maint-edit');
-}catch(e){toast(e.message)}
-}
-
 async function save(){const f=document.querySelector('#itDynamicForm[data-form-page="maintenance"]');if(!f||!f.reportValidity())return;try{const p=Object.fromEntries(new FormData(f).entries());p.inventory_id=Number(p.inventory_id);if(p.cost)p.cost=Number(p.cost);else delete p.cost;const d=await json('/api/maintenance',{method:'POST',body:JSON.stringify(p)});bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide();toast(`Bakım kaydı oluşturuldu: ${d.inventory?.inventory_no||''}`);maintenanceStatsCache=null;await load()}catch(e){toast(e.message)}}
 
 async function openDetail(id){try{const x=await json('/api/maintenance/'+id);const tr=document.querySelector(`tr[data-maintenance-id="${id}"]`);document.querySelector('.maintenance-inline-detail')?.remove();if(tr)tr.insertAdjacentHTML('afterend',renderDetail(x))}catch(e){toast(e.message)}}
