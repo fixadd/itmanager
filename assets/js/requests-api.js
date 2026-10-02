@@ -4,7 +4,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 const labels={draft:'Taslak',pending:'Bekliyor',approved:'Onaylandı',rejected:'Reddedildi',ordered:'Sipariş Verildi',completed:'Tamamlandı',cancelled:'İptal'};
 const badge=s=>`<span class="status ${s==='rejected'||s==='cancelled'?'danger':s==='pending'?'warning':s==='completed'?'success':'info'}">${esc(labels[s]||s)}</span>`;
 let current=[];let currentPage=1;let totalPages=1;
-function renderPagination(){const box=document.querySelector('#requestPagination');if(!box)return;box.innerHTML=totalPages<=1?'':`<div class="d-flex justify-content-center gap-1 mt-3">${Array.from({length:totalPages},(_,i)=>`<button type="button" class="btn btn-sm ${i+1===currentPage?'btn-primary':'btn-outline-secondary'} request-page" data-page="${i+1}">${i+1}</button>`).join('')}</div>`}
+function renderPagination(){const box=document.querySelector('#requestPagination');if(!box)return;if(totalPages<=1){box.innerHTML='';return}const start=Math.max(1,currentPage-2),end=Math.min(totalPages,currentPage+2);let h='';if(start>1)h+='<button type="button" class="btn btn-sm btn-outline-secondary request-page" data-page="1">1</button>';for(let i=start;i<=end;i++)h+=`<button type="button" class="btn btn-sm ${i===currentPage?'btn-primary':'btn-outline-secondary'} request-page" data-page="${i}">${i}</button>`;if(end<totalPages)h+='<button type="button" class="btn btn-sm btn-outline-secondary request-page" data-page="'+totalPages+'">'+totalPages+'</button>';box.innerHTML='<div class="d-flex justify-content-center gap-1 mt-3">'+h+'</div>'}
 async function load(pageNo=1){
  try{
   if(page()!=='requests')return;
