@@ -17,7 +17,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.addEventListener('click',e=>{
     const primary=e.target.closest('.page-actions .btn-primary');
     if(!primary)return;
-    if(primary.closest('#pageContent')&&page()==='inventory') return;
+    if(primary.closest('#pageContent')&&page()==='inventory'){
+      e.preventDefault();e.stopImmediatePropagation();
+      if(window.IT_INVENTORY_CREATE_ADD)window.IT_INVENTORY_CREATE_ADD();
+      else if(window.IT_INVENTORY_ADD)window.IT_INVENTORY_ADD();
+      return;
+    }
     const t=primary.textContent.trim();
     const matched=/Yeni Envanter|Yeni Lisans|Stok Girişi|Yeni Talep|Yeni Satın Alma Talebi|Bakım Kaydı|Yeni Personel|Yeni Makale|Kullanıcı Ekle|Yeni Kayıt/i.test(t);
     if(!matched)return;
