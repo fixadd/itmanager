@@ -17,18 +17,32 @@ async function openAdd(){
     // Formu göstermeden önce master veriyi yükle. Eski akışta modal boş
     // seçeneklerle açılıyor ve async veri geldikten sonra select'ler
     // yeniden doldurulmadığı için Envanter Ekle kullanılamıyordu.
-    const [h,c,p]=await Promise.all([
+    // Form açılışını personel listesinin tamamının yüklenmesine bağlama.
+    // Personel ayrı ve bağımsız yüklenir; böylece Envanter Ekle modalı hemen açılır.
+    const [h,c]=await Promise.all([
       api('/api/settings/product-hierarchy').catch(()=>({})),
-      inventoryCatalog().catch(()=>({})),
-      loadAllPersonnel().catch(()=>[])
+      inventoryCatalog().catch(()=>({}))
     ]);
-    const d={factories:h.factories?.length?h.factories:(c.factories?.length?c.factories:(cached.factories||[])),departments:h.departments?.length?h.departments:(c.departments?.length?c.departments:(cached.departments||[])),inventoryTypes:h.hardware_types?.length?h.hardware_types:(c.hardware_types?.length?c.hardware_types:(cached.inventoryTypes||[])),brands:h.brands?.length?h.brands:(c.brands?.length?c.brands:(cached.brands||[])),models:h.models?.length?h.models:(c.models?.length?c.models:(cached.models||[]))};
+    const d={factories:h.factories?.length?h.factories:(c.factories?.length?c.factories:(cached.factories||[])),departments:h.departments?.length?h.departments:(c.departments?.length?c.departments:(cached.inventoryTypes||[])),inventoryTypes:h.hardware_types?.length?h.hardware_types:(c.hardware_types?.length?c.hardware_types:(cached.inventoryTypes||[])),brands:h.brands?.length?h.brands:(c.brands?.length?c.brands:(cached.brands||[])),models:h.models?.length?h.models:(c.models?.length?c.models:(cached.models||[]))};
+    d.departments=h.departments?.length?h.departments:(c.departments?.length?c.departments:(cached.departments||[]));
     window.IT_MASTER_DATA=d;
-    window.IT_PEOPLE=(p||[]).map(x=>typeof x==='string'?x:(x.name||''));
+    window.IT_PEOPLE=[];
     localStorage.setItem('itmanager_master',JSON.stringify(d));
     const render=()=>ITUI.modal('Envanter Ekle',IT_FORM_RENDER('inventory'),{size:'modal-xl',footer:'<button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button type="button" class="btn btn-primary" data-inventory-save><i class="ti ti-device-floppy me-1"></i>Envanteri Kaydet</button>'});
     render();
     document.dispatchEvent(new Event('itmanager:master-ready'));
+    // Personel dropdown modal açıldıktan sonra doldurulur; API gecikmesi formu kilitlemez.
+    loadAllPersonnel().then(items=>{
+      const names=(items||[]).map(x=>typeof x==='string'?x:(x.name||'')).filter(Boolean);
+      window.IT_PEOPLE=names;
+      const select=document.querySelector('#itDynamicForm[data-form-page="inventory"] select[name="person"]');
+      if(select){
+        const current=select.value;
+        select.innerHTML='<option value="">Seçiniz</option>'+names.map(n=>'<option value="'+String(n).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))+'">'+String(n).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))+'</option>').join('');
+        if(current)select.value=current;
+      }
+    }).catch(()=>{});
+
   }catch(e){toast(e.message)}
   })().finally(()=>{addOpenPromise=null});
   return addOpenPromise;
