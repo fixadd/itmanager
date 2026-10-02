@@ -3,18 +3,19 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const labels={draft:'Taslak',pending:'Bekliyor',approved:'Onaylandı',rejected:'Reddedildi',ordered:'Sipariş Verildi',completed:'Tamamlandı',cancelled:'İptal'};
 const badge=s=>`<span class="status ${s==='rejected'||s==='cancelled'?'danger':s==='pending'?'warning':s==='completed'?'success':'info'}">${esc(labels[s]||s)}</span>`;
-let current=[];let currentPage=1;let totalPages=1;
+let current=[];let currentPage=1;let totalPages=1;let loadController=null;
 function renderPagination(){const box=document.querySelector('#requestPagination');if(!box)return;if(totalPages<=1){box.innerHTML='';return}const start=Math.max(1,currentPage-2),end=Math.min(totalPages,currentPage+2);let h='';if(start>1)h+='<button type="button" class="btn btn-sm btn-outline-secondary request-page" data-page="1">1</button>';for(let i=start;i<=end;i++)h+=`<button type="button" class="btn btn-sm ${i===currentPage?'btn-primary':'btn-outline-secondary'} request-page" data-page="${i}">${i}</button>`;if(end<totalPages)h+='<button type="button" class="btn btn-sm btn-outline-secondary request-page" data-page="'+totalPages+'">'+totalPages+'</button>';box.innerHTML='<div class="d-flex justify-content-center gap-1 mt-3">'+h+'</div>'}
 async function load(pageNo=1){
+ if(page()!=='requests')return;
+ loadController?.abort();loadController=new AbortController();const signal=loadController.signal;
  try{
-  if(page()!=='requests')return;
   const p=new URLSearchParams({per_page:'25',page:String(pageNo)});
   const s=document.querySelector('#requestSearch')?.value.trim(),st=document.querySelector('#requestStatus')?.value,pr=document.querySelector('#requestPriority')?.value;
   if(s)p.set('search',s); if(st)p.set('status',st); if(pr)p.set('priority',pr);
-  const r=await fetch('/api/requests?'+p.toString(),{headers:{Accept:'application/json'}});if(!r.ok)throw Error();
+  const r=await fetch('/api/requests?'+p.toString(),{headers:{Accept:'application/json'},signal});if(!r.ok)throw Error();
   const data=await r.json();current=data.items||[];currentPage=data.pagination?.page||pageNo;totalPages=data.pagination?.pages||1;window.IT_REQUESTS=current;render(current);renderPagination();
   const counts=data.status_counts||{};['pending','approved','ordered','completed'].forEach(k=>{const el=document.querySelector('#requestStat'+k[0].toUpperCase()+k.slice(1));if(el)el.textContent=Number(counts[k]||0)});
- }catch(e){console.warn('Talep API yüklenemedi',e)}
+ }catch(e){if(e.name==='AbortError')return;console.warn('Talep API yüklenemedi',e)}
 }
 function page(){return location.hash.replace(/^#\/?/,'').split('/')[0]}
 function render(items){
