@@ -201,8 +201,13 @@
   async function refreshEditorAttachments(id) {
     const box = document.querySelector('#knowledgeEditorAttachments');
     if (!box || !id) return;
-    const article = await get(id);
-    box.innerHTML = attachmentList(article.attachments, true);
+    box.innerHTML = '<div class="small text-secondary">Ekler yükleniyor...</div>';
+    try {
+      const article = await get(id);
+      box.innerHTML = attachmentList(article.attachments, true);
+    } catch (e) {
+      box.innerHTML = '<div class="small text-danger">Ekler yüklenemedi.</div>';
+    }
   }
 
   function openEditor(article) {
