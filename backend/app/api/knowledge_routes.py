@@ -77,7 +77,7 @@ def list_articles():
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = min(max(request.args.get("per_page", 20, type=int), 1), 100)
 
-    query = KnowledgeArticle.query
+    query = KnowledgeArticle.query.options(joinedload(KnowledgeArticle.author))
     if q:
         like = f"%{q}%"
         query = query.filter(or_(KnowledgeArticle.title.ilike(like), KnowledgeArticle.summary.ilike(like), KnowledgeArticle.content.ilike(like), KnowledgeArticle.tags.ilike(like)))
