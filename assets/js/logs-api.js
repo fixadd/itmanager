@@ -37,6 +37,7 @@ const label=v=>{
  return actionLabels[s]||entityLabels[s]||valueLabels[s]||s.replaceAll('_',' ');
 };
 const detailLabel=v=>detailLabels[v]||label(v);
+const date=v=>{if(!v)return '—';const d=new Date(v);if(Number.isNaN(d.getTime()))return String(v);return d.toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'});};
 const formatDetail=(v,key='')=>{
  if(v===null||v===undefined||v==='')return '—';
  if(typeof v==='boolean')return v?'Evet':'Hayır';
