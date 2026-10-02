@@ -171,10 +171,18 @@ function bindRequestRow(row){
 document.addEventListener('change',e=>{if(e.target.matches('#requestStatus,#requestPriority'))load();
  if(e.target.matches('.request-row-device,.request-row-brand')){const r=e.target.closest('.request-api-row,.request-extra-row');if(!r)return;const d=window.IT_MASTER_DATA||window.IT_MASTER?.load?.()||{};const types=d.inventoryTypes||[],brands=d.brands||[],models=d.models||[];const type=r.querySelector('.req-device,.request-row-device')?.value||'';const brand=r.querySelector('.req-brand,.request-row-brand');const model=r.querySelector('.req-model,.request-row-model');const typeObj=types.find(x=>(x.name||x)===type);const bs=brands.filter(b=>!typeObj||(b.product_type_ids||[]).map(String).includes(String(typeObj.id))||String(b.product_type_id||'')===String(typeObj.id));if(brand){const current=brand.value;brand.innerHTML='<option value="">Seçiniz</option>'+bs.map(x=>{const n=x.name||x;return '<option value="'+esc(n)+'">'+esc(n)+'</option>'}).join('');if(bs.some(x=>(x.name||x)===current))brand.value=current;}const b=bs.find(x=>(x.name||x)===brand?.value);const vals=models.filter(x=>String(x.brand_id)===String(b?.id)&&(!typeObj||(!x.product_type_id||String(x.product_type_id)===String(typeObj.id))));if(model)model.innerHTML='<option value="">Seçiniz</option>'+vals.map(x=>'<option value="'+esc(x.name)+'">'+esc(x.name)+'</option>').join('')}});
 async function openCreate(){
- try{await loadRequestMasterData()}catch(e){notify(e.message);return}
  const form=window.IT_FORM_RENDER?.('requests')||'<form id="itDynamicForm" data-form-page="requests"></form>';
  if(window.ITUI)ITUI.modal('Yeni Satın Alma Talebi',form,{footer:'<button class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button class="btn btn-primary" data-request-save>Talebi Kaydet</button>'});
- const f=document.querySelector('#itManagerModal #itDynamicForm');if(f){f.querySelector('#requestRows')?.insertAdjacentHTML('beforeend',itemRow());bindRequestRow(f.querySelector('#requestRows')?.lastElementChild);const d=window.IT_MASTER_DATA||window.IT_REQUEST_MASTER_DATA||{};const requester=f.querySelector('[name="requester_id"]');if(requester){requester.innerHTML='<option value="">Giriş yapan kullanıcı</option>'+(d.personnel||[]).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');}const current=window.IT_CURRENT_USER?.personnel_id||window.IT_CURRENT_USER?.personnel?.id;if(current&&requester)requester.value=String(current);}
+ const f=document.querySelector('#itManagerModal #itDynamicForm');if(!f)return;
+ const rows=f.querySelector('#requestRows');if(rows)rows.innerHTML='<div class="text-center text-secondary py-3 request-master-loading">Ürün seçenekleri yükleniyor...</div>';
+ try{await loadRequestMasterData();}catch(e){notify(e.message);return}
+ if(!f.isConnected)return;
+ if(rows){rows.innerHTML='';rows.insertAdjacentHTML('beforeend',itemRow());bindRequestRow(rows.lastElementChild);}
+ const d=window.IT_MASTER_DATA||window.IT_REQUEST_MASTER_DATA||{};
+ const requester=f.querySelector('[name="requester_id"]');
+ if(requester){requester.innerHTML='<option value="">Giriş yapan kullanıcı</option>'+(d.personnel||[]).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');}
+ const current=window.IT_CURRENT_USER?.personnel_id||window.IT_CURRENT_USER?.personnel?.id;
+ if(current&&requester)requester.value=String(current);
 }
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-request-save]');if(!b)return;const f=document.querySelector('#itManagerModal #itDynamicForm[data-form-page="requests"]');if(!f)return;try{const saved=await save(f);if(!saved)return;notify('Satın alma talebi kaydedildi.');bootstrap.Modal.getOrCreateInstance(document.getElementById('itManagerModal')).hide();load()}catch(err){notify(err.message)}},true);
 document.addEventListener('shown.bs.modal',e=>{const f=e.target.querySelector?.('#itDynamicForm[data-form-page="requests"]');if(f)ensureRows(f)});
