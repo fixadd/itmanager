@@ -112,7 +112,7 @@ def _payload(data, existing=None):
 @maintenance_bp.get("/maintenance/inventory-options")
 @login_required
 def maintenance_inventory_options():
-    rows = Inventory.query.with_entities(Inventory.id, Inventory.inventory_no, Inventory.computer_name, Inventory.serial_no, Inventory.status).order_by(Inventory.inventory_no.asc()).all()
+    rows = Inventory.query.with_entities(Inventory.id, Inventory.inventory_no, Inventory.computer_name, Inventory.serial_no, Inventory.status).filter(Inventory.status != "scrapped").order_by(Inventory.inventory_no.asc()).all()
     return jsonify({"items": [{"id": x.id, "inventory_no": x.inventory_no, "computer_name": x.computer_name, "serial_no": x.serial_no, "status": x.status} for x in rows]})
 
 
@@ -120,6 +120,9 @@ def maintenance_inventory_options():
 @login_required
 def list_maintenance():
     q = MaintenanceRecord.query.join(Inventory).options(joinedload(MaintenanceRecord.inventory).joinedload(Inventory.personnel))
+    inventory_id = request.args.get("inventory_id", type=int)
+    if inventory_id is not None:
+        q = q.filter(MaintenanceRecord.inventory_id == inventory_id)
     search = request.args.get("search", "").strip()
     status = request.args.get("status", "").strip()
     if search:
@@ -151,7 +154,7 @@ def maintenance_summary():
 @maintenance_bp.get("/maintenance/<int:maintenance_id>")
 @login_required
 def get_maintenance(maintenance_id):
-    x = db.session.get(MaintenanceRecord, maintenance_id)
+    x = MaintenanceRecord.query.options(joinedload(MaintenanceRecord.inventory).joinedload(Inventory.personnel)).filter_by(id=maintenance_id).first()
     if not x:
         return jsonify({"error": "Bakım kaydı bulunamadı"}), 404
     return jsonify(_dict(x))
