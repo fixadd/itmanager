@@ -81,8 +81,11 @@
 
   function refreshInventory(id) {
     window.itToast?.('İşlem başarıyla tamamlandı.');
-    location.hash = `#inventory/${id}`;
-    window.dispatchEvent(new Event('hashchange'));
+    // Setting location.hash already triggers the registered hashchange handlers.
+    // Dispatching a second event caused the inventory detail to load twice and
+    // could make the newly rendered action buttons appear unresponsive.
+    if (location.hash !== `#inventory/${id}`) location.hash = `#inventory/${id}`;
+    else window.IT_INVENTORY_API?.openDetail?.(Number(id));
   }
 
   async function action(id, operation) {
@@ -156,7 +159,7 @@
           await api(`/api/inventory/${id}/assign`, {
             method: 'POST',
             body: JSON.stringify({
-              personnel_id: personnelId,
+              personnel_id: Number(personnelId),
               note: form.get('note') || ''
             })
           });
