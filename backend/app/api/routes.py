@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from flask import Blueprint, jsonify, request
 from sqlalchemy import func, or_, text
+from sqlalchemy.orm import joinedload
 from ..extensions import db
 from ..models import AssignmentHistory, AuditLog, Brand, Department, Factory, Inventory, License, LicenseModel, LicenseName, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement, MaintenanceRecord, PurchaseRequest, User
 from .auth_routes import current_user, login_required
@@ -111,7 +112,7 @@ def brand_models(brand_id):
 @api_bp.get("/inventory")
 @login_required
 def list_inventory():
-    query=Inventory.query; search=request.args.get("search","").strip(); status=request.args.get("status","").strip()
+    query=Inventory.query.options(joinedload(Inventory.factory),joinedload(Inventory.department),joinedload(Inventory.product_type),joinedload(Inventory.brand),joinedload(Inventory.model),joinedload(Inventory.personnel)); search=request.args.get("search","").strip(); status=request.args.get("status","").strip()
     fields=((Inventory.factory_id,"factory_id"),(Inventory.department_id,"department_id"),(Inventory.product_type_id,"product_type_id"),(Inventory.brand_id,"brand_id"),(Inventory.model_id,"model_id"),(Inventory.personnel_id,"personnel_id"))
     if search:
         term=f"%{search}%"; query=query.outerjoin(ProductModel,Inventory.model_id==ProductModel.id).outerjoin(Personnel,Inventory.personnel_id==Personnel.id).filter(or_(Inventory.inventory_no.ilike(term),Inventory.serial_no.ilike(term),Inventory.computer_name.ilike(term),ProductModel.name.ilike(term),Personnel.name.ilike(term)))
@@ -127,7 +128,7 @@ def list_inventory():
 @api_bp.get("/inventory/<int:inventory_id>")
 @login_required
 def get_inventory(inventory_id):
-    x=db.session.get(Inventory,inventory_id)
+    x=Inventory.query.options(joinedload(Inventory.factory),joinedload(Inventory.department),joinedload(Inventory.product_type),joinedload(Inventory.brand),joinedload(Inventory.model),joinedload(Inventory.personnel)).filter_by(id=inventory_id).first()
     return jsonify(_inventory_dict(x)) if x else (jsonify({"error":"Envanter kaydı bulunamadı"}),404)
 
 @api_bp.get("/inventory/<int:inventory_id>/history")
@@ -343,7 +344,7 @@ def _license_payload(data,x=None):
 @api_bp.get("/licenses")
 @login_required
 def list_licenses():
-    q=License.query.join(LicenseName).outerjoin(LicenseModel,License.license_model_id==LicenseModel.id); search=request.args.get("search","").strip(); status=request.args.get("status","").strip(); license_type=request.args.get("license_type","").strip(); expiry_status=request.args.get("expiry_status","").strip()
+    q=License.query.options(joinedload(License.license_name),joinedload(License.license_model),joinedload(License.inventory),joinedload(License.personnel)).join(LicenseName).outerjoin(LicenseModel,License.license_model_id==LicenseModel.id); search=request.args.get("search","").strip(); status=request.args.get("status","").strip(); license_type=request.args.get("license_type","").strip(); expiry_status=request.args.get("expiry_status","").strip()
     if search:
         term=f"%{search}%"; q=q.filter(or_(LicenseName.name.ilike(term),LicenseModel.name.ilike(term),License.email.ilike(term),License.license_key.ilike(term)))
     license_name_id=request.args.get("license_name_id",type=int)
@@ -386,7 +387,7 @@ def license_expiry_summary():
 @api_bp.get("/licenses/<int:license_id>")
 @login_required
 def get_license(license_id):
-    x=db.session.get(License,license_id); return jsonify(_license_dict(x)) if x else (jsonify({"error":"Lisans kaydı bulunamadı"}),404)
+    x=License.query.options(joinedload(License.license_name),joinedload(License.license_model),joinedload(License.inventory),joinedload(License.personnel)).filter_by(id=license_id).first(); return jsonify(_license_dict(x)) if x else (jsonify({"error":"Lisans kaydı bulunamadı"}),404)
 
 @api_bp.post("/licenses")
 @login_required
