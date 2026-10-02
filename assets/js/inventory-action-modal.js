@@ -169,6 +169,7 @@
   document.addEventListener('click', (event) => {
     const button = event.target.closest('.iv-op');
     if (!button) return;
+    if (button.dataset.op === 'license') return;
 
     const id = location.hash.match(/^#inventory\/(\d+)$/)?.[1];
     if (!id) return;
