@@ -1,5 +1,6 @@
 from sqlalchemy import or_,func
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 from flask import Blueprint,jsonify,request
 from ..extensions import db
 from ..models import Personnel,Department,Inventory,License,AssignmentHistory,StockMovement,AuditLog
@@ -7,7 +8,7 @@ from .auth_routes import current_user,login_required
 personnel_bp=Blueprint("personnel",__name__)
 def person_json(p):return {"id":p.id,"employee_no":p.employee_no,"name":p.name,"email":p.email,"active":p.active,"department":{"id":p.department.id,"name":p.department.name} if p.department else None}
 def asset_json(p):
- inventory=Inventory.query.filter_by(personnel_id=p.id).order_by(Inventory.id.desc()).all();licenses=License.query.filter_by(personnel_id=p.id).order_by(License.id.desc()).all();stock=StockMovement.query.filter_by(personnel_id=p.id).order_by(StockMovement.id.desc()).all()
+ inventory=Inventory.query.options(joinedload(Inventory.product_type),joinedload(Inventory.brand),joinedload(Inventory.model)).filter_by(personnel_id=p.id).order_by(Inventory.id.desc()).all();licenses=License.query.options(joinedload(License.license_name)).filter_by(personnel_id=p.id).order_by(License.id.desc()).all();stock=StockMovement.query.filter_by(personnel_id=p.id).order_by(StockMovement.id.desc()).all()
  return {"inventory":[{"id":x.id,"inventory_no":x.inventory_no,"computer_name":x.computer_name,"serial_no":x.serial_no,"status":x.status,"type":x.product_type.name if x.product_type else None,"brand":x.brand.name if x.brand else None,"model":x.model.name if x.model else None} for x in inventory],"licenses":[{"id":x.id,"name":x.license_name.name if x.license_name else None,"expires_at":x.expires_at.isoformat() if x.expires_at else None} for x in licenses],"stock_movements":[{"id":x.id,"stock_item_id":x.stock_item_id,"movement_type":x.movement_type,"quantity":float(x.quantity),"unit":x.unit,"note":x.note,"created_at":x.created_at.isoformat()} for x in stock]}
 def audit(action,entity_type,entity_id,details=None):
  u=current_user();db.session.add(AuditLog(action=action,entity_type=entity_type,entity_id=entity_id,actor_user_id=u.id if u else None,details=details or {}))
