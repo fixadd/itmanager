@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420" role="img" aria-label="Ürün görseli">
+<rect width="640" height="420" rx="24" fill="#f3f5f7"/>
+<rect x="150" y="75" width="340" height="210" rx="16" fill="#d9dee5"/>
+<rect x="175" y="100" width="290" height="160" rx="8" fill="#eef1f4"/>
+<path d="M120 315h400l38 34H82l38-34z" fill="#c5ccd5"/>
+<rect x="280" y="320" width="80" height="8" rx="4" fill="#aab2bd"/>
+<circle cx="320" cy="180" r="38" fill="#c5ccd5"/>
+<path d="M303 180l12 12 25-28" fill="none" stroke="#7f8996" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="320" y="380" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" fill="#687382">Ürün görseli</text>
+</svg>
