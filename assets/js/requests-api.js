@@ -180,9 +180,22 @@ async function openCreate(){
  if(rows){rows.innerHTML='';rows.insertAdjacentHTML('beforeend',itemRow());bindRequestRow(rows.lastElementChild);}
  const d=window.IT_MASTER_DATA||window.IT_REQUEST_MASTER_DATA||{};
  const requester=f.querySelector('[name="requester_id"]');
- if(requester){requester.innerHTML='<option value="">Giriş yapan kullanıcı</option>'+(d.personnel||[]).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');}
- const current=window.IT_CURRENT_USER?.personnel_id||window.IT_CURRENT_USER?.personnel?.id;
- if(current&&requester)requester.value=String(current);
+ const setRequester=people=>{
+   if(!requester)return;
+   requester.innerHTML='<option value="">Giriş yapan kullanıcı</option>'+(people||[]).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');
+   const current=window.IT_CURRENT_USER?.personnel_id||window.IT_CURRENT_USER?.personnel?.id;
+   if(current)requester.value=String(current);
+ };
+ setRequester(d.personnel);
+ if(requester&&!d.personnel?.length){
+   loadAllRequestPersonnel({Accept:'application/json'}).then(people=>{
+     if(!f.isConnected)return;
+     requestMasterData.personnel=people;
+     window.IT_MASTER_DATA=requestMasterData;
+     window.IT_REQUEST_MASTER_DATA=requestMasterData;
+     setRequester(people);
+   }).catch(()=>{});
+ }
 }
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-request-save]');if(!b)return;const f=document.querySelector('#itManagerModal #itDynamicForm[data-form-page="requests"]');if(!f)return;try{const saved=await save(f);if(!saved)return;notify('Satın alma talebi kaydedildi.');bootstrap.Modal.getOrCreateInstance(document.getElementById('itManagerModal')).hide();load()}catch(err){notify(err.message)}},true);
 document.addEventListener('shown.bs.modal',e=>{const f=e.target.querySelector?.('#itDynamicForm[data-form-page="requests"]');if(f)ensureRows(f)});
