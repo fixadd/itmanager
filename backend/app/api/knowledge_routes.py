@@ -108,14 +108,17 @@ def article_history(article_id):
     rows = (
         AuditLog.query
         .filter_by(entity_type="knowledge_article", entity_id=article.id)
-        .options(joinedload(AuditLog.actor_user).joinedload(User.personnel))
         .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
         .limit(100)
         .all()
     )
+    actor_ids = {row.actor_user_id for row in rows if row.actor_user_id}
+    actors = {}
+    if actor_ids:
+        actors = {u.id: u for u in User.query.options(joinedload(User.personnel)).filter(User.id.in_(actor_ids)).all()}
     items = []
     for row in rows:
-        actor = row.actor_user
+        actor = actors.get(row.actor_user_id)
         items.append({
             "id": row.id,
             "action": row.action,
