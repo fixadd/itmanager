@@ -1,6 +1,6 @@
 (() => {
   const API = '/api/knowledge';
-  const state = { items: [], categories: [], pagination: { page: 1, pages: 1, total: 0, per_page: 20 } };
+  const state = { items: [], categories: [], pagination: { page: 1, pages: 1, total: 0, per_page: 20 } };\n  let loadController = null;
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const statusMeta = {
     published: { label: 'Yayınlandı', badge: 'bg-success' },
@@ -43,7 +43,7 @@
       if (status) params.set('status', status);
       params.set('page', page);
       params.set('per_page', state.pagination.per_page || 20);
-      const res = await fetch(`${API}?${params}`);
+      const res = await fetch(`${API}?${params}`, {signal});
       if (!res.ok) throw new Error('Bilgi bankası alınamadı');
       const data = await res.json();
       state.items = data.items || [];
