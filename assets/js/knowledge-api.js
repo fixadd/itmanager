@@ -50,7 +50,7 @@
       state.pagination = data.pagination || state.pagination;
       render();
       renderPagination();
-      if (!state.categories.length) await loadCategories();
+      if (!state.categories.length) loadCategories();
     } catch (e) {
       console.warn(e);
       const tbody = document.querySelector('#knowledgeTableBody');
