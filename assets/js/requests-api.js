@@ -49,7 +49,8 @@ async function loadRequestMasterData(){
  ]);
  if(!g.ok||!inv.ok||!stock.ok||!lic.ok)throw Error('Ana veriler alınamadı');
  const [gd,id,sd,ld]=await Promise.all([g.json(),inv.json(),stock.json(),lic.json()]);
- const personnel=await loadAllRequestPersonnel(headers);
+ // Personel listesi form açılışını bloklamasın; ihtiyaç olduğunda arka planda yüklenir.
+ const personnel=[];
  requestMasterData={
   inventoryTypes:id.hardware_types||[],
   inventoryBrands:id.brands||[],
