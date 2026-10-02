@@ -117,32 +117,37 @@ def dashboard_summary():
         .order_by(AuditLog.created_at.desc())
         .limit(6).all()
     )
+    inventory_status = {str(label or "Bilinmiyor"): int(count) for label, count in db.session.query(Inventory.status, func.count(Inventory.id)).group_by(Inventory.status).all()}
+    request_status = {str(label or "Bilinmiyor"): int(count) for label, count in db.session.query(PurchaseRequest.status, func.count(PurchaseRequest.id)).group_by(PurchaseRequest.status).all()}
+    maintenance_status = {str(label or "Bilinmiyor"): int(count) for label, count in db.session.query(MaintenanceRecord.status, func.count(MaintenanceRecord.id)).group_by(MaintenanceRecord.status).all()}
+    movement_totals = dict(db.session.query(StockMovement.movement_type, func.coalesce(func.sum(StockMovement.quantity), 0)).group_by(StockMovement.movement_type).all())
+
     return jsonify({
         "inventory": {
-            "total": Inventory.query.count(),
-            "active": Inventory.query.filter_by(status="active").count(),
-            "faulty": Inventory.query.filter(Inventory.status.in_(["faulty", "arizali", "broken"])).count(),
-            "maintenance": Inventory.query.filter(Inventory.status.in_(["maintenance", "service", "bakim"])).count(),
-            "scrapped": Inventory.query.filter_by(status="scrapped").count(),
+            "total": sum(inventory_status.values()),
+            "active": inventory_status.get("active", 0),
+            "faulty": sum(inventory_status.get(k, 0) for k in ["faulty", "arizali", "broken"]),
+            "maintenance": sum(inventory_status.get(k, 0) for k in ["maintenance", "service", "bakim"]),
+            "scrapped": inventory_status.get("scrapped", 0),
             "by_status": status_rows,
             "by_type": type_rows,
         },
         "requests": {
-            "pending": PurchaseRequest.query.filter_by(status="pending").count(),
-            "approved": PurchaseRequest.query.filter_by(status="approved").count(),
-            "ordered": PurchaseRequest.query.filter_by(status="ordered").count(),
-            "completed": PurchaseRequest.query.filter_by(status="completed").count(),
+            "pending": request_status.get("pending", 0),
+            "approved": request_status.get("approved", 0),
+            "ordered": request_status.get("ordered", 0),
+            "completed": request_status.get("completed", 0),
         },
         "maintenance": {
-            "pending": MaintenanceRecord.query.filter_by(status="pending").count(),
-            "in_progress": MaintenanceRecord.query.filter_by(status="in_progress").count(),
-            "service": MaintenanceRecord.query.filter_by(status="service").count(),
-            "completed": MaintenanceRecord.query.filter_by(status="completed").count(),
+            "pending": maintenance_status.get("pending", 0),
+            "in_progress": maintenance_status.get("in_progress", 0),
+            "service": maintenance_status.get("service", 0),
+            "completed": maintenance_status.get("completed", 0),
         },
         "stock": {
             "total_quantity": float(db.session.query(func.coalesce(func.sum(StockItem.quantity), 0)).scalar() or 0),
-            "in": float(db.session.query(func.coalesce(func.sum(StockMovement.quantity), 0)).filter(StockMovement.movement_type == "in").scalar() or 0),
-            "out": float(db.session.query(func.coalesce(func.sum(StockMovement.quantity), 0)).filter(StockMovement.movement_type == "out").scalar() or 0),
+            "in": float(movement_totals.get("in", 0) or 0),
+            "out": float(movement_totals.get("out", 0) or 0),
         },
         "monthly_activity": [
             {"month": month.isoformat() if month else None, "count": int(count)}
