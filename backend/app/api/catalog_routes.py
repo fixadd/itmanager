@@ -212,10 +212,11 @@ def upload_model_image(model_id):
             os.remove(path)
         raise
     if old_path and old_path.startswith("/api/settings/product-catalog/model/"):
-        old_name = old_path.rsplit("/", 1)[-1]
-        old_file = os.path.join(_product_image_dir(), old_name)
-        if os.path.exists(old_file) and old_file != path:
-            os.remove(old_file)
+        for old_name in os.listdir(_product_image_dir()):
+            if old_name.startswith(f"product_model_{model_id}.") and old_name != filename:
+                old_file = os.path.join(_product_image_dir(), old_name)
+                if os.path.isfile(old_file):
+                    os.remove(old_file)
     return jsonify(_model(obj))
 
 @catalog_bp.get("/settings/product-catalog/model/<int:model_id>/image")
@@ -375,10 +376,11 @@ def upload_license_model_image(model_id):
             os.remove(path)
         raise
     if old_path and old_path.startswith("/api/settings/license-catalog/model/"):
-        old_name = old_path.rsplit("/", 1)[-1]
-        old_file = os.path.join(_product_image_dir(), old_name)
-        if os.path.exists(old_file) and old_file != path:
-            os.remove(old_file)
+        for old_name in os.listdir(_product_image_dir()):
+            if old_name.startswith(f"license_model_{model_id}.") and old_name != filename:
+                old_file = os.path.join(_product_image_dir(), old_name)
+                if os.path.isfile(old_file):
+                    os.remove(old_file)
     return jsonify({"id": model_id, "image_path": image_path})
 
 @catalog_bp.get("/settings/license-catalog/model/<int:model_id>/image")
