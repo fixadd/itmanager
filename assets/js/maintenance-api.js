@@ -21,17 +21,13 @@ let inventoryOptionCache=null;
 let inventoryOptionCacheAt=0;
 async function getInventoryOptions(){
  const now=Date.now();
- if(inventoryOptionCache && now-inventoryOptionCacheAt<60000) return inventoryOptionCache;
- const first=await json('/api/inventory?per_page=100&page=1');
- const items=[...(first.items||[])];
- const pages=first.pagination?.pages||1;
- if(pages>1){
-   const responses=await Promise.all(Array.from({length:pages-1},(_,i)=>json('/api/inventory?per_page=100&page='+(i+2))));
-   responses.forEach(d=>items.push(...(d.items||[])));
- }
- inventoryOptionCache=items;
+ if(inventoryOptionCache && now-inventoryOptionCacheAt<60000)return inventoryOptionCache;
+ const r=await fetch('/api/maintenance/inventory-options',{headers:{Accept:'application/json'}});
+ if(!r.ok)throw Error('Envanter listesi alınamadı');
+ const d=await r.json();
+ inventoryOptionCache=d.items||[];
  inventoryOptionCacheAt=now;
- return items;
+ return inventoryOptionCache;
 }
 async function openCreate(){
 try{
