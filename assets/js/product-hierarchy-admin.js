@@ -131,4 +131,6 @@ document.addEventListener('click',e=>{
  const lmd=e.target.closest('[data-license-delete-model]');if(lmd){deleteLicenseModel(Number(lmd.dataset.licenseDeleteModel),lmd.dataset.name);return;}
 },true);
 document.addEventListener('itmanager:admin-view',e=>{if(e.detail==='products'&&can())load('inventory').catch(err=>toast(msg(err)));});
-// Product admin loading is triggered by the explicit itmanager:admin-view event.\n// Do not also reload on every #admin hashchange; that caused duplicate catalog requests.\n})();
+// Product admin loading is triggered by the explicit itmanager:admin-view event.
+// Do not also reload on every #admin hashchange; that caused duplicate catalog requests.
+})();
