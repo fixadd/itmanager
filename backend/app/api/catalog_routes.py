@@ -185,8 +185,12 @@ def upload_model_image(model_id):
     if not f or not f.filename:
         return jsonify({"error": "image_required"}), 400
     ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
-    if ext not in IMAGE_EXTENSIONS or (f.mimetype or "").lower() not in IMAGE_MIMES:
+    mimetype = (f.mimetype or "").lower()
+    # Bazı istemciler doğru dosya uzantısına rağmen MIME bilgisini boş/generic gönderebilir.
+    if ext not in IMAGE_EXTENSIONS:
         return jsonify({"error": "Sadece PNG, JPG ve WEBP görseller kabul edilir"}), 400
+    if mimetype and mimetype not in IMAGE_MIMES and mimetype != "application/octet-stream":
+        return jsonify({"error": "Desteklenmeyen görsel türü"}), 400
     f.stream.seek(0, 2)
     size = f.stream.tell()
     f.stream.seek(0)
@@ -332,8 +336,12 @@ def upload_license_model_image(model_id):
     if not f or not f.filename:
         return jsonify({"error": "image_required"}), 400
     ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
-    if ext not in IMAGE_EXTENSIONS or (f.mimetype or "").lower() not in IMAGE_MIMES:
+    mimetype = (f.mimetype or "").lower()
+    # Bazı istemciler doğru dosya uzantısına rağmen MIME bilgisini boş/generic gönderebilir.
+    if ext not in IMAGE_EXTENSIONS:
         return jsonify({"error": "Sadece PNG, JPG ve WEBP görseller kabul edilir"}), 400
+    if mimetype and mimetype not in IMAGE_MIMES and mimetype != "application/octet-stream":
+        return jsonify({"error": "Desteklenmeyen görsel türü"}), 400
     f.stream.seek(0, 2)
     size = f.stream.tell()
     f.stream.seek(0)
