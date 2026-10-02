@@ -305,14 +305,14 @@ def create_license_catalog_model():
         row=db.session.execute(text("SELECT id,name,active,image_path FROM license_models WHERE license_name_id=:lid AND lower(name)=lower(:name)"),{"lid":license_name_id,"name":name}).mappings().first()
         if row:
             db.session.execute(text("UPDATE license_models SET active=true,updated_at=CURRENT_TIMESTAMP WHERE id=:id"),{"id":row["id"]});db.session.commit();return jsonify(dict(row)),200
-        row=db.session.execute(text("INSERT INTO license_models(license_name_id,name,active,created_at,updated_at) VALUES(:lid,:name,true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id,name,active"),{"lid":license_name_id,"name":name}).mappings().first()
+        row=db.session.execute(text("INSERT INTO license_models(license_name_id,name,active,created_at,updated_at) VALUES(:lid,:name,true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id,name,active,image_path"),{"lid":license_name_id,"name":name}).mappings().first()
         _audit("settings.license_model_created","license_model",row["id"],{"license_name_id":license_name_id,"name":name});db.session.commit();return jsonify(dict(row)),201
     except IntegrityError:db.session.rollback();return jsonify({"error":"model_exists"}),409
 
 @catalog_bp.patch("/settings/license-catalog/model/<int:model_id>")
 @permission_required("settings.manage")
 def update_license_catalog_model(model_id):
-    data=request.get_json(silent=True) or {};row=db.session.execute(text("SELECT id,license_name_id,name,active FROM license_models WHERE id=:id"),{"id":model_id}).mappings().first()
+    data=request.get_json(silent=True) or {};row=db.session.execute(text("SELECT id,license_name_id,name,active,image_path FROM license_models WHERE id=:id"),{"id":model_id}).mappings().first()
     if not row:return jsonify({"error":"not_found"}),404
     name=str(data.get("name") or row["name"]).strip();lid=int(data.get("license_name_id",row["license_name_id"]))
     if not name:return jsonify({"error":"name_required"}),400
