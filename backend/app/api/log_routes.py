@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify, request
-from sqlalchemy import or_
+from sqlalchemy import cast, or_, Text
 
 from ..extensions import db
 from ..models import AuditLog, User
@@ -55,7 +55,7 @@ def list_logs():
     query = AuditLog.query
     if q:
         term = f"%{q}%"
-        query = query.filter(or_(AuditLog.action.ilike(term), AuditLog.entity_type.ilike(term)))
+        query = query.outerjoin(User, User.id == AuditLog.actor_user_id).filter(or_(AuditLog.action.ilike(term), AuditLog.entity_type.ilike(term), User.username.ilike(term), cast(AuditLog.details, Text).ilike(term), cast(AuditLog.entity_id, Text).ilike(term)))
     if action:
         query = query.filter(AuditLog.action == action)
     if entity_type:
