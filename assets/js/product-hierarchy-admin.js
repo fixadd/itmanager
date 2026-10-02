@@ -130,6 +130,4 @@ document.addEventListener('click',e=>{
  const lmd=e.target.closest('[data-license-delete-model]');if(lmd){deleteLicenseModel(Number(lmd.dataset.licenseDeleteModel),lmd.dataset.name);return;}
 },true);
 document.addEventListener('itmanager:admin-view',e=>{if(e.detail==='products'&&can())load('inventory').catch(err=>toast(msg(err)));});
-window.addEventListener('hashchange',()=>{if(location.hash==='#admin'&&document.querySelector('[data-admin-view="products"].active'))load(scope).catch(()=>{});});
-// Admin render() rebuilds the form and calls bindGlobals() explicitly. Avoid a body-wide MutationObserver here:\n// repeated DOM changes (modals, toasts, lists) otherwise trigger unnecessary rebinding work.
-})();
+// Product admin loading is triggered by the explicit itmanager:admin-view event.\n// Do not also reload on every #admin hashchange; that caused duplicate catalog requests.\n})();
