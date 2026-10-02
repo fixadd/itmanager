@@ -20,6 +20,9 @@ def _product_image_dir():
 def _image_url(model_id):
     return f"/api/settings/product-catalog/model/{model_id}/image"
 
+def _license_image_url(model_id):
+    return f"/api/settings/license-catalog/model/{model_id}/image"
+
 def _scope(value):
     value = str(value or "inventory").strip().lower()
     return value if value in SCOPES else None
@@ -249,11 +252,11 @@ def delete_catalog_model(model_id):
 @catalog_bp.get("/settings/license-catalog")
 @login_required
 def list_license_catalog():
-    rows=db.session.execute(text("SELECT ln.id AS license_name_id,ln.name AS license_name,ln.active AS license_name_active,lm.id AS model_id,lm.name AS model_name,lm.active AS model_active FROM license_names ln LEFT JOIN license_models lm ON lm.license_name_id=ln.id ORDER BY ln.name,lm.name" )).mappings().all()
+    rows=db.session.execute(text("SELECT ln.id AS license_name_id,ln.name AS license_name,ln.active AS license_name_active,lm.id AS model_id,lm.name AS model_name,lm.active AS model_active,lm.image_path AS model_image_path FROM license_names ln LEFT JOIN license_models lm ON lm.license_name_id=ln.id ORDER BY ln.name,lm.name" )).mappings().all()
     items={}
     for r in rows:
         item=items.setdefault(r["license_name_id"],{"id":r["license_name_id"],"name":r["license_name"],"active":r["license_name_active"],"models":[]})
-        if r["model_id"] is not None:item["models"].append({"id":r["model_id"],"name":r["model_name"],"active":r["model_active"]})
+        if r["model_id"] is not None:item["models"].append({"id":r["model_id"],"name":r["model_name"],"active":r["model_active"],"image_path":r["model_image_path"]})
     return jsonify({"items":list(items.values())})
 
 @catalog_bp.post("/settings/license-catalog/name")
@@ -299,7 +302,7 @@ def create_license_catalog_model():
     except (TypeError,ValueError):return jsonify({"error":"invalid_license_name"}),400
     if not db.session.execute(text("SELECT 1 FROM license_names WHERE id=:id AND active=true"),{"id":license_name_id}).first():return jsonify({"error":"invalid_license_name"}),400
     try:
-        row=db.session.execute(text("SELECT id,name,active FROM license_models WHERE license_name_id=:lid AND lower(name)=lower(:name)"),{"lid":license_name_id,"name":name}).mappings().first()
+        row=db.session.execute(text("SELECT id,name,active,image_path FROM license_models WHERE license_name_id=:lid AND lower(name)=lower(:name)"),{"lid":license_name_id,"name":name}).mappings().first()
         if row:
             db.session.execute(text("UPDATE license_models SET active=true,updated_at=CURRENT_TIMESTAMP WHERE id=:id"),{"id":row["id"]});db.session.commit();return jsonify(dict(row)),200
         row=db.session.execute(text("INSERT INTO license_models(license_name_id,name,active,created_at,updated_at) VALUES(:lid,:name,true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id,name,active"),{"lid":license_name_id,"name":name}).mappings().first()
@@ -317,12 +320,59 @@ def update_license_catalog_model(model_id):
     conflict=db.session.execute(text("SELECT 1 FROM license_models WHERE license_name_id=:lid AND lower(name)=lower(:name) AND id<>:id"),{"lid":lid,"name":name,"id":model_id}).first()
     if conflict:return jsonify({"error":"model_exists"}),409
     db.session.execute(text("UPDATE license_models SET license_name_id=:lid,name=:name,active=true,updated_at=CURRENT_TIMESTAMP WHERE id=:id"),{"lid":lid,"name":name,"id":model_id})
-    _audit("settings.license_model_updated","license_model",model_id,{"before":dict(row),"license_name_id":lid,"name":name});db.session.commit();return jsonify({"id":model_id,"license_name_id":lid,"name":name,"active":True})
+    _audit("settings.license_model_updated","license_model",model_id,{"before":dict(row),"license_name_id":lid,"name":name});db.session.commit();return jsonify({"id":model_id,"license_name_id":lid,"name":name,"active":True,"image_path":row["image_path"]})
+
+@catalog_bp.post("/settings/license-catalog/model/<int:model_id>/image")
+@permission_required("settings.manage")
+def upload_license_model_image(model_id):
+    row = db.session.execute(text("SELECT id,image_path,active FROM license_models WHERE id=:id"), {"id": model_id}).mappings().first()
+    if not row or not row["active"]:
+        return jsonify({"error": "not_found"}), 404
+    f = request.files.get("image")
+    if not f or not f.filename:
+        return jsonify({"error": "image_required"}), 400
+    ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+    if ext not in IMAGE_EXTENSIONS or (f.mimetype or "").lower() not in IMAGE_MIMES:
+        return jsonify({"error": "Sadece PNG, JPG ve WEBP görseller kabul edilir"}), 400
+    f.stream.seek(0, 2)
+    size = f.stream.tell()
+    f.stream.seek(0)
+    if size <= 0 or size > MAX_IMAGE_SIZE:
+        return jsonify({"error": "Görsel 10 MB sınırını aşamaz"}), 400
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    path = os.path.join(_product_image_dir(), filename)
+    old_path = row["image_path"]
+    f.save(path)
+    image_path = _license_image_url(model_id)
+    try:
+        db.session.execute(text("UPDATE license_models SET image_path=:path,updated_at=CURRENT_TIMESTAMP WHERE id=:id"), {"path": image_path, "id": model_id})
+        _audit("settings.license_model_image_updated", "license_model", model_id, {"filename": filename, "size": size})
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        if os.path.exists(path):
+            os.remove(path)
+        raise
+    if old_path and old_path.startswith("/api/settings/license-catalog/model/"):
+        old_name = old_path.rsplit("/", 1)[-1]
+        old_file = os.path.join(_product_image_dir(), old_name)
+        if os.path.exists(old_file) and old_file != path:
+            os.remove(old_file)
+    return jsonify({"id": model_id, "image_path": image_path})
+
+@catalog_bp.get("/settings/license-catalog/model/<int:model_id>/image")
+@login_required
+def get_license_model_image(model_id):
+    row = db.session.execute(text("SELECT image_path FROM license_models WHERE id=:id"), {"id": model_id}).mappings().first()
+    if not row or not row["image_path"]:
+        return jsonify({"error": "image_not_found"}), 404
+    filename = row["image_path"].rsplit("/", 1)[-1]
+    return send_from_directory(_product_image_dir(), filename, as_attachment=False)
 
 @catalog_bp.delete("/settings/license-catalog/model/<int:model_id>")
 @permission_required("settings.manage")
 def delete_license_catalog_model(model_id):
-    row=db.session.execute(text("SELECT id,name,active FROM license_models WHERE id=:id"),{"id":model_id}).mappings().first()
+    row=db.session.execute(text("SELECT id,license_name_id,name,active,image_path FROM license_models WHERE id=:id"),{"id":model_id}).mappings().first()
     if not row:return jsonify({"error":"not_found"}),404
     db.session.execute(text("UPDATE license_models SET active=false,updated_at=CURRENT_TIMESTAMP WHERE id=:id"),{"id":model_id})
     _audit("settings.license_model_deleted","license_model",model_id,{"name":row["name"]});db.session.commit();return jsonify({"ok":True})
