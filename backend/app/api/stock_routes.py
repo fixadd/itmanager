@@ -1,6 +1,6 @@
 from decimal import Decimal, InvalidOperation
 from flask import Blueprint, jsonify, request
-from sqlalchemy import or_, text
+from sqlalchemy import case, func, or_, text
 from sqlalchemy.orm import joinedload
 from ..extensions import db
 from .auth_routes import current_user, login_required
@@ -129,13 +129,15 @@ def list_stock():
 def stock_summary():
     from datetime import date
     from sqlalchemy import func
-    total = StockItem.query.filter(StockItem.status != "scrapped").count()
-    critical = StockItem.query.filter(StockItem.status == "available", StockItem.quantity <= 10).count()
-    scrapped = StockItem.query.filter(StockItem.status == "scrapped").count()
     today = date.today()
     month_start = today.replace(day=1)
-    movements_this_month = StockMovement.query.filter(StockMovement.created_at >= month_start).count()
-    return jsonify({"total": total, "critical": critical, "scrapped": scrapped, "movements_this_month": movements_this_month})
+    row = db.session.query(
+        func.count(StockItem.id).filter(StockItem.status != "scrapped"),
+        func.count(StockItem.id).filter(StockItem.status == "available", StockItem.quantity <= 10),
+        func.count(StockItem.id).filter(StockItem.status == "scrapped"),
+    ).one()
+    movements_this_month = db.session.query(func.count(StockMovement.id)).filter(StockMovement.created_at >= month_start).scalar() or 0
+    return jsonify({"total": int(row[0] or 0), "critical": int(row[1] or 0), "scrapped": int(row[2] or 0), "movements_this_month": int(movements_this_month)})
 
 @stock_bp.get("/stock/<int:stock_id>")
 @login_required
@@ -152,7 +154,8 @@ def stock_movements(stock_id):
     x = db.session.get(StockItem, stock_id)
     if not x:
         return jsonify({"error": "Stok kaydı bulunamadı"}), 404
-    return jsonify({"items": [_movement_dict(m) for m in x.movements.order_by(StockMovement.id.desc()).all()]})
+    rows = StockMovement.query.options(joinedload(StockMovement.personnel), joinedload(StockMovement.inventory)).filter_by(stock_item_id=stock_id).order_by(StockMovement.id.desc()).all()
+    return jsonify({"items": [_movement_dict(m) for m in rows]})
 
 
 @stock_bp.post("/stock")
