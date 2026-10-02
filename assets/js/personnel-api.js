@@ -3,7 +3,7 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const toast=m=>window.itToast?.(m);
 const json=async(url,opts={})=>{const r=await fetch(url,{headers:{'Content-Type':'application/json','Accept':'application/json',...(opts.headers||{})},...opts});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'İşlem başarısız');return d};
-let page=1,perPage=25,departments=[],currentPerson=null;
+let page=1,perPage=25,departments=[],currentPerson=null;\nlet listController=null, departmentsController=null;
 
 const tableRow=p=>{
  const tr=document.createElement('tr');
@@ -36,12 +36,12 @@ function pager(panel,total,pages){
 
 async function loadDepartments(){
  try{
-  const first=await json('/api/settings/departments?per_page=100&page=1');
+  const first=await json('/api/settings/departments?per_page=100&page=1',{signal});
   const firstItems=Array.isArray(first)?first:(first.items||first.departments||[]);
   const pages=Math.min(100,Number(first.pagination?.pages||1));
-  const rest=pages>1?await Promise.all(Array.from({length:pages-1},(_,i)=>json('/api/settings/departments?per_page=100&page='+(i+2)))):[];
+  const rest=pages>1?await Promise.all(Array.from({length:pages-1},(_,i)=>json('/api/settings/departments?per_page=100&page='+(i+2),{signal}))):[];
   departments=[...firstItems,...rest.flatMap(d=>Array.isArray(d)?d:(d.items||d.departments||[]))].filter(x=>x.active!==false);
- }catch{departments=[]}
+ }catch(e){if(e.name==='AbortError')return;departments=[]}
  const sel=document.querySelector('#personnelDepartment');if(sel)sel.innerHTML='<option value="">Tüm Departmanlar</option>'+departments.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('');
 }
 async function load(target=1){
@@ -52,7 +52,7 @@ async function load(target=1){
  const department=document.querySelector('#personnelDepartment')?.value||'';
  const params=new URLSearchParams({page:Math.max(target,1),per_page:String(perPage)});if(q)params.set('q',q);if(status)params.set('status',status);if(department)params.set('department_id',department);
  try{
-  const d=await json('/api/personnel?'+params.toString());page=d.pagination?.page||target;
+  const d=await json('/api/personnel?'+params.toString(),{signal});page=d.pagination?.page||target;
   const tbody=panel.querySelector('#personnelTable tbody');tbody.innerHTML='';
   (d.items||[]).forEach(p=>tbody.appendChild(tableRow(p)));
   const countEl=panel.querySelector('.personnel-count') || panel.querySelector('.panel-head p'); if(countEl)countEl.textContent=`PostgreSQL · ${d.pagination?.total??d.total??0} personel`;
