@@ -1,7 +1,7 @@
 (() => {
   const API = '/api/knowledge';
-  const state = { items: [], categories: [], pagination: { page: 1, pages: 1, total: 0, per_page: 20 } };\n  let loadController = null;
-  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  let loadController = null;
+  const state = { items: [], categories: [], pagination: { page: 1, pages: 1, total: 0, per_page: 20 } };\n  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const statusMeta = {
     published: { label: 'Yayınlandı', badge: 'bg-success' },
     draft: { label: 'Taslak', badge: 'bg-secondary' },
