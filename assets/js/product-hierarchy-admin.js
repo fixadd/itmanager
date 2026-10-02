@@ -131,5 +131,5 @@ document.addEventListener('click',e=>{
 },true);
 document.addEventListener('itmanager:admin-view',e=>{if(e.detail==='products'&&can())load('inventory').catch(err=>toast(msg(err)));});
 window.addEventListener('hashchange',()=>{if(location.hash==='#admin'&&document.querySelector('[data-admin-view="products"].active'))load(scope).catch(()=>{});});
-new MutationObserver(()=>{if(document.getElementById('phFactoryAddForm'))bindGlobals();}).observe(document.body,{childList:true,subtree:true});
+// Admin render() rebuilds the form and calls bindGlobals() explicitly. Avoid a body-wide MutationObserver here:\n// repeated DOM changes (modals, toasts, lists) otherwise trigger unnecessary rebinding work.
 })();
