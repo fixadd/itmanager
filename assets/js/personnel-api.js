@@ -36,16 +36,11 @@ function pager(panel,total,pages){
 
 async function loadDepartments(){
  try{
-  const all=[];
-  for(let p=1;p<=100;p++){
-   const d=await json('/api/settings/departments?per_page=100&page='+p);
-   const items=Array.isArray(d)?d:(d.items||d.departments||[]);
-   if(!Array.isArray(items)||!items.length)break;
-   all.push(...items.filter(x=>x.active!==false));
-   const pages=Number(d.pagination?.pages||1);
-   if(p>=pages||items.length<100)break;
-  }
-  departments=all;
+  const first=await json('/api/settings/departments?per_page=100&page=1');
+  const firstItems=Array.isArray(first)?first:(first.items||first.departments||[]);
+  const pages=Math.min(100,Number(first.pagination?.pages||1));
+  const rest=pages>1?await Promise.all(Array.from({length:pages-1},(_,i)=>json('/api/settings/departments?per_page=100&page='+(i+2)))):[];
+  departments=[...firstItems,...rest.flatMap(d=>Array.isArray(d)?d:(d.items||d.departments||[]))].filter(x=>x.active!==false);
  }catch{departments=[]}
  const sel=document.querySelector('#personnelDepartment');if(sel)sel.innerHTML='<option value="">Tüm Departmanlar</option>'+departments.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('');
 }
