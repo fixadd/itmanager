@@ -1,11 +1,11 @@
 """Add trigram indexes for maintenance and scrap searches.
 
-Revision ID: 0016_maintenance_scrap_search_indexes
+Revision ID: 0016_maint_scrap_indexes
 Revises: 0015_stock_request_indexes
 """
 from alembic import op
 
-revision = "0016_maintenance_scrap_search_indexes"
+revision = "0016_maint_scrap_indexes"
 down_revision = "0015_stock_request_indexes"
 branch_labels = None
 depends_on = None
