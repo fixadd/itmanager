@@ -32,7 +32,7 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - itmanager_uploads:/app/instance
+      - itmanager_uploads:/app/backend/instance
     ports:
       - "5000:5000"
     restart: unless-stopped
