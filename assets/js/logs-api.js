@@ -12,11 +12,13 @@ const actionLabels={
 'license.created':'Lisans oluşturuldu','license.updated':'Lisans güncellendi','license.assigned':'Lisans atandı',
 'license.unassigned':'Lisans ataması kaldırıldı','maintenance.created':'Bakım kaydı oluşturuldu',
 'maintenance.updated':'Bakım kaydı güncellendi','request.created':'Satın alma talebi oluşturuldu',
-'settings.catalog_model_created':'Ürün modeli oluşturuldu'
+'settings.catalog_model_created':'Ürün modeli oluşturuldu',
+'assets transferred':'Varlıklar aktarıldı','asset transferred':'Varlık aktarıldı','assets_transferred':'Varlıklar aktarıldı','asset_transferred':'Varlık aktarıldı',
+'assets transferred':'Varlıklar aktarıldı','transferred_assets':'Aktarılan varlıklar'
 };
 const entityLabels={inventory:'Envanter',stock:'Stok',stock_item:'Stok',license:'Lisans',licenses:'Lisans',personnel:'Personel',people:'Personel',
 maintenance:'Bakım',maintenance_record:'Bakım',scrap:'Hurda',scrap_record:'Hurda',knowledge:'Bilgi Bankası',knowledge_item:'Bilgi Bankası',request:'Satın Alma Talebi',purchase_request:'Satın Alma Talebi',requests:'Satın Alma Talebi',
-user:'Kullanıcı',users:'Kullanıcı',role:'Rol',permission:'Yetki',product:'Ürün',product_type:'Donanım Tipi',product_model:'Model',brand:'Marka',factory:'Fabrika',department:'Departman',system:'Sistem',audit_log:'Kayıt'};
+user:'Kullanıcı',users:'Kullanıcı',role:'Rol',settings:'Ayarlar',setting:'Ayar',assets:'Varlık',asset:'Varlık',permission:'Yetki',product:'Ürün',product_type:'Donanım Tipi',product_model:'Model',brand:'Marka',factory:'Fabrika',department:'Departman',system:'Sistem',audit_log:'Kayıt'};
 const detailLabels={
 status:'Durum',old_status:'Eski durum',new_status:'Yeni durum',reason:'Neden',note:'Not',description:'Açıklama',
 name:'Ad',title:'Başlık',serial_number:'Seri numarası',serial_no:'Seri numarası',inventory_number:'Envanter numarası',
@@ -33,14 +35,17 @@ completed:'Tamamlandı',cancelled:'İptal',draft:'Taslak',rejected:'Reddedildi',
 low:'Düşük',urgent:'Acil'
 };
 const label=v=>{
- const s=String(v??'—');
+ const s=String(v??'—').trim();
+ if(!s)return '—';
+ if(s.includes(','))return s.split(',').map(x=>label(x)).filter(Boolean).join(', ');
  if(actionLabels[s])return actionLabels[s];
  if(entityLabels[s])return entityLabels[s];
  if(valueLabels[s])return valueLabels[s];
  const parts=s.split('.');
  if(parts.length>1){
   const scope=entityLabels[parts[0]]||parts[0].replaceAll('_',' ');
-  const verb=actionLabels[parts.slice(1).join('.')]||actionLabels[parts[parts.length-1]]||parts.slice(1).join(' ').replaceAll('_',' ');
+  const rawVerb=parts.slice(1).join('.').trim();
+  const verb=actionLabels[rawVerb]||actionLabels[parts[parts.length-1]]||rawVerb.replaceAll('_',' ');
   return scope+' · '+verb;
  }
  return s.replaceAll('_',' ');
