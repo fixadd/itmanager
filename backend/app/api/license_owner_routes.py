@@ -49,7 +49,8 @@ def owner_history(license_id):
     if not license_obj:
         return jsonify({"error":"Lisans kaydı bulunamadı"}),404
     rows=AssignmentHistory.query.filter_by(asset_type="license",asset_id=license_id).order_by(AssignmentHistory.id.desc()).all()
-    people={p.id:p.name for p in Personnel.query.all()}
+    person_ids={r.personnel_id for r in rows if r.personnel_id}
+    people={p.id:p.name for p in Personnel.query.filter(Personnel.id.in_(person_ids)).all()} if person_ids else {}
     return jsonify({"items":[{"id":r.id,"personnel":{"id":r.personnel_id,"name":people.get(r.personnel_id,"—")},"action":r.action,"note":r.note,"created_at":r.created_at.isoformat() if r.created_at else None} for r in rows]})
 
 @license_owner_bp.post("/license-owners/<int:license_id>/clear")
