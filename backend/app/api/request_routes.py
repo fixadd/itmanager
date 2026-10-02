@@ -50,7 +50,9 @@ def list_requests():
  if search:
   term=f"%{search}%";q=q.outerjoin(Personnel,PurchaseRequest.requester_id==Personnel.id).filter(or_(PurchaseRequest.request_no.ilike(term),Personnel.name.ilike(term)))
  if priority:q=q.filter(PurchaseRequest.priority==priority)
- status_counts={s:q.filter(PurchaseRequest.status==s).count() for s in STATUSES}
+ status_rows=q.with_entities(PurchaseRequest.status,db.func.count(PurchaseRequest.id)).group_by(PurchaseRequest.status).all()
+ status_counts={s:0 for s in STATUSES}
+ for s,n in status_rows: status_counts[s]=int(n)
  if status:q=q.filter(PurchaseRequest.status==status)
  page=max(request.args.get("page",1,type=int),1);per_page=min(max(request.args.get("per_page",25,type=int),1),100);p=q.order_by(PurchaseRequest.id.desc()).paginate(page=page,per_page=per_page,error_out=False);return jsonify({"items":[_dict(x) for x in p.items],"pagination":{"page":page,"per_page":per_page,"total":p.total,"pages":p.pages},"status_counts":status_counts})
 @requests_bp.get("/requests/<int:request_id>")
