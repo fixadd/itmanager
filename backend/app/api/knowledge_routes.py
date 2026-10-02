@@ -108,13 +108,14 @@ def article_history(article_id):
     rows = (
         AuditLog.query
         .filter_by(entity_type="knowledge_article", entity_id=article.id)
+        .options(joinedload(AuditLog.actor_user).joinedload(User.personnel))
         .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
         .limit(100)
         .all()
     )
     items = []
     for row in rows:
-        actor = db.session.get(User, row.actor_user_id) if row.actor_user_id else None
+        actor = row.actor_user
         items.append({
             "id": row.id,
             "action": row.action,
