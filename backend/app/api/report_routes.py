@@ -30,46 +30,61 @@ def inventory_type_counts():
 @reports_bp.get("/reports/summary")
 @permission_required("reports.view")
 def report_summary():
+    def status_counts(model, status_column):
+        rows = db.session.query(status_column, func.count(model.id)).group_by(status_column).all()
+        return {str(label or "Bilinmiyor"): int(count) for label, count in rows}
+
+    def inventory_faulty_count():
+        return db.session.query(func.count(Inventory.id)).filter(
+            Inventory.status.in_(["faulty", "arizali", "broken"])
+        ).scalar() or 0
+
+    inventory_status = status_counts(Inventory, Inventory.status)
+    license_status = status_counts(License, License.status)
+    stock_status = status_counts(StockItem, StockItem.status)
+    maintenance_status = status_counts(MaintenanceRecord, MaintenanceRecord.status)
+    request_status = status_counts(PurchaseRequest, PurchaseRequest.status)
+
     return jsonify({
         "inventory": {
-            "total": Inventory.query.count(),
-            "active": Inventory.query.filter_by(status="active").count(),
-            "faulty": Inventory.query.filter(Inventory.status.in_(["faulty", "arizali", "broken"])).count(),
-            "maintenance": Inventory.query.filter(Inventory.status.in_(["maintenance", "service", "bakim"])).count(),
-            "scrapped": Inventory.query.filter_by(status="scrapped").count(),
-            "by_status": counts(Inventory.query, Inventory.status),
+            "total": sum(inventory_status.values()),
+            "active": inventory_status.get("active", 0),
+            "faulty": sum(inventory_status.get(k, 0) for k in ["faulty", "arizali", "broken"]),
+            "maintenance": sum(inventory_status.get(k, 0) for k in ["maintenance", "service", "bakim"]),
+            "scrapped": inventory_status.get("scrapped", 0),
+            "by_status": [{"label": k, "count": v} for k, v in sorted(inventory_status.items(), key=lambda x: x[1], reverse=True)],
             "by_type": inventory_type_counts(),
         },
         "licenses": {
-            "total": License.query.count(),
-            "active": License.query.filter_by(status="active").count(),
-            "expiring": License.query.filter_by(status="expiring").count(),
-            "expired": License.query.filter_by(status="expired").count(),
-            "scrapped": License.query.filter_by(status="scrapped").count(),
-            "by_status": counts(License.query, License.status),
+            "total": sum(license_status.values()),
+            "active": license_status.get("active", 0),
+            "expiring": license_status.get("expiring", 0),
+            "expired": license_status.get("expired", 0),
+            "scrapped": license_status.get("scrapped", 0),
+            "by_status": [{"label": k, "count": v} for k, v in sorted(license_status.items(), key=lambda x: x[1], reverse=True)],
         },
         "stock": {
-            "items": StockItem.query.count(),
+            "items": sum(stock_status.values()),
             "total_quantity": float(db.session.query(func.coalesce(func.sum(StockItem.quantity), 0)).scalar() or 0),
-            "available": StockItem.query.filter_by(status="available").count(),
-            "by_status": counts(StockItem.query, StockItem.status),
+            "available": stock_status.get("available", 0),
+            "by_status": [{"label": k, "count": v} for k, v in sorted(stock_status.items(), key=lambda x: x[1], reverse=True)],
         },
         "maintenance": {
-            "total": MaintenanceRecord.query.count(),
-            "pending": MaintenanceRecord.query.filter_by(status="pending").count(),
-            "in_progress": MaintenanceRecord.query.filter_by(status="in_progress").count(),
-            "completed": MaintenanceRecord.query.filter_by(status="completed").count(),
+            "total": sum(maintenance_status.values()),
+            "pending": maintenance_status.get("pending", 0),
+            "in_progress": maintenance_status.get("in_progress", 0),
+            "completed": maintenance_status.get("completed", 0),
             "total_cost": float(db.session.query(func.coalesce(func.sum(MaintenanceRecord.cost), 0)).scalar() or 0),
-            "by_status": counts(MaintenanceRecord.query, MaintenanceRecord.status),
+            "by_status": [{"label": k, "count": v} for k, v in sorted(maintenance_status.items(), key=lambda x: x[1], reverse=True)],
         },
         "requests": {
-            "total": PurchaseRequest.query.count(),
-            "pending": PurchaseRequest.query.filter_by(status="pending").count(),
-            "approved": PurchaseRequest.query.filter_by(status="approved").count(),
-            "ordered": PurchaseRequest.query.filter_by(status="ordered").count(),
-            "completed": PurchaseRequest.query.filter_by(status="completed").count(),
-            "rejected": PurchaseRequest.query.filter_by(status="rejected").count(),
-            "by_status": counts(PurchaseRequest.query, PurchaseRequest.status),
+            "total": sum(request_status.values()),
+            "pending": request_status.get("pending", 0),
+            "approved": request_status.get("approved", 0),
+            "ordered": request_status.get("ordered", 0),
+            "completed": request_status.get("completed", 0),
+            "rejected": request_status.get("rejected", 0),
+            "by_status": [{"label": k, "count": v} for k, v in sorted(request_status.items(), key=lambda x: x[1], reverse=True)],
         },
         "people": {
             "total": Personnel.query.count(),
