@@ -223,7 +223,7 @@ def get_model_image(model_id):
     if not obj or not obj.image_path:
         return jsonify({"error": "image_not_found"}), 404
     filename = obj.image_path.rsplit("/", 1)[-1]
-    return send_from_directory(_product_image_dir(), filename, as_attachment=False)
+    response = send_from_directory(_product_image_dir(), filename, as_attachment=False)\n    response.headers["Cache-Control"] = "no-store, max-age=0"\n    return response
 
 @catalog_bp.patch("/settings/product-catalog/model/<int:model_id>")
 @permission_required("settings.manage")
@@ -375,7 +375,7 @@ def get_license_model_image(model_id):
     if not row or not row["image_path"]:
         return jsonify({"error": "image_not_found"}), 404
     filename = row["image_path"].rsplit("/", 1)[-1]
-    return send_from_directory(_product_image_dir(), filename, as_attachment=False)
+    response = send_from_directory(_product_image_dir(), filename, as_attachment=False)\n    response.headers["Cache-Control"] = "no-store, max-age=0"\n    return response
 
 @catalog_bp.delete("/settings/license-catalog/model/<int:model_id>")
 @permission_required("settings.manage")
