@@ -45,7 +45,9 @@ function bindRenderedForms(force=false){
 function init(){
   sync();
   bindRenderedForms();
-  new MutationObserver(bindRenderedForms).observe(document.body,{childList:true,subtree:true});
   document.addEventListener('itmanager:master-ready',()=>bindRenderedForms(true));
+  document.addEventListener('shown.bs.modal',e=>{
+    if(e.target.querySelector?.('#itDynamicForm[data-form-page]')) bindRenderedForms(true);
+  });
 }
 window.IT_MASTER={load,save,sync};window.IT_FORM_RENDER=p=>p==='inventory'?inventory():p==='licenses'?license():p==='stock'?stock():p==='requests'?requests():`<form id="itDynamicForm"><div class="row g-3"></div></form>`;init()})();
