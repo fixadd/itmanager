@@ -94,7 +94,6 @@ function go(k){
   crumb.textContent=pages[k][0];
   content.innerHTML=layout(k);
   window.scrollTo(0,0);
-  if(k==='inventory')setTimeout(()=>window.IT_INVENTORY_INIT?.(),0);
   if(k==='dashboard')setTimeout(loadDashboard,0);
   if(k==='barcode'){
     const run=async()=>{
