@@ -140,7 +140,7 @@
     if (operation === 'assign') {
       let data;
       try {
-        data = await api('/api/settings/personnel?per_page=100&page=1');
+        data = await api('/api/personnel?status=active&per_page=100&page=1');
       } catch (error) {
         return showModal(
           'Personel Ataması',
