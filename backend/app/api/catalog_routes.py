@@ -196,9 +196,11 @@ def upload_model_image(model_id):
     f.stream.seek(0)
     if size <= 0 or size > MAX_IMAGE_SIZE:
         return jsonify({"error": "Görsel 10 MB sınırını aşamaz"}), 400
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    path = os.path.join(_product_image_dir(), filename)
     old_path = obj.image_path
+    # Model başına deterministik dosya adı kullanılır. Böylece image_path yalnızca
+    # API adresini taşısa bile GET endpoint hangi dosyayı servis edeceğini bilir.
+    filename = f"product_model_{obj.id}.{ext}"
+    path = os.path.join(_product_image_dir(), filename)
     f.save(path)
     obj.image_path = _image_url(obj.id)
     try:
@@ -222,8 +224,13 @@ def get_model_image(model_id):
     obj = db.session.get(ProductModel, model_id)
     if not obj or not obj.image_path:
         return jsonify({"error": "image_not_found"}), 404
-    filename = obj.image_path.rsplit("/", 1)[-1]
-    response = send_from_directory(_product_image_dir(), filename, as_attachment=False)
+    directory = _product_image_dir()
+    prefix = f"product_model_{model_id}."
+    candidates = [name for name in os.listdir(directory) if name.startswith(prefix)]
+    if not candidates:
+        return jsonify({"error": "image_file_not_found"}), 404
+    filename = max(candidates, key=lambda name: os.path.getmtime(os.path.join(directory, name)))
+    response = send_from_directory(directory, filename, as_attachment=False)
     response.headers["Cache-Control"] = "no-store, max-age=0"
     return response
 
@@ -349,9 +356,9 @@ def upload_license_model_image(model_id):
     f.stream.seek(0)
     if size <= 0 or size > MAX_IMAGE_SIZE:
         return jsonify({"error": "Görsel 10 MB sınırını aşamaz"}), 400
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    path = os.path.join(_product_image_dir(), filename)
     old_path = row["image_path"]
+    filename = f"license_model_{model_id}.{ext}"
+    path = os.path.join(_product_image_dir(), filename)
     f.save(path)
     image_path = _license_image_url(model_id)
     try:
@@ -376,8 +383,13 @@ def get_license_model_image(model_id):
     row = db.session.execute(text("SELECT image_path FROM license_models WHERE id=:id"), {"id": model_id}).mappings().first()
     if not row or not row["image_path"]:
         return jsonify({"error": "image_not_found"}), 404
-    filename = row["image_path"].rsplit("/", 1)[-1]
-    response = send_from_directory(_product_image_dir(), filename, as_attachment=False)
+    directory = _product_image_dir()
+    prefix = f"license_model_{model_id}."
+    candidates = [name for name in os.listdir(directory) if name.startswith(prefix)]
+    if not candidates:
+        return jsonify({"error": "image_file_not_found"}), 404
+    filename = max(candidates, key=lambda name: os.path.getmtime(os.path.join(directory, name)))
+    response = send_from_directory(directory, filename, as_attachment=False)
     response.headers["Cache-Control"] = "no-store, max-age=0"
     return response
 
