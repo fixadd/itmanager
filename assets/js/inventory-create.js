@@ -8,12 +8,9 @@ async function openAdd(){
   try{
     if(!window.ITUI||!window.IT_FORM_RENDER)throw Error('Envanter form sistemi hazır değil. Sayfayı yenileyip tekrar deneyin.');
     let cached={};try{cached=JSON.parse(localStorage.getItem('itmanager_master')||'{}')||{}}catch(_){cached={}};
-    window.IT_MASTER_DATA={
-      factories:cached.factories||[],departments:cached.departments||[],inventoryTypes:cached.inventoryTypes||[],brands:cached.brands||[],models:cached.models||[]
-    };
-    window.IT_PEOPLE=Array.isArray(window.IT_PEOPLE)?window.IT_PEOPLE:[];
-    const render=()=>ITUI.modal('Envanter Ekle',IT_FORM_RENDER('inventory'),{size:'modal-xl',footer:'<button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button type="button" class="btn btn-primary" data-inventory-save><i class="ti ti-device-floppy me-1"></i>Envanteri Kaydet</button>'});
-    render();
+    // Formu göstermeden önce master veriyi yükle. Eski akışta modal boş
+    // seçeneklerle açılıyor ve async veri geldikten sonra select'ler
+    // yeniden doldurulmadığı için Envanter Ekle kullanılamıyordu.
     const [h,c,p]=await Promise.all([
       api('/api/settings/product-hierarchy').catch(()=>({})),
       inventoryCatalog().catch(()=>({})),
@@ -23,6 +20,8 @@ async function openAdd(){
     window.IT_MASTER_DATA=d;
     window.IT_PEOPLE=(p||[]).map(x=>typeof x==='string'?x:(x.name||''));
     localStorage.setItem('itmanager_master',JSON.stringify(d));
+    const render=()=>ITUI.modal('Envanter Ekle',IT_FORM_RENDER('inventory'),{size:'modal-xl',footer:'<button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button type="button" class="btn btn-primary" data-inventory-save><i class="ti ti-device-floppy me-1"></i>Envanteri Kaydet</button>'});
+    render();
     document.dispatchEvent(new Event('itmanager:master-ready'));
   }catch(e){toast(e.message)}
 }
