@@ -15,7 +15,9 @@ def _audit(action, license_id, details):
 @license_owner_bp.get("/license-owners")
 @login_required
 def owners():
-    rows = License.query.all()
+    raw_ids = request.args.get("license_ids", "")
+    ids = [int(v) for v in raw_ids.split(",") if v.strip().isdigit() and int(v) > 0]
+    query = License.query.filter(License.id.in_(ids)) if ids else License.query
     return jsonify({"items": [{"license_id": x.id, "personnel": {"id": x.personnel.id, "name": x.personnel.name} if x.personnel else None} for x in rows]})
 
 
