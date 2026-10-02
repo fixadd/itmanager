@@ -374,15 +374,45 @@ def list_licenses():
 @api_bp.get("/licenses/expiry-summary")
 @login_required
 def license_expiry_summary():
-    rows=License.query.all()
-    counts={"total":len(rows),"active":0,"empty":0,"expiring":0,"expired":0,"it":0,"scrapped":0,"expiring_30_days":0}
-    for x in rows:
-        s=_license_effective_status(x)
-        counts[s]=counts.get(s,0)+1
-        if x.expires_at and x.status not in ("scrapped","it","empty"):
-            days=(x.expires_at-date.today()).days
-            if 0 <= days <= 30: counts["expiring_30_days"]+=1
-    return jsonify(counts)
+    today = date.today()
+    thirty = today + timedelta(days=30)
+    total, empty, it_count, scrapped, expiring, expired, active, expiring_30 = db.session.query(
+        func.count(License.id),
+        func.count(License.id).filter(License.status == "empty"),
+        func.count(License.id).filter(License.status == "it"),
+        func.count(License.id).filter(License.status == "scrapped"),
+        func.count(License.id).filter(
+            License.status.notin_(("scrapped", "it", "empty")),
+            License.expires_at.is_not(None),
+            License.expires_at >= today,
+            License.expires_at <= thirty,
+        ),
+        func.count(License.id).filter(
+            License.status.notin_(("scrapped", "it", "empty")),
+            License.expires_at.is_not(None),
+            License.expires_at < today,
+        ),
+        func.count(License.id).filter(
+            License.status.notin_(("scrapped", "it", "empty")),
+            or_(License.expires_at.is_(None), License.expires_at > thirty),
+        ),
+        func.count(License.id).filter(
+            License.status.notin_(("scrapped", "it", "empty")),
+            License.expires_at.is_not(None),
+            License.expires_at >= today,
+            License.expires_at <= thirty,
+        ),
+    ).one()
+    return jsonify({
+        "total": int(total or 0),
+        "active": int(active or 0),
+        "empty": int(empty or 0),
+        "expiring": int(expiring or 0),
+        "expired": int(expired or 0),
+        "it": int(it_count or 0),
+        "scrapped": int(scrapped or 0),
+        "expiring_30_days": int(expiring_30 or 0),
+    })
 
 @api_bp.get("/licenses/<int:license_id>")
 @login_required
