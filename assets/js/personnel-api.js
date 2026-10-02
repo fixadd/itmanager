@@ -3,7 +3,8 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const toast=m=>window.itToast?.(m);
 const json=async(url,opts={})=>{const r=await fetch(url,{headers:{'Content-Type':'application/json','Accept':'application/json',...(opts.headers||{})},...opts});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'İşlem başarısız');return d};
-let page=1,perPage=25,departments=[],currentPerson=null;\nlet listController=null, departmentsController=null;
+let page=1,perPage=25,departments=[],currentPerson=null;
+let listController=null, departmentsController=null;
 
 const tableRow=p=>{
  const tr=document.createElement('tr');
@@ -35,6 +36,9 @@ function pager(panel,total,pages){
 }
 
 async function loadDepartments(){
+ if(departmentsController)departmentsController.abort();
+ departmentsController=new AbortController();
+ const signal=departmentsController.signal;
  try{
   const first=await json('/api/settings/departments?per_page=100&page=1',{signal});
   const firstItems=Array.isArray(first)?first:(first.items||first.departments||[]);
@@ -46,6 +50,9 @@ async function loadDepartments(){
 }
 async function load(target=1){
  if(!['people','personnel'].includes(location.hash.slice(1)))return;
+ if(listController)listController.abort();
+ listController=new AbortController();
+ const signal=listController.signal;
  const panel=document.querySelector('#personnelPanel');if(!panel)return;
  const q=document.querySelector('#personnelSearch')?.value.trim()||'';
  const status=document.querySelector('#personnelStatus')?.value||'';
@@ -57,7 +64,7 @@ async function load(target=1){
   (d.items||[]).forEach(p=>tbody.appendChild(tableRow(p)));
   const countEl=panel.querySelector('.personnel-count') || panel.querySelector('.panel-head p'); if(countEl)countEl.textContent=`PostgreSQL · ${d.pagination?.total??d.total??0} personel`;
   pager(panel,d.pagination?.total??d.total??0,d.pagination?.pages??1);
- }catch(e){toast(e.message)}
+ }catch(e){if(e.name!=='AbortError')toast(e.message)}
 }
 
 function modal(title,body,saveText='Kaydet'){
