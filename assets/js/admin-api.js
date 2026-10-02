@@ -8,13 +8,13 @@
     if(!can('users.manage')){root.innerHTML=shell('Yetkisiz','Bu bölümü görüntülemek için erişiminiz bulunmuyor.','<div class="alert alert-danger mb-0">users.manage yetkisi gerekli.</div>');return;}
     const [{items:users},{items:roles}]=await Promise.all([req('/users'),req('/roles')]);
     const personnel=[];
-    for(let page=1;page<=100;page++){
-      const personnelData=await req('/personnel?per_page=100&page='+page);
-      const items=personnelData.items||personnelData.personnel||[];
-      if(!Array.isArray(items)||!items.length)break;
-      personnel.push(...items);
-      const pages=Number(personnelData.pagination?.pages||1);
-      if(page>=pages||items.length<100)break;
+    const firstPersonnel=await req('/personnel?per_page=100&page=1');
+    const firstItems=firstPersonnel.items||firstPersonnel.personnel||[];
+    if(Array.isArray(firstItems))personnel.push(...firstItems);
+    const personnelPages=Math.min(100,Number(firstPersonnel.pagination?.pages||1));
+    if(personnelPages>1){
+      const rest=await Promise.all(Array.from({length:personnelPages-1},(_,i)=>req('/personnel?per_page=100&page='+(i+2))));
+      rest.forEach(d=>{const items=d.items||d.personnel||[];if(Array.isArray(items))personnel.push(...items)});
     }
     root.innerHTML=shell('Kullanıcılar','Sistem kullanıcılarını, rollerini, personel bağlantılarını ve erişim durumlarını yönetin.',`
       <div class="d-flex justify-content-between gap-2 mb-3">
