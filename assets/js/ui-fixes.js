@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 // Scoped to #pageContent so SPA rendering stays fast and no global observer is used.
 (function(){
   const targetSelector=[
-    '#invType','#invBrand','#invModel',
+    '#ivType','#ivBrand','#ivModel','#invType','#invBrand','#invModel',
     '#stockTypeFilter','#stockBrandFilter','#stockModelFilter',
     '#licenseNameFilter','#licenseModelFilter',
     '.inv-type','.inv-brand','.inv-model',
