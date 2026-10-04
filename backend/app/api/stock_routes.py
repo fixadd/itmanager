@@ -165,12 +165,28 @@ def create_stock():
     try:
         vals = _payload(data)
         quantity = vals.pop("quantity")
-        x = StockItem(**vals, quantity=Decimal("0"))
+        # Aynı donanım tipi + marka + model + barkod + birim için tek stok satırı kullan.
+        q = StockItem.query.filter_by(
+            product_type_id=vals["product_type_id"],
+            brand_id=vals["brand_id"],
+            model_id=vals["model_id"],
+            barcode=vals["barcode"],
+            unit=vals["unit"],
+        ).filter(StockItem.status != "scrapped")
+        x = q.order_by(StockItem.id.asc()).first()
+        if x:
+            x.quantity = (x.quantity or Decimal("0")) + quantity
+            if vals.get("note"):
+                x.note = vals["note"]
+            db.session.add(StockMovement(stock_item_id=x.id, movement_type="in", quantity=quantity, unit=x.unit, note=data.get("note")))
+            _audit("stock.created", x.id, {"quantity": float(quantity), "merged_into_existing": True})
+            db.session.commit()
+            return jsonify(_dict(x)), 200
+        x = StockItem(**vals, quantity=quantity)
         db.session.add(x)
         db.session.flush()
-        x.quantity = quantity
         db.session.add(StockMovement(stock_item_id=x.id, movement_type="in", quantity=quantity, unit=x.unit, note=data.get("note")))
-        _audit("stock.created", x.id, {"quantity": float(quantity)})
+        _audit("stock.created", x.id, {"quantity": float(quantity), "merged_into_existing": False})
         db.session.commit()
         return jsonify(_dict(x)), 201
     except ValueError as e:
