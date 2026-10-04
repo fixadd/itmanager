@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     '.inv-type','.inv-brand','.inv-model',
     '.stock-type','.stock-brand','.stock-model',
     '.license-name-select','.license-model-select',
-    '[name="person"]','[name="personnel_id"]','[name="inventory_id"]',
+    '[name="person"]','[name="personnel_id"]','[name="inventory_id"]','[name="stock_id"]',
     '[data-action-person]','#ivActionPerson',
     '.tr-device','.tr-brand','.tr-model','.tr-person','.tr-license_name','.tr-license_model',
     '.req-product','.req-device','.req-brand','.req-model'
