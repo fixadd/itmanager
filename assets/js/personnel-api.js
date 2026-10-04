@@ -9,7 +9,7 @@ let listController=null, departmentsController=null;
 const tableRow=p=>{
  const tr=document.createElement('tr');
  tr.dataset.recordType='personnel';tr.dataset.personnelId=p.id;
- tr.innerHTML=`<td><strong>${esc(p.employee_no||'—')}</strong></td><td><strong>${esc(p.name)}</strong></td><td>${esc(p.email||'—')}</td><td>${esc(p.department?.name||'—')}</td><td><span class="status ${p.active?'success':'secondary'}">${p.active?'Aktif':'Pasif'}</span></td><td><span class="badge text-bg-light">${p.asset_count||0}</span></td><td class="action-cell"><button class="btn btn-sm btn-light personnel-eye" title="Detay"><i class="ti ti-eye"></i></button><button class="btn btn-sm btn-light ms-1 personnel-edit" title="Düzenle"><i class="ti ti-edit"></i></button><button class="btn btn-sm btn-light ms-1 personnel-toggle" title="${p.active?'Pasife al':'Aktif et'}"><i class="ti ti-${p.active?'user-off':'user-check'}"></i></button></td>`;
+ tr.innerHTML=`<td><strong>${esc(p.employee_no||'—')}</strong></td><td><strong>${esc(p.name)}</strong></td><td>${esc(p.email||'—')}</td><td>${esc(p.department?.name||'—')}</td><td><span class="status ${p.active?'success':'secondary'}">${p.active?'Aktif':'Pasif'}</span></td><td><span class="badge text-bg-light">${p.asset_count||0}</span></td><td class="action-cell"><button class="btn btn-sm btn-light personnel-eye" title="Detay"><i class="ti ti-eye"></i></button></td>`;
  return tr;
 };
 
@@ -90,9 +90,17 @@ function openForm(person=null){
  };
 }
 
-async function openDetail(id,tr){
- try{const x=await json('/api/personnel/'+id);const old=tr.nextElementSibling;if(old?.classList.contains('inline-detail'))old.remove();else tr.insertAdjacentHTML('afterend',detail(x))}
- catch(e){toast(e.message)}
+async function openDetail(id){
+ try{
+  const x=await json('/api/personnel/'+id);
+  const root=document.querySelector('#pageContent');if(!root)return;
+  const inv=x.assets?.inventory||[],lic=x.assets?.licenses||[];
+  root.innerHTML='<div class="page-head"><div class="d-flex align-items-center gap-3"><button type="button" class="btn btn-light personnel-back"><i class="ti ti-arrow-left"></i></button><div><h1>Personel Detayı</h1><p>'+esc(x.name)+' · '+esc(x.employee_no||'Personel')+'</p></div></div><div class="page-actions d-flex gap-2"><button type="button" class="btn btn-primary personnel-detail-edit"><i class="ti ti-pencil me-1"></i>Düzenle</button><button type="button" class="btn btn-outline-secondary personnel-detail-toggle"><i class="ti ti-user-off me-1"></i>'+(x.active?'Pasife Al':'Aktif Et')+'</button></div></div><div class="row g-3"><div class="col-xl-5"><div class="panel h-100"><div class="panel-head"><div><h3>'+esc(x.name)+'</h3><p>'+esc(x.department?.name||'Departman yok')+'</p></div><span class="status '+(x.active?'success':'secondary')+'">'+(x.active?'Aktif':'Pasif')+'</span></div><div class="detail-grid"><div class="detail-field"><span>Personel No</span><strong>'+esc(x.employee_no||'—')+'</strong></div><div class="detail-field"><span>E-posta</span><strong>'+esc(x.email||'—')+'</strong></div><div class="detail-field"><span>Departman</span><strong>'+esc(x.department?.name||'—')+'</strong></div><div class="detail-field"><span>Envanter</span><strong>'+inv.length+'</strong></div><div class="detail-field"><span>Lisans</span><strong>'+lic.length+'</strong></div></div></div></div><div class="col-xl-7"><div class="panel h-100"><div class="panel-head"><div><h3>Üzerindeki Varlıklar</h3><p>Mevcut envanter ve lisanslar</p></div></div><div class="detail-section"><h4>ENVANTERLER</h4>'+inv.map(v=>'<div class="d-flex justify-content-between align-items-center border-bottom py-2"><span><strong>'+esc(v.inventory_no)+'</strong> · '+esc([v.brand,v.model].filter(Boolean).join(' ')||'—')+'</span><button class="btn btn-sm btn-outline-primary personnel-transfer-detail" data-asset="'+v.id+'" data-kind="inventory">Başkasına Aktar</button></div>').join('')+'</div><div class="detail-section"><h4>LİSANSLAR</h4>'+(lic.length?lic.map(v=>'<div class="d-flex justify-content-between align-items-center border-bottom py-2"><span>'+esc(v.name||'Lisans')+'</span><button class="btn btn-sm btn-outline-primary personnel-transfer-detail" data-asset="'+v.id+'" data-kind="license">Başkasına Aktar</button></div>').join(''):'<div class="text-secondary small">Atanmış lisans yok.</div>')+'</div></div></div></div>';
+  root.querySelector('.personnel-back').onclick=()=>{location.hash='#people'};
+  root.querySelector('.personnel-detail-edit').onclick=()=>openForm(x);
+  root.querySelector('.personnel-detail-toggle').onclick=async()=>{try{await json('/api/personnel/'+x.id+'/toggle',{method:'POST'});toast('Personel durumu güncellendi.');openDetail(x.id)}catch(e){toast(e.message)}};
+  root.querySelectorAll('.personnel-transfer-detail').forEach(b=>b.onclick=()=>chooseTarget(x.id,{asset_type:b.dataset.kind,asset_id:Number(b.dataset.asset)}));
+ }catch(e){toast(e.message)}
 }
 
 async function chooseTarget(sourceId,assets){
@@ -125,7 +133,7 @@ document.addEventListener('click',async e=>{
  const edit=e.target.closest('.personnel-edit');if(edit){e.preventDefault();e.stopImmediatePropagation();const tr=edit.closest('tr');const p=await json('/api/personnel/'+Number(tr.dataset.personnelId));openForm(p);loadDepartments();return}
  const toggle=e.target.closest('.personnel-toggle');if(toggle){e.preventDefault();e.stopImmediatePropagation();const tr=toggle.closest('tr');try{await json('/api/personnel/'+Number(tr.dataset.personnelId)+'/toggle',{method:'POST'});toast('Personel durumu güncellendi.');await load(page)}catch(err){toast(err.message)}return}
  const close=e.target.closest('.personnel-close');if(close){e.preventDefault();e.stopImmediatePropagation();close.closest('tr.inline-detail')?.remove();return}
- const eye=e.target.closest('.personnel-eye');if(eye){e.preventDefault();e.stopImmediatePropagation();await openDetail(Number(eye.closest('tr').dataset.personnelId),eye.closest('tr'));return}
+ const eye=e.target.closest('.personnel-eye');if(eye){e.preventDefault();e.stopImmediatePropagation();await openDetail(Number(eye.closest('tr').dataset.personnelId));return}
  const transfer=e.target.closest('.personnel-transfer');if(transfer){e.preventDefault();e.stopImmediatePropagation();await chooseTarget(Number(transfer.closest('tr.inline-detail')?.previousElementSibling?.dataset.personnelId),{asset_type:transfer.dataset.kind,asset_id:Number(transfer.dataset.asset)});return}
 });
 document.addEventListener('input',e=>{if(location.hash.slice(1)==='people'&&e.target.id==='personnelSearch'){clearTimeout(window.__personnelSearchTimer);window.__personnelSearchTimer=setTimeout(()=>load(1),300)}});
