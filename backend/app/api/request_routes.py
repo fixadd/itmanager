@@ -25,7 +25,7 @@ def _payload(data,existing=None):
  u=current_user(); logged_person=u.personnel if u else None
  no=str(data.get("request_no",existing.request_no if existing else "")).strip()
  if existing is not None and not no:no=existing.request_no
- if not existing and not no:no=f"TMP-{uuid4().hex}"
+ if not existing and not no:raise ValueError("IFS talep numarası zorunludur")
  status=str(data.get("status",existing.status if existing else "pending")).strip().lower();priority=str(data.get("priority",existing.priority if existing else "normal")).strip().lower()
  if status not in STATUSES:raise ValueError("Geçersiz talep durumu")
  if priority not in PRIORITIES:raise ValueError("Geçersiz öncelik")
