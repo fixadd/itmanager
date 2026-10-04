@@ -30,6 +30,7 @@ def _dict(x):
         "id": x.id,
         "inventory": {"id": x.inventory_id, "inventory_no": x.inventory.inventory_no, "computer_name": x.inventory.computer_name} if x.inventory else None,
         "personnel": {"id": x.inventory.personnel.id, "name": x.inventory.personnel.name} if x.inventory and x.inventory.personnel else None,
+        "created_by": {"id": x.created_by_personnel.id, "name": x.created_by_personnel.name} if x.created_by_personnel else None,
         "type": x.maintenance_type,
         "fault": x.fault,
         "description": x.description,
@@ -52,6 +53,7 @@ def _audit(action, entity_id, details=None):
 
 def _payload(data, existing=None):
     inventory_id = data.get("inventory_id", existing.inventory_id if existing else None)
+    creator = existing.created_by_personnel_id if existing else (current_user().personnel.id if current_user() and current_user().personnel else None)
     try:
         inventory = db.session.get(Inventory, int(inventory_id)) if inventory_id not in (None, "") else None
     except (TypeError, ValueError):
@@ -96,6 +98,7 @@ def _payload(data, existing=None):
 
     return {
         "inventory_id": inventory.id,
+        "created_by_personnel_id": creator,
         "maintenance_type": maintenance_type,
         "fault": fault,
         "description": data.get("description", existing.description if existing else None),
@@ -119,7 +122,7 @@ def maintenance_inventory_options():
 @maintenance_bp.get("/maintenance")
 @login_required
 def list_maintenance():
-    q = MaintenanceRecord.query.join(Inventory).options(joinedload(MaintenanceRecord.inventory).joinedload(Inventory.personnel))
+    q = MaintenanceRecord.query.join(Inventory).options(joinedload(MaintenanceRecord.inventory).joinedload(Inventory.personnel), joinedload(MaintenanceRecord.created_by_personnel))
     inventory_id = request.args.get("inventory_id", type=int)
     if inventory_id is not None:
         q = q.filter(MaintenanceRecord.inventory_id == inventory_id)
@@ -154,7 +157,7 @@ def maintenance_summary():
 @maintenance_bp.get("/maintenance/<int:maintenance_id>")
 @login_required
 def get_maintenance(maintenance_id):
-    x = MaintenanceRecord.query.options(joinedload(MaintenanceRecord.inventory).joinedload(Inventory.personnel)).filter_by(id=maintenance_id).first()
+    x = MaintenanceRecord.query.options(joinedload(MaintenanceRecord.inventory).joinedload(Inventory.personnel), joinedload(MaintenanceRecord.created_by_personnel)).filter_by(id=maintenance_id).first()
     if not x:
         return jsonify({"error": "Bakım kaydı bulunamadı"}), 404
     return jsonify(_dict(x))
