@@ -54,3 +54,11 @@ html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca
 .filter-bar .ts-wrapper{min-width:160px}
 .filter-bar .ts-control{min-height:38px!important}
 .modal .ts-dropdown{z-index:1090!important}
+
+/* Searchable selects and list filters use the same compact box language as Inventory. */
+.inv-screen-filters,.stock-filters,.license-filters{display:grid!important;grid-template-columns:minmax(220px,1.5fr) repeat(3,minmax(150px,1fr)) auto auto;gap:10px;align-items:center;padding:12px!important;border:1px solid var(--border)!important;border-radius:12px;background:var(--panel2)!important}
+.inv-screen-filters>input,.inv-screen-filters>select,.stock-filters>input,.stock-filters>select,.license-filters>input,.license-filters>select{min-width:0;height:38px}
+.stock-filters .ts-wrapper,.license-filters .ts-wrapper,.inv-screen-filters .ts-wrapper{min-width:0;width:100%}
+.stock-filters .ts-control,.license-filters .ts-control,.inv-screen-filters .ts-control{height:38px;min-height:38px!important}
+@media(max-width:1100px){.inv-screen-filters,.stock-filters,.license-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.inv-screen-filters>input,.stock-filters>input,.license-filters>input{grid-column:1/-1}}
+@media(max-width:650px){.inv-screen-filters,.stock-filters,.license-filters{grid-template-columns:1fr}.inv-screen-filters>button,.stock-filters>button,.license-filters>button{width:100%}}
