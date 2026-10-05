@@ -278,12 +278,18 @@
     if (e.target.id === 'knowledgeAttachmentInput') {
       const form = document.querySelector('#knowledgeEditForm');
       const id = form?.dataset.id;
-      const file = e.target.files?.[0];
+      const files = Array.from(e.target.files || []);
       e.target.value = '';
-      if (!id || !file) return;
+      if (!files.length) return;
       try {
-        await uploadAttachment(id, file);
-        await refreshEditorAttachments(id);
+        if (id) {
+          for (const file of files) await uploadAttachment(id, file);
+          await refreshEditorAttachments(id);
+        } else {
+          window.__knowledgePendingFiles = [...(window.__knowledgePendingFiles || []), ...files];
+          const box = document.querySelector('#knowledgeEditorAttachments');
+          if (box) box.innerHTML = window.__knowledgePendingFiles.map(file => '<div class="small text-secondary mb-1"><i class="ti ti-paperclip me-1"></i>' + esc(file.name) + ' · ' + formatSize(file.size) + '</div>').join('');
+        }
       } catch (err) { notify(err.message); }
     }
     if (e.target.id === 'knowledgeCategory' || e.target.id === 'knowledgeStatus') load(1);
