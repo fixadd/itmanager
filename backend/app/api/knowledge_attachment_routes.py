@@ -13,9 +13,9 @@ def upload(article_id):
  a=db.get_or_404(KnowledgeArticle,article_id);f=request.files.get("file")
  if not f or not f.filename:return jsonify({"error":"Dosya gerekli"}),400
  ext=f.filename.rsplit(".",1)[-1].lower() if "." in f.filename else ""
- if ext not in ALLOWED:return jsonify({"error":"Sadece PDF, PNG, JPG ve WEBP kabul edilir"}),400
+
  f.stream.seek(0,2);size=f.stream.tell();f.stream.seek(0)
- if size>MAX_SIZE:return jsonify({"error":"Dosya 20 MB sınırını aşamaz"}),400
+ if size>MAX_SIZE:return jsonify({"error":"Dosya 100 MB sınırını aşamaz"}),400
  stored=f"{uuid.uuid4().hex}.{ext}";f.save(os.path.join(directory(),stored));x=KnowledgeAttachment(article_id=a.id,original_name=os.path.basename(f.filename)[:255],stored_name=stored,mime_type=f.mimetype or "application/octet-stream",size=size);db.session.add(x);db.session.flush();u=current_user();db.session.add(AuditLog(action="knowledge.attachment_added",entity_type="knowledge_article",entity_id=a.id,actor_user_id=u.id if u else None,details={"attachment_id":x.id,"filename":x.original_name,"size":size}));db.session.commit();return jsonify({"id":x.id,"name":x.original_name,"mime_type":x.mime_type,"size":x.size}),201
 @attachments_bp.get("/knowledge/<int:article_id>/attachments/<int:attachment_id>")
 @login_required
