@@ -224,7 +224,6 @@
     form.category.value = article?.category || 'Genel';
     form.summary.value = article?.summary || '';
     form.tags.value = (article?.tags || []).join(', ');
-    form.status.value = article?.status || 'draft';
     form.content.value = article?.content || '';
     modal.querySelector('.modal-title').textContent = article?.id ? 'Makale Düzenle' : 'Yeni Bilgi Bankası Makalesi';
     const attachmentSection = modal.querySelector('#knowledgeEditorAttachmentSection');
@@ -237,19 +236,19 @@
   }
 
   async function show(a) {
-    const modal = document.querySelector('#knowledgeModal');
-    if (!modal || !window.bootstrap) { notify(a.title + '\n\n' + a.content); return; }
-    const meta = statusMeta[a.status] || statusMeta.draft;
-    const [history] = await Promise.all([getHistory(a.id)]);
-    modal.querySelector('.modal-title').textContent = a.title;
-    modal.querySelector('.modal-body').innerHTML =
-      `<div class="d-flex gap-2 flex-wrap mb-3"><span class="badge ${meta.badge}">${meta.label}</span><span class="badge bg-secondary">${esc(a.category)}</span><span class="small text-secondary align-self-center">Görüntüleme: ${a.view_count ?? 0}</span></div>
-       ${a.summary ? `<div class="alert alert-secondary">${esc(a.summary)}</div>` : ''}
-       <div style="white-space:pre-wrap">${esc(a.content)}</div>
-       ${a.tags?.length ? `<div class="mt-4 small text-secondary">Etiketler: ${a.tags.map(esc).join(', ')}</div>` : ''}
-       <hr><h6>Ek Dosyalar</h6>${attachmentList(a.attachments)}
-       <hr><h6>Makale Geçmişi</h6>${historyList(history)}`;
-    bootstrap.Modal.getOrCreateInstance(modal).show();
+    const content = document.querySelector('#pageContent');
+    if (!content) return;
+    const history = await getHistory(a.id);
+    content.innerHTML = `
+      <div class="page-head"><div><h1>${esc(a.title)}</h1><p>Bilgi Bankası / Makale detayı</p></div>
+      <div class="page-actions"><button class="btn btn-outline-secondary" id="knowledgeBack"><i class="ti ti-arrow-left me-1"></i>Geri</button><button class="btn btn-primary" id="knowledgeDetailEdit"><i class="ti ti-edit me-1"></i>Düzenle</button></div></div>
+      <div class="row g-3"><div class="col-xl-8"><div class="panel"><div class="panel-head"><div><h3>${esc(a.title)}</h3><p>${esc(a.category || 'Genel')} · ${esc(a.author?.name || '-')}</p></div></div>
+      ${a.summary ? '<div class="alert alert-secondary">'+esc(a.summary)+'</div>' : ''}<div style="white-space:pre-wrap">${esc(a.content)}</div>
+      ${a.tags?.length ? '<div class="mt-4 small text-secondary">Etiketler: '+a.tags.map(esc).join(', ')+'</div>' : ''}</div></div>
+      <div class="col-xl-4"><div class="panel"><div class="panel-head"><div><h3>Ek Dosyalar</h3><p>Bu bilgiye bağlı dosyalar</p></div></div>${attachmentList(a.attachments)}</div>
+      <div class="panel mt-3"><div class="panel-head"><div><h3>Geçmiş</h3></div></div>${historyList(history)}</div></div></div>`;
+    document.getElementById('knowledgeBack')?.addEventListener('click', () => window.IT_KNOWLEDGE_UI?.render?.());
+    document.getElementById('knowledgeDetailEdit')?.addEventListener('click', async () => openEditor(await get(a.id)));
   }
 
   document.addEventListener('click', async e => {
