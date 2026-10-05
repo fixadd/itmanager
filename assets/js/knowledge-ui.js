@@ -18,7 +18,7 @@
       const m = document.querySelector('#knowledgeEditModal');
       const f = document.querySelector('#knowledgeEditForm');
       if (f) { f.reset(); f.dataset.id = ''; f.category.value = 'Genel'; f.status.value = 'draft'; }
-      if (window.bootstrap && m) bootstrap.Modal.getOrCreateInstance(m).show();
+      if (m) { if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(m).show(); else { m.classList.add('show'); m.style.display='block'; m.removeAttribute('aria-hidden'); } }
     }
     if (e.target.closest('#knowledgeFilter')) window.IT_KNOWLEDGE_API?.load(1);
   });
@@ -36,12 +36,13 @@
         tags: f.tags.value.split(',').map(x => x.trim()).filter(Boolean),
         status: f.status.value
       }, f.dataset.id || null);
-      bootstrap.Modal.getInstance(document.querySelector('#knowledgeEditModal'))?.hide();
+      (() => { const m=document.querySelector('#knowledgeEditModal'); if (!m) return; if (window.bootstrap) bootstrap.Modal.getInstance(m)?.hide(); else { m.classList.remove('show'); m.style.display='none'; m.setAttribute('aria-hidden','true'); } })();
       await window.IT_KNOWLEDGE_API.load();
     } catch(err) { window.itToast?.(err.message); }
   });
 
   window.IT_KNOWLEDGE_UI = { render: renderPage };
   window.addEventListener('hashchange', () => setTimeout(renderPage, 0));
-  document.addEventListener('DOMContentLoaded', () => setTimeout(renderPage, 50));
+  window.addEventListener('load', () => setTimeout(renderPage, 0));
+  document.addEventListener('DOMContentLoaded', () => setTimeout(renderPage, 0));
 })();
