@@ -41,6 +41,7 @@
     } catch(err) { window.itToast?.(err.message); }
   });
 
+  window.IT_KNOWLEDGE_UI = { render: renderPage };
   window.addEventListener('hashchange', () => setTimeout(renderPage, 0));
   document.addEventListener('DOMContentLoaded', () => setTimeout(renderPage, 50));
 })();
