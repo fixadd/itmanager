@@ -137,7 +137,7 @@ def _transfer_missing(x,data):
   if received>(float(item.quantity or 0)+1e-9): missing.append({"key":"received_quantity","label":"Gelen miktar talep miktarını aşamaz"})
   if item.product_type=="Envanter":
    records=v.get("records") if isinstance(v.get("records"),list) else []
-   if len(records)!=int(received) if received>0 and received.is_integer() else True: missing.append({"key":"records","label":"Her cihaz için envanter bilgileri"})
+   if received <= 0 or not received.is_integer() or len(records)!=int(received): missing.append({"key":"records","label":"Her cihaz için envanter bilgileri"})
    for idx,rec in enumerate(records):
     for key,label in (("inventory_no","Envanter No"),("factory","Fabrika"),("department","Departman"),("device_type","Donanım Tipi"),("brand","Marka")):
      if not isinstance(rec,dict) or rec.get(key) in (None,""): missing.append({"key":f"records[{idx}].{key}","label":f"{idx+1}. cihaz {label}"})
@@ -155,7 +155,6 @@ def _transfer_missing(x,data):
 def transfer_request(request_id):
  x=PurchaseRequest.query.with_for_update().filter_by(id=request_id).first(); data=request.get_json(silent=True) or {}
  if not x:return jsonify({"error":"Talep bulunamadı"}),404
- if AuditLog.query.filter_by(action="request.transferred",entity_type="purchase_request",entity_id=x.id).first():return jsonify({"error":"Bu satın alma talebi daha önce aktarılmış"}),409
  missing=_transfer_missing(x,data)
  selected=[v for v in missing if v.get("selected")]
  if not selected:return jsonify({"error":"En az bir gelen talep kalemi seçmelisiniz","requires_input":True,"items":missing}),400
