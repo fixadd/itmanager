@@ -3,7 +3,7 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const labels={draft:'Taslak',pending:'Bekliyor',approved:'Onaylandı',rejected:'Reddedildi',ordered:'Sipariş Verildi',completed:'Tamamlandı',cancelled:'İptal'};
 const badge=s=>`<span class="status ${s==='rejected'||s==='cancelled'?'danger':s==='pending'?'warning':s==='completed'?'success':'info'}">${esc(labels[s]||s)}</span>`;
-let current=[];let currentPage=1;let totalPages=1;let loadController=null;
+let current=[];let currentPage=1;let totalPages=1;let loadController=null;let transferSaving=false;
 function renderPagination(){const box=document.querySelector('#requestPagination');if(!box)return;if(totalPages<=1){box.innerHTML='';return}const start=Math.max(1,currentPage-2),end=Math.min(totalPages,currentPage+2);let h='';if(start>1)h+='<button type="button" class="btn btn-sm btn-outline-secondary request-page" data-page="1">1</button>';for(let i=start;i<=end;i++)h+=`<button type="button" class="btn btn-sm ${i===currentPage?'btn-primary':'btn-outline-secondary'} request-page" data-page="${i}">${i}</button>`;if(end<totalPages)h+='<button type="button" class="btn btn-sm btn-outline-secondary request-page" data-page="'+totalPages+'">'+totalPages+'</button>';box.innerHTML='<div class="d-flex justify-content-center gap-1 mt-3">'+h+'</div>'}
 async function load(pageNo=1){
  if(page()!=='requests')return;
@@ -154,7 +154,9 @@ function openTransferForm(x,d){
   row.querySelector('.tr-license_name')?.addEventListener('change',e=>{const m=row.querySelector('.tr-license_model');m.innerHTML='<option value="">Seçiniz</option>'+(d.license_models||[]).filter(v=>String(v.license_name_id)===String(e.target.value)).map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');});
   refreshModels(row);
  });
- document.querySelector('#itManagerModal [data-transfer-save]')?.addEventListener('click',async()=>{
+ document.querySelector('#itManagerModal [data-transfer-save]')?.addEventListener('click',async e=>{
+  if(transferSaving)return;
+  const saveButton=e.currentTarget;
   const selected=[...form.querySelectorAll('.transfer-item')].filter(r=>r.querySelector('.tr-selected')?.checked);
   if(!selected.length){notify('En az bir gelen kalemi seçin.');return}
   const items=[];
@@ -163,11 +165,29 @@ function openTransferForm(x,d){
    if(!received||received>Number(row.querySelector('.tr-received')?.max||0)){notify('Gelen miktar talep miktarı içinde olmalıdır.');return}
    const itemId=Number(row.dataset.itemId);
    if(row.dataset.productType==='Envanter'){
-    const records=[...row.querySelectorAll('.tr-record')].map(rec=>{const rv=k=>rec.querySelector('.'+k)?.value||null;return {inventory_no:rv('tr-inventory_no'),factory:rv('tr-factory'),department:rv('tr-department'),device_type:rv('tr-device'),brand:rv('tr-brand'),model:rv('tr-model'),person:rv('tr-person'),computer_name:rv('tr-computer_name'),serial_no:rv('tr-serial_no'),ifs_no:rv('tr-ifs_no'),machine_no:rv('tr-machine_no'),note:rv('tr-note')}});items.push({item_id:itemId,selected:true,received_quantity:received,records});
+    const records=[...row.querySelectorAll('.tr-record')].map(rec=>{const rv=k=>rec.querySelector('.'+k)?.value||null;return {inventory_no:rv('tr-inventory_no'),factory:rv('tr-factory'),department:rv('tr-department'),device_type:rv('tr-device'),brand:rv('tr-brand'),model:rv('tr-model'),person:rv('tr-person'),computer_name:rv('tr-computer_name'),serial_no:rv('tr-serial_no'),ifs_no:rv('tr-ifs_no'),machine_no:rv('tr-machine_no'),note:rv('tr-note')}}); 
+    const missing=records.flatMap((rec,i)=>[['inventory_no','Envanter No'],['factory','Fabrika'],['department','Departman'],['device_type','Donanım Tipi'],['brand','Marka']].filter(([key])=>!rec[key]).map(([,label])=>(i+1)+'. cihaz '+label));
+    if(records.length!==Math.floor(received)){notify('Gelen cihaz sayısı ile cihaz bilgi alanları eşleşmiyor.');return}
+    if(missing.length){notify('Eksik alan: '+missing[0]);return}
+    items.push({item_id:itemId,selected:true,received_quantity:received,records});
    }else if(row.dataset.productType==='Lisans')items.push({item_id:itemId,selected:true,received_quantity:received,license_name:val('tr-license_name'),license_model_id:val('tr-license_model'),license_key:val('tr-license_key'),email:val('tr-email'),password:val('tr-password'),person:val('tr-person'),starts_at:val('tr-starts_at'),expires_at:val('tr-expires_at'),note:val('tr-note')});
    else items.push({item_id:itemId,selected:true,received_quantity:received,device_type:val('tr-device'),brand:val('tr-brand'),model:val('tr-model'),unit:val('tr-unit'),note:val('tr-note')});
   }
-  try{const rr=await fetch('/api/requests/'+id+'/transfer',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({items})}),xx=await rr.json();if(!rr.ok)throw Error(xx.error||'Kayıt işlemi başarısız');bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide();notify('Seçilen gelen talepler sisteme kaydedildi.');load()}catch(e){notify(e.message)}
+  transferSaving=true;
+  if(saveButton){saveButton.disabled=true;saveButton.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Kaydediliyor...';}
+  try{
+    const rr=await fetch('/api/requests/'+id+'/transfer',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({items})});
+    const xx=await rr.json().catch(()=>({}));
+    if(!rr.ok)throw Error(xx.error||xx.detail||'Kayıt işlemi başarısız');
+    bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide();
+    notify('Seçilen gelen talepler sisteme kaydedildi.');
+    load();
+  }catch(e){
+    notify(e.message);
+  }finally{
+    transferSaving=false;
+    if(saveButton){saveButton.disabled=false;saveButton.innerHTML='Seçilenleri Kaydet';}
+  }
  });
 }
 async function detail(id){
