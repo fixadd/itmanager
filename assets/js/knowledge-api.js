@@ -87,7 +87,7 @@
         <td>${esc(a.author?.name || '-')}</td>
         <td><span class="badge ${meta.badge}">${meta.label}</span></td>
         <td>${a.view_count ?? 0}</td>
-        <td class="text-end"><button class="btn btn-outline-light btn-sm" data-knowledge-view="${a.id}" title="Detayı Görüntüle"><i class="ti ti-eye"></i></button></td>
+        <td class="text-end"><button class="knowledge-eye-btn" data-knowledge-view="${a.id}" title="Detayı Görüntüle"><i class="ti ti-eye"></i></button></td>
       </tr>`;
     }).join('') : '<tr><td colspan="6" class="text-center text-secondary py-4">Kayıt bulunamadı.</td></tr>';
   }
