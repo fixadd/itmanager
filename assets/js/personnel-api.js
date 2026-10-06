@@ -84,9 +84,9 @@ function openForm(person=null){
  </div></form>`;
  const m=modal(p.id?'Personel Düzenle':'Yeni Personel',body);
  m.el.querySelector('#personnelModalSave').onclick=async()=>{
-  const form=m.el.querySelector('#personnelForm');if(!form.reportValidity())return;
+  const form=m.el.querySelector('#personnelForm');if(!form.reportValidity())return;const btn=m.el.querySelector('#personnelModalSave');if(btn?.dataset.busy==='1')return;if(btn){btn.dataset.busy='1';btn.disabled=true;btn.textContent='Kaydediliyor...';}
   const fd=new FormData(form);const data={employee_no:fd.get('employee_no'),name:fd.get('name'),email:fd.get('email'),department_id:fd.get('department_id')||null,active:fd.get('active')==='on'};
-  try{await json(p.id?`/api/personnel/${p.id}`:'/api/personnel',{method:p.id?'PATCH':'POST',body:JSON.stringify(data)});m.instance.hide();m.el.addEventListener('hidden.bs.modal',()=>m.el.remove(),{once:true});toast(p.id?'Personel güncellendi.':'Personel oluşturuldu.');await load(page)}catch(e){toast(e.message)}
+  try{await json(p.id?`/api/personnel/${p.id}`:'/api/personnel',{method:p.id?'PATCH':'POST',body:JSON.stringify(data)});m.instance.hide();m.el.addEventListener('hidden.bs.modal',()=>m.el.remove(),{once:true});toast(p.id?'Personel güncellendi.':'Personel oluşturuldu.');await load(page)}catch(e){toast(e.message)}finally{if(btn){btn.disabled=false;btn.textContent='Kaydet';delete btn.dataset.busy}}
  };
 }
 
@@ -118,9 +118,9 @@ async function chooseTarget(sourceId,assets){
  const body=`<form id="transferForm"><div class="mb-3"><label class="form-label">Yeni personel</label><select class="form-select" name="target_personnel_id" required><option value="">Seçiniz</option>${options}</select></div><div><label class="form-label">Devir notu</label><textarea class="form-control" name="note" rows="3" placeholder="İsteğe bağlı"></textarea></div></form>`;
  const m=modal('Varlık Devir',body,'Devret');
  m.el.querySelector('#personnelModalSave').onclick=async()=>{
-  const form=m.el.querySelector('#transferForm');if(!form.reportValidity())return;const fd=new FormData(form);
+  const form=m.el.querySelector('#transferForm');if(!form.reportValidity())return;const btn=m.el.querySelector('#personnelModalSave');if(btn?.dataset.busy==='1')return;if(btn){btn.dataset.busy='1';btn.disabled=true;btn.textContent='Devrediliyor...';}const fd=new FormData(form);
   try{await json('/api/personnel/'+sourceId+'/transfer',{method:'POST',body:JSON.stringify({target_personnel_id:Number(fd.get('target_personnel_id')),assets:[assets],note:fd.get('note')})});m.instance.hide();m.el.addEventListener('hidden.bs.modal',()=>m.el.remove(),{once:true});toast('Varlık yeni personele devredildi.');await load(page)}
-  catch(e){toast(e.message)}
+  catch(e){toast(e.message)}finally{if(btn){btn.disabled=false;btn.textContent='Devret';delete btn.dataset.busy}}
  };
 }
 
