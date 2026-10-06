@@ -7,7 +7,7 @@ async function load(){
  const c=document.querySelector('#pageContent'); if(!c)return;
  c.innerHTML='<div class="text-center text-secondary py-5">Raporlar yükleniyor...</div>';
  try{
-  const res=await fetch('/api/reports/summary');
+  const res=await fetch('/api/reports/summary',{signal});
   if(!res.ok)throw Error('Rapor verileri alınamadı');
   const d=await res.json();
   const card=(title,value,sub)=>'<div class="col-md-3"><div class="stat-card"><div><span>'+esc(title)+'</span><h2>'+n(value)+'</h2><small>'+esc(sub||'')+'</small></div></div></div>';
