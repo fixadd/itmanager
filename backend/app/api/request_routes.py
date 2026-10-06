@@ -13,7 +13,7 @@ def _dt(v):
  if isinstance(v,datetime):return v
  try:return datetime.fromisoformat(str(v).replace("Z","+00:00"))
  except ValueError:raise ValueError("Geçersiz tarih formatı")
-def _item_dict(x):return {"id":x.id,"product_type":x.product_type,"device_type":x.device_type,"brand":x.brand,"model":x.model,"quantity":float(x.quantity) if x.quantity is not None else 0,"unit":x.unit,"estimated_unit_price":float(x.estimated_unit_price) if x.estimated_unit_price is not None else None,"description":x.description}
+def _item_dict(x):return {"id":x.id,"product_type":x.product_type,"device_type":x.device_type,"brand":x.brand,"model":x.model,"quantity":float(x.quantity) if x.quantity is not None else 0,"received_quantity":float(x.received_quantity or 0),"unit":x.unit,"estimated_unit_price":float(x.estimated_unit_price) if x.estimated_unit_price is not None else None,"description":x.description}
 def _dict(x):return {"id":x.id,"request_no":x.request_no,"requester":{"id":x.requester_id,"name":x.requester.name} if x.requester else None,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"status":x.status,"priority":x.priority,"requested_at":x.requested_at.isoformat() if x.requested_at else None,"approved_at":x.approved_at.isoformat() if x.approved_at else None,"approved_by":x.approved_by,"completed_at":x.completed_at.isoformat() if x.completed_at else None,"note":x.note,"items":[_item_dict(i) for i in x.items],"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 def _resolve(model,value,label):
  if value in (None,""):return None
