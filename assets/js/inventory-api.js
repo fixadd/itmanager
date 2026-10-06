@@ -35,6 +35,7 @@ return '<div class="inventory-history-item"><div class="inventory-history-icon">
 }).join(''):'<p class="text-muted">Henüz işlem veya zimmet geçmişi yok.</p>';
 const pages=Number(d.pagination?.pages||1);
 const pager=pages>1?'<div class="inventory-history-pagination"><button type="button" class="btn btn-sm btn-light" data-history-page="'+(page-1)+'" '+(page<=1?'disabled':'')+'>Önceki</button><span>'+page+' / '+pages+'</span><button type="button" class="btn btn-sm btn-light" data-history-page="'+(page+1)+'" '+(page>=pages?'disabled':'')+'>Sonraki</button></div>':'';
+hist.querySelector('.text-muted')?.remove();
 hist.querySelector('.inventory-history-body')?.remove();
 hist.insertAdjacentHTML('beforeend','<div class="inventory-history-body">'+body+pager+'</div>');
 hist.querySelectorAll('[data-history-page]').forEach(btn=>btn.addEventListener('click',()=>renderInventoryHistory(inventoryId,Number(btn.dataset.historyPage))));
