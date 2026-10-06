@@ -243,7 +243,7 @@ async function openCreate(){
    }).catch(()=>{});
  }
 }
-document.addEventListener('click',async e=>{const b=e.target.closest('[data-request-save]');if(!b)return;const f=document.querySelector('#itManagerModal #itDynamicForm[data-form-page="requests"]');if(!f)return;try{const saved=await save(f);if(!saved)return;notify('Satın alma talebi kaydedildi.');bootstrap.Modal.getOrCreateInstance(document.getElementById('itManagerModal')).hide();load()}catch(err){notify(err.message)}},true);
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-request-save]');if(!b)return;const f=document.querySelector('#itManagerModal #itDynamicForm[data-form-page="requests"]');if(!f)return;e.preventDefault();e.stopImmediatePropagation();if(b.dataset.busy==='1')return;b.dataset.busy='1';b.disabled=true;b.textContent='Kaydediliyor...';try{const saved=await save(f);if(!saved)return;notify('Satın alma talebi kaydedildi.');bootstrap.Modal.getOrCreateInstance(document.getElementById('itManagerModal')).hide();load()}catch(err){notify(err.message)}finally{b.disabled=false;b.textContent='Talebi Kaydet';delete b.dataset.busy}},true);
 document.addEventListener('shown.bs.modal',e=>{const f=e.target.querySelector?.('#itDynamicForm[data-form-page="requests"]');if(f)ensureRows(f)});
 window.addEventListener('hashchange',()=>setTimeout(load,150));document.addEventListener('DOMContentLoaded',()=>{if(location.hash==='#requests')setTimeout(load,300)});
 })();
