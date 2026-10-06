@@ -135,3 +135,44 @@ html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca
 .knowledge-detail-page{max-width:1480px;margin:0 auto;padding-bottom:30px}.knowledge-detail-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:24px}.knowledge-detail-title{min-width:0}.knowledge-back-btn{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--muted);font-size:11px;font-weight:600;padding:0;margin-bottom:16px;cursor:pointer}.knowledge-back-btn:hover{color:var(--text)}.knowledge-back-btn i{font-size:16px}.knowledge-title-meta{padding-left:2px}.knowledge-category-pill{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;background:var(--active-nav);color:var(--ui-primary);font-size:10px;font-weight:700;margin-bottom:9px}.knowledge-title-meta h1{font-size:28px;line-height:1.2;letter-spacing:-.03em;margin:0;color:var(--text);overflow-wrap:anywhere}.knowledge-title-meta p{margin:8px 0 0;color:var(--muted);font-size:11px}.knowledge-edit-btn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 14px;border:1px solid var(--border);border-radius:9px;background:var(--panel);color:var(--text);font-size:11px;font-weight:600;white-space:nowrap}.knowledge-edit-btn:hover{background:var(--active-nav);border-color:#93c5fd}.knowledge-detail-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;align-items:start}.knowledge-article-card,.knowledge-side-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.045)}.knowledge-article-card{padding:30px 34px;min-width:0}.knowledge-summary{display:flex;gap:12px;padding:14px 16px;border-radius:10px;background:var(--surface-soft);border:1px solid var(--border);margin-bottom:25px}.knowledge-summary>i{font-size:20px;color:var(--ui-primary);margin-top:1px}.knowledge-summary span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin-bottom:4px}.knowledge-summary p{margin:0;color:var(--text);font-size:12px;line-height:1.6}.knowledge-article-content{font-size:14px;line-height:1.85;color:var(--text);overflow-wrap:anywhere;word-break:break-word}.knowledge-tags{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:30px;padding-top:20px;border-top:1px solid var(--border)}.knowledge-tags>span:first-child{font-size:10px;color:var(--muted);font-weight:700;margin-right:4px}.knowledge-tag{padding:5px 9px;border-radius:999px;background:var(--panel2);border:1px solid var(--border);color:var(--muted);font-size:10px}.knowledge-side-column{display:grid;gap:16px}.knowledge-side-card{overflow:hidden}.knowledge-side-heading{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--border)}.knowledge-side-heading>i{font-size:18px;color:var(--ui-primary)}.knowledge-side-heading strong,.knowledge-side-heading small{display:block}.knowledge-side-heading strong{font-size:12px}.knowledge-side-heading small{font-size:9px;color:var(--muted);margin-top:2px}.knowledge-side-body{padding:14px 18px}.knowledge-side-body .list-group-item{border:0!important;border-bottom:1px solid var(--border)!important;padding:11px 0!important}.knowledge-side-body .list-group-item:last-child{border-bottom:0!important}.knowledge-side-body .btn{border-radius:7px;font-size:10px}.knowledge-history .list-group-item strong{font-size:10px}.knowledge-history .list-group-item .small{font-size:9px}.knowledge-detail-page .panel{border-radius:14px}@media(max-width:991.98px){.knowledge-detail-layout{grid-template-columns:1fr}.knowledge-side-column{grid-template-columns:1fr 1fr}.knowledge-detail-head{align-items:flex-start}.knowledge-article-card{padding:24px}}@media(max-width:575.98px){.knowledge-detail-page{padding-bottom:15px}.knowledge-detail-head{flex-direction:column;gap:14px}.knowledge-edit-btn{width:100%;justify-content:center}.knowledge-side-column{grid-template-columns:1fr}.knowledge-article-card{padding:20px 17px}.knowledge-title-meta h1{font-size:23px}.knowledge-article-content{font-size:13px;line-height:1.75}}
 
 .knowledge-eye-btn{width:34px;height:34px;display:inline-grid;place-items:center;padding:0;border:1px solid var(--border);border-radius:8px;background:var(--panel2);color:var(--text);cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease,transform .15s ease}.knowledge-eye-btn i{font-size:17px;line-height:1}.knowledge-eye-btn:hover{background:var(--active-nav);border-color:#93c5fd;color:var(--ui-primary);transform:translateY(-1px)}
+
+
+/* Ortak modern detay görünümü — Envanter / Stok */
+.inventory-detail-view{padding-bottom:30px}
+.inventory-detail-view .page-head,.stock-screen[data-rendered="detail"] .page-head{align-items:flex-end;margin-bottom:22px}
+.inventory-detail-view .page-head h1,.stock-screen[data-rendered="detail"] .page-head h1{font-size:28px;letter-spacing:-.03em;margin-bottom:5px}
+.inventory-detail-view .page-head p,.stock-screen[data-rendered="detail"] .page-head p{font-size:12px;color:var(--muted)}
+.inventory-detail-view .iv-back,.stock-screen[data-rendered="detail"] .stock-back{border:0!important;background:transparent!important;color:var(--muted)!important;padding:0!important;font-size:11px;margin-bottom:12px!important}
+.inventory-detail-view .iv-back:hover,.stock-screen[data-rendered="detail"] .stock-back:hover{color:var(--text)!important}
+.inventory-detail-view .panel,.stock-screen[data-rendered="detail"] .panel{border:1px solid var(--border);border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.045);background:var(--panel)}
+.inventory-detail-view .panel-head,.stock-screen[data-rendered="detail"] .panel-head{padding:18px 22px}
+.inventory-detail-view .panel-head h3,.stock-screen[data-rendered="detail"] .panel-head h3{font-size:13px;margin:0}
+.inventory-detail-view .panel-head p,.stock-screen[data-rendered="detail"] .panel-head p{font-size:10px;margin:4px 0 0;color:var(--muted)}
+.inventory-detail-view .detail-field{padding:12px 14px;border-bottom:1px solid var(--border);background:transparent}
+.inventory-detail-view .detail-field:last-child{border-bottom:0}
+.inventory-detail-view .detail-field span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-bottom:4px}
+.inventory-detail-view .detail-field strong{font-size:12px;color:var(--text);font-weight:600;overflow-wrap:anywhere}
+.inventory-detail-view .activity{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)}
+.inventory-detail-view .activity:last-child{border-bottom:0}
+.inventory-detail-view .activity strong{font-size:11px;color:var(--text)}
+.inventory-detail-view .activity span{font-size:10px;color:var(--muted);text-align:right}
+.inventory-detail-view .page-actions .btn,.stock-screen[data-rendered="detail"] .page-actions .btn{height:36px;border-radius:9px;font-size:11px}
+.stock-screen[data-rendered="detail"] .page-head+ .panel{padding:0 22px 22px}
+.stock-screen[data-rendered="detail"] .page-head+ .panel> .row{margin-top:0}
+.stock-screen[data-rendered="detail"] .page-head+ .panel .mt-3[style]{height:240px!important;border:0!important;border-radius:12px!important;background:var(--panel2);margin:0 0 22px!important}
+.stock-screen[data-rendered="detail"] .page-head+ .panel .mt-3[style] img{padding:22px!important}
+.stock-screen[data-rendered="detail"] .page-head+ .panel strong{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.stock-screen[data-rendered="detail"] .page-head+ .panel strong+div{margin-top:4px;font-size:13px;color:var(--text)}
+.stock-screen[data-rendered="detail"] .page-head+ .panel .font-monospace{font-size:13px}
+.stock-screen[data-rendered="detail"] .page-head+ .panel.mt-3{padding:0}
+.stock-screen[data-rendered="detail"] .page-head+ .panel.mt-3 .panel-head{padding:18px 22px}
+.stock-screen[data-rendered="detail"] .page-head+ .panel.mt-3 .table-responsive{padding:0 22px 16px}
+.stock-screen[data-rendered="detail"] .page-head+ .panel.mt-3 table{font-size:11px}
+@media(max-width:700px){
+  .inventory-detail-view .page-head,.stock-screen[data-rendered="detail"] .page-head{align-items:flex-start}
+  .inventory-detail-view .page-head{flex-direction:column}
+  .inventory-detail-view .page-actions,.stock-screen[data-rendered="detail"] .page-actions{width:100%}
+  .inventory-detail-view .page-actions .btn,.stock-screen[data-rendered="detail"] .page-actions .btn{flex:1}
+  .inventory-detail-view .activity{align-items:flex-start;flex-direction:column}
+  .inventory-detail-view .activity span{text-align:left}
+}
