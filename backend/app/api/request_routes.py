@@ -130,11 +130,13 @@ def _transfer_missing(x,data):
   if not selected:
    result.append({"item_id":item.id,"product_type":item.product_type,"missing":[],"data":v,"selected":False})
    continue
-  try: received=float(v.get("received_quantity",item.quantity or 1))
+  try: received=float(v.get("received_quantity",float(item.quantity or 0)-float(item.received_quantity or 0)))
   except (TypeError,ValueError): received=0
   missing=[]
   if received<=0: missing.append({"key":"received_quantity","label":"Gelen miktar"})
-  if received>(float(item.quantity or 0)+1e-9): missing.append({"key":"received_quantity","label":"Gelen miktar talep miktarını aşamaz"})
+  remaining=max(0.0,float(item.quantity or 0)-float(item.received_quantity or 0))
+  if received>(remaining+1e-9): missing.append({"key":"received_quantity","label":f"Gelen miktar kalan miktarı ({remaining:g}) aşamaz"})
+  if remaining<=1e-9: missing.append({"key":"received_quantity","label":"Bu talep kalemi tamamen teslim alınmış"})
   if item.product_type=="Envanter":
    records=v.get("records") if isinstance(v.get("records"),list) else []
    if received <= 0 or not received.is_integer() or len(records)!=int(received): missing.append({"key":"records","label":"Her cihaz için envanter bilgileri"})
@@ -164,7 +166,7 @@ def transfer_request(request_id):
   for item in x.items:
    v=by_id.get(str(item.id),{})
    if not v.get("selected"): continue
-   received=float(v.get("received_quantity",item.quantity or 1))
+   received=float(v.get("received_quantity",float(item.quantity or 0)-float(item.received_quantity or 0)))
    if item.product_type=="Envanter":
     records=v.get("records") or []
     for rec in records:
@@ -201,6 +203,11 @@ def transfer_request(request_id):
     q=received
     obj=StockItem(product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,quantity=q,unit=v.get("unit") or item.unit or "Adet",note=v.get("note") or item.description or None)
     db.session.add(obj);db.session.flush();db.session.add(StockMovement(stock_item_id=obj.id,movement_type="in",quantity=q,unit=obj.unit,note=f"Satın alma talebi {x.request_no}"));created.append({"item_id":item.id,"type":"Stok","id":obj.id})
+  for item in x.items:
+   v=by_id.get(str(item.id),{})
+   if v.get("selected"):
+    received=float(v.get("received_quantity",0) or 0)
+    item.received_quantity=(item.received_quantity or 0)+received
   _audit("request.transferred",x.id,{"request_no":x.request_no,"targets":created});db.session.commit();return jsonify({"request_id":x.id,"request_no":x.request_no,"transferred":created})
  except ValueError as e:db.session.rollback();return jsonify({"error":str(e)}),400
  except Exception as e:db.session.rollback();return jsonify({"error":"Talep aktarımı başarısız","detail":str(e)}),409
