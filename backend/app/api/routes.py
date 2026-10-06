@@ -137,17 +137,37 @@ def inventory_history(inventory_id):
     x=db.session.get(Inventory, inventory_id)
     if not x:
         return jsonify({"error":"Envanter kaydı bulunamadı"}),404
-    rows=AuditLog.query.filter_by(entity_type="inventory", entity_id=inventory_id).order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(100).all()
+    page=max(request.args.get("page",1,type=int),1)
+    per_page=min(max(request.args.get("per_page",10,type=int),10),50)
+    audits=AuditLog.query.filter_by(entity_type="inventory",entity_id=inventory_id).order_by(AuditLog.created_at.desc(),AuditLog.id.desc()).limit(500).all()
+    assignments=AssignmentHistory.query.filter_by(asset_type="inventory",asset_id=inventory_id).order_by(AssignmentHistory.created_at.desc(),AssignmentHistory.id.desc()).limit(500).all()
+    personnel_ids={r.personnel_id for r in assignments if r.personnel_id}
+    personnel_map={p.id:p for p in Personnel.query.filter(Personnel.id.in_(personnel_ids)).all()} if personnel_ids else {}
     labels={
         "inventory.created":"Envanter oluşturuldu",
         "inventory.updated":"Envanter güncellendi",
-        "inventory.assigned":"Envanter atandı",
+        "inventory.assigned":"Envanter ataması güncellendi",
         "inventory.mark_faulty":"Arızalı işaretlendi",
         "inventory.sent_to_it":"Bilgi İşleme gönderildi",
         "inventory.scrapped":"Hurdaya ayrıldı",
     }
-    return jsonify({"items":[{"id":r.id,"action":r.action,"action_label":labels.get(r.action,r.action),"details":r.details or {},"created_at":r.created_at.isoformat() if r.created_at else None} for r in rows]})
-
+    items=[]
+    for r in audits:
+        details=r.details or {}
+        person_id=details.get("to_personnel_id") if r.action=="inventory.assigned" else None
+        if person_id is None and r.action in {"inventory.sent_to_it","inventory.scrapped"}:
+            person_id=details.get("from_personnel_id")
+        person=personnel_map.get(person_id) if person_id else None
+        items.append({"id":"audit-"+str(r.id),"action":r.action,"action_label":labels.get(r.action,r.action),"details":details,"created_at":r.created_at.isoformat() if r.created_at else None,"personnel":{"id":person.id,"name":person.name} if person else None,"assignment_action":None,"note":details.get("note")})
+    for r in assignments:
+        person=personnel_map.get(r.personnel_id)
+        items.append({"id":"assignment-"+str(r.id),"action":"inventory.assignment_history","action_label":"Zimmet geçmişi","details":{},"created_at":r.created_at.isoformat() if r.created_at else None,"personnel":{"id":person.id,"name":person.name} if person else None,"assignment_action":r.action,"note":r.note})
+    items.sort(key=lambda item:(item.get("created_at") or "",str(item.get("id"))),reverse=True)
+    total=len(items)
+    pages=(total+per_page-1)//per_page if total else 1
+    page=min(page,pages)
+    start=(page-1)*per_page
+    return jsonify({"items":items[start:start+per_page],"pagination":{"page":page,"per_page":per_page,"pages":pages,"total":total}})
 INVENTORY_STATUSES={"active","faulty","maintenance","it","scrapped"}
 
 def _inventory_payload(data,item=None):
