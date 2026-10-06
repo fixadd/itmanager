@@ -24,7 +24,7 @@ function render(items){
  const table=tables.find(t=>/TALEP|DURUM|ÖNCELİK/.test(t.querySelector('thead')?.textContent||''));
  if(!table)return;
  const body=table.querySelector('tbody'); if(!body)return;
- body.innerHTML=items.length?items.map(x=>`<tr data-request-id="${x.id}"><td><strong>${esc(x.request_no)}</strong></td><td>${esc(x.requester?.name||'—')}</td><td>${esc(x.items?.map(i=>`${i.product_type}${i.model?' · '+i.model:''} × ${i.quantity}` ).join(', ')||'—')}</td><td>${badge(x.status)}</td><td>${x.requested_at?new Date(x.requested_at).toLocaleDateString('tr-TR'):'—'}</td><td><div class="btn-group btn-group-sm"><button class="btn btn-light request-detail" data-id="${x.id}"><i class="ti ti-eye"></i></button><button class="btn btn-outline-primary request-enter" data-id="${x.id}" title="Talebi Gir">Talebi Gir</button><button class="btn btn-light request-actions" data-id="${x.id}"><i class="ti ti-dots"></i></button></div></td></tr>`).join(''):`<tr><td colspan="7" class="text-center text-muted py-4">Henüz satın alma talebi bulunmuyor.</td></tr>`;
+ body.innerHTML=items.length?items.map(x=>`<tr data-request-id="${x.id}"><td><strong>${esc(x.request_no)}</strong></td><td>${esc(x.requester?.name||'—')}</td><td>${esc(x.items?.map(i=>`${i.product_type}${i.model?' · '+i.model:''} × ${i.quantity}` ).join(', ')||'—')}</td><td>${badge(x.status)}</td><td>${x.requested_at?new Date(x.requested_at).toLocaleDateString('tr-TR'):'—'}</td><td><div class="btn-group btn-group-sm"><button class="btn btn-light request-detail" data-id="${x.id}"><i class="ti ti-eye"></i></button><button class="btn btn-outline-primary request-enter" data-id="${x.id}" title="Talep Gir">Talep Gir</button></div></td></tr>`).join(''):`<tr><td colspan="7" class="text-center text-muted py-4">Henüz satın alma talebi bulunmuyor.</td></tr>`;
 }
 let requestMasterData=null;
 async function loadAllRequestPersonnel(headers){
@@ -103,6 +103,17 @@ function notify(msg){if(typeof window.showToast==='function')return window.showT
 async function action(id,endpoint){const r=await fetch(`/api/requests/${id}/${endpoint}`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const x=await r.json();if(!r.ok)throw Error(x.error||'İşlem başarısız');return x}
 async function transfer(id){
  try{
+  let x=current.find(q=>q.id===id);
+  if(!x){
+   const rr=await fetch(`/api/requests/${id}`,{headers:{Accept:'application/json'}});
+   const dd=await rr.json();
+   if(!rr.ok)throw Error(dd.error||'Talep bulunamadı');
+   x=dd;
+  }
+  if(x.status!=='completed'){
+   notify('Talep Gir işlemi için önce talebin durumu Tamamlandı olmalıdır.');
+   return;
+  }
   const first=await fetch(`/api/requests/${id}/transfer`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
   const firstData=await first.json();
   if(first.ok){notify('Talep ilgili modüle aktarıldı.');load();return}
