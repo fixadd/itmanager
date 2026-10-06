@@ -170,15 +170,6 @@ function openTransferForm(x,d){
   try{const rr=await fetch('/api/requests/'+id+'/transfer',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({items})}),xx=await rr.json();if(!rr.ok)throw Error(xx.error||'Kayıt işlemi başarısız');bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide();notify('Seçilen gelen talepler sisteme kaydedildi.');load()}catch(e){notify(e.message)}
  });
 }
-function operationMenu(id){
- const x=current.find(q=>q.id===id);if(!x)return;
- const choices={pending:[['approve','Onayla'],['reject','Reddet'],['cancel','İptal']],approved:[['order','Sipariş Verildi'],['cancel','İptal']],ordered:[['complete','Tamamlandı']],completed:[['transfer','Modüle Aktar']],draft:[['approve','Onayla'],['cancel','İptal']],rejected:[['approve','Tekrar Onaya Al']],cancelled:[['approve','Tekrar Aç']]};
- const opts=choices[x.status]||[];if(!opts.length){notify('Bu talep için yapılacak işlem yok.');return}
- if(!window.ITUI){notify('İşlem penceresi açılamadı.');return}
- const buttons=opts.map(v=>'<button type="button" class="btn '+(v[0]==='reject'||v[0]==='cancel'?'btn-outline-danger':v[0]==='transfer'?'btn-primary':'btn-outline-primary')+'" data-request-op="'+esc(v[0])+'">'+esc(v[1])+'</button>').join('');
- ITUI.modal('Talep İşlemleri','<div class="d-grid gap-2">'+buttons+'</div>',{size:'modal-sm',footer:'<button class="btn btn-light" data-bs-dismiss="modal">Kapat</button>'});
- document.querySelectorAll('#itManagerModal [data-request-op]').forEach(btn=>btn.addEventListener('click',async()=>{const op=btn.dataset.requestOp;try{bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide();if(op==='transfer'){await transfer(id);return}await action(id,op);notify('Talep güncellendi.');load()}catch(e){notify(e.message)}},{once:true}));
-}
 async function detail(id){
  let x=current.find(q=>q.id===id);if(!x){try{const rr=await fetch('/api/requests/'+id,{headers:{Accept:'application/json'}});const dd=await rr.json();if(!rr.ok)throw Error(dd.error||'Talep detayı alınamadı');x=dd}catch(e){notify(e.message);return}}
  const body='<div class="detail-grid"><div><span>Talep No</span><strong>'+esc(x.request_no)+'</strong></div><div><span>Talep Sahibi</span><strong>'+esc(x.requester?.name||'—')+'</strong></div><div><span>Departman</span><strong>'+esc(x.department?.name||'—')+'</strong></div><div><span>Fabrika</span><strong>'+esc(x.factory?.name||'—')+'</strong></div><div><span>Öncelik</span><strong>'+esc(x.priority)+'</strong></div><div><span>Durum</span><strong>'+esc(labels[x.status]||x.status)+'</strong></div></div><hr><h6>Talep Kalemleri</h6><div class="table-responsive"><table class="table"><thead><tr><th>Tip</th><th>Ürün</th><th>Marka</th><th>Model</th><th>Miktar</th><th>Açıklama</th></tr></thead><tbody>'+x.items.map(i=>'<tr><td>'+esc(i.product_type)+'</td><td>'+esc(i.device_type||'—')+'</td><td>'+esc(i.brand||'—')+'</td><td>'+esc(i.model||'—')+'</td><td>'+esc(i.quantity)+' '+esc(i.unit)+'</td><td>'+esc(i.description||'—')+'</td></tr>').join('')+'</tbody></table></div>' +(x.note?'<div class="mt-3"><strong>Not:</strong> '+esc(x.note)+'</div>':'');
@@ -190,7 +181,7 @@ document.addEventListener('click',async e=>{
  const refresh=e.target.closest('#requestRefresh');if(refresh){e.preventDefault();load(1);return} const pg=e.target.closest('.request-page');if(pg){e.preventDefault();load(Number(pg.dataset.page)||1);return}
  const rm=e.target.closest('.req-remove,.remove-request-row');if(rm){rm.closest('.request-api-row,.request-extra-row')?.remove();return}
  const det=e.target.closest('.request-detail');if(det){detail(Number(det.dataset.id));return}
- const ent=e.target.closest('.request-enter');if(ent){e.preventDefault();await transfer(Number(ent.dataset.id));return} const act=e.target.closest('.request-actions');if(act){operationMenu(Number(act.dataset.id));return}
+ const ent=e.target.closest('.request-enter');if(ent){e.preventDefault();await transfer(Number(ent.dataset.id));return}
 },true);
 document.addEventListener('input',e=>{if(e.target.matches('#requestSearch')){clearTimeout(window.__requestSearchTimer);window.__requestSearchTimer=setTimeout(load,250)}});
 function bindRequestRow(row){
