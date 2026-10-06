@@ -33,27 +33,107 @@ async function openDetail(id){
   }
 }
 const field=(l,v)=>`<div class="detail-field"><span>${esc(l)}</span><strong>${esc(v||'—')}</strong></div>`;
-function renderDetail(x){const c=document.querySelector('#pageContent');if(!c)return;c.classList.add('inventory-detail-view');c.innerHTML=`<div class="page-head"><div><button type="button" class="btn btn-outline-secondary iv-back mb-2"><i class="ti ti-arrow-left me-1"></i>Geri</button><h1>${esc(x.inventory_no)}</h1><p>${esc([x.brand?.name,x.model?.name].filter(Boolean).join(' ')||x.device_type?.name||'Envanter cihazı')} · ${status(x.status)}</p></div></div><div class="row g-3"><div class="col-xl-8"><div class="panel"><div class="panel-head"><div><h3>Genel Bilgiler</h3><p>Cihazın kayıt ve zimmet bilgileri</p></div></div><div class="detail-grid">${field('Barkod',x.barcode||("ENV-"+String(x.id).padStart(6,"0")))}<div class="col-12"><div style="min-height:180px;border:1px dashed var(--bs-border-color);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:16px">${x.model?.image_path?`<img src="${esc(x.model.image_path)}" alt="${esc(x.model?.name||"Cihaz")}" style="max-width:100%;max-height:220px;object-fit:contain">`:"<span class=\"text-secondary\"><i class=\"ti ti-photo-off fs-1\"></i><br>Ürün resmi yok</span>"}</div></div>${field('Envanter No',x.inventory_no)}${field('Bilgisayar Adı',x.computer_name)}${field('Cihaz Tipi',x.device_type?.name)}${field('Marka',x.brand?.name)}${field('Model',x.model?.name)}${field('Seri No',x.serial_no)}${field('Fabrika',x.factory?.name)}${field('Departman',x.department?.name)}${field('Sorumlu Personel',x.personnel?.name)}${field('Bağlı Makina No',x.machine_no)}${field('IFS No',x.ifs_no)}${field('Durum',sm[x.status]?.[0]||x.status)}${field('Açıklama',x.note)}</div></div></div><div class="col-xl-4"><div class="panel"><div class="panel-head"><div><h3>Cihaz Özeti</h3><p>Cihazın mevcut durum özeti</p></div></div><div class="text-secondary">${x.status==='scrapped'?'Bu cihaz hurdaya ayrılmıştır. Kayıt ve geçmiş bilgileri görüntülenebilir.':'Cihazın kayıt ve geçmiş bilgileri görüntülenebilir.'}</div></div></div><div class="col-12"><div class="row g-3"><div class="col-xl-6"><div class="panel" id="inventoryHistoryPanel"><div class="panel-head"><div><h3>İşlem / Zimmet Geçmişi</h3><p>Atama ve Bilgi İşlem hareketleri</p></div></div><div class="text-muted">Yükleniyor...</div></div></div><div class="col-xl-6"><div class="panel" id="inventoryLicensePanel"><div class="panel-head"><div><h3>Bağlı Lisanslar</h3><p>Bu cihaza doğrudan bağlı lisanslar</p></div></div><div class="text-muted">Yükleniyor...</div></div></div><div class="col-12"><div class="panel"><div class="panel-head"><div><h3>Bakım Geçmişi</h3><p>Bu cihaza ait bakım kayıtları</p></div></div><div class="text-muted">Yükleniyor...</div></div></div></div></div></div>`;loadRelated(x)}
+function renderDetail(x){
+  const c=document.querySelector('#pageContent');
+  if(!c)return;
+  c.classList.add('inventory-detail-view');
+  const sendToIt=x.status!=='it'?'`<button type="button" class="btn btn-outline-info iv-op" data-op="send-to-it"><i class="ti ti-building-factory-2 me-1"></i>Bilgi İşleme Gir</button>':'';
+  c.innerHTML=`<div class="page-head"><div><button type="button" class="btn btn-outline-secondary iv-back mb-2"><i class="ti ti-arrow-left me-1"></i>Geri</button><h1>${esc(x.inventory_no)}</h1><p>${esc([x.brand?.name,x.model?.name].filter(Boolean).join(' ')||x.device_type?.name||'Envanter cihazı')} · ${status(x.status)}</p></div></div>
+  <style>
+  .inventory-detail-view{display:block}
+  .inventory-detail-view .inventory-detail-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:18px;align-items:start}
+  .inventory-detail-view .inventory-detail-card{min-width:0;overflow:hidden}
+  .inventory-detail-view .inventory-detail-card .panel-body{padding:18px}
+  .inventory-detail-view .inventory-detail-image{height:260px;display:flex;align-items:center;justify-content:center;background:rgba(148,163,184,.06);border:1px solid rgba(148,163,184,.16);border-radius:12px;overflow:hidden}
+  .inventory-detail-view .inventory-detail-image img{display:block;width:auto;height:auto;max-width:100%;max-height:100%;object-fit:contain;padding:18px}
+  .inventory-detail-view .inventory-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+  .inventory-detail-view .inventory-field{min-width:0;padding:12px 14px;border:1px solid rgba(148,163,184,.15);border-radius:10px;background:rgba(148,163,184,.035)}
+  .inventory-detail-view .inventory-field span{display:block;font-size:.76rem;color:var(--bs-secondary-color,#94a3b8);margin-bottom:4px}
+  .inventory-detail-view .inventory-field strong{display:block;overflow-wrap:anywhere}
+  .inventory-detail-view .inventory-note{margin-top:12px;padding:12px 14px;border:1px solid rgba(148,163,184,.15);border-radius:10px}
+  .inventory-detail-view .inventory-history-list,.inventory-detail-view .inventory-license-list{padding:0 18px 18px}
+  .inventory-detail-view .inventory-history-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(148,163,184,.14)}
+  .inventory-detail-view .inventory-history-item:last-child{border-bottom:0}
+  .inventory-detail-view .inventory-history-icon{width:34px;height:34px;flex:0 0 34px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(59,130,246,.08)}
+  .inventory-detail-view .inventory-history-main{min-width:0;flex:1}
+  .inventory-detail-view .inventory-history-main strong{display:block}
+  .inventory-detail-view .inventory-history-main span{display:block;font-size:.82rem;color:var(--bs-secondary-color,#94a3b8);margin-top:3px;overflow-wrap:anywhere}
+  .inventory-detail-view .inventory-history-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:12px;border-top:1px solid rgba(148,163,184,.14);margin-top:4px}
+  .inventory-detail-view .inventory-license-item{border:1px solid rgba(148,163,184,.16);border-radius:12px;margin-bottom:10px;overflow:hidden;background:rgba(148,163,184,.035)}
+  .inventory-detail-view .inventory-license-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px}
+  .inventory-detail-view .inventory-license-main{min-width:0;flex:1}
+  .inventory-detail-view .inventory-license-main strong{display:block}
+  .inventory-detail-view .inventory-license-main span{display:block;font-size:.8rem;color:var(--bs-secondary-color,#94a3b8);margin-top:3px;overflow-wrap:anywhere}
+  .inventory-detail-view .inventory-license-toggle{width:38px;height:38px;flex:0 0 38px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px}
+  .inventory-detail-view .inventory-license-details{padding:0 14px 14px;border-top:1px solid rgba(148,163,184,.14)}
+  .inventory-detail-view .inventory-license-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding-top:12px}
+  @media(max-width:1000px){.inventory-detail-view .inventory-detail-grid{grid-template-columns:1fr}}
+  @media(max-width:650px){.inventory-detail-view .inventory-fields,.inventory-detail-view .inventory-license-detail-grid{grid-template-columns:1fr}}
+  </style><div class="inventory-detail-grid">
+    <div class="inventory-detail-card"><div class="panel"><div class="panel-head"><div><h3>Cihaz Bilgileri</h3><p>Envanter ve zimmet bilgileri</p></div></div><div class="panel-body">
+      <div class="inventory-detail-image"><img src="${esc(x.model?.image_path||'/assets/images/product-placeholder.svg')}" onerror="this.onerror=null;this.src='/assets/images/product-placeholder.svg'" alt="${esc(x.model?.name||'Ürün modeli')}"></div>
+      <div class="inventory-fields">
+        ${field('Barkod',x.barcode||('ENV-'+String(x.id).padStart(6,'0')))}${field('Envanter No',x.inventory_no)}${field('Bilgisayar Adı',x.computer_name)}
+        ${field('Cihaz Tipi',x.device_type?.name)}${field('Marka',x.brand?.name)}${field('Model',x.model?.name)}${field('Seri No',x.serial_no)}
+        ${field('Fabrika',x.factory?.name)}${field('Departman',x.department?.name)}${field('Kime Atandı',x.personnel?.name)}${field('Bağlı Makina No',x.machine_no)}
+        ${field('IFS No',x.ifs_no)}${field('Durum',sm[x.status]?.[0]||x.status)}${field('Oluşturulma',x.created_at?new Date(x.created_at).toLocaleString('tr-TR'):'—')}${field('Son Güncelleme',x.updated_at?new Date(x.updated_at).toLocaleString('tr-TR'):'—')}
+      </div>${x.note?'<div class="inventory-note"><span class="text-secondary small">Açıklama</span><div class="mt-1">'+esc(x.note)+'</div></div>':''}
+    </div></div></div>
+    <div class="inventory-detail-card"><div class="panel"><div class="panel-head"><div><h3>Hızlı İşlemler</h3><p>Bu cihaz için işlemler</p></div></div><div class="panel-body d-grid gap-2"><button type="button" class="btn btn-outline-primary iv-op" data-op="assign"><i class="ti ti-user-plus me-1"></i>Atama Yap</button>${sendToIt}<button type="button" class="btn btn-outline-danger iv-op" data-op="scrap"><i class="ti ti-trash me-1"></i>Hurdaya Ayır</button></div></div></div>
+    <div class="inventory-detail-card"><div class="panel" id="inventoryHistoryPanel"><div class="panel-head"><div><h3>İşlem / Zimmet Geçmişi</h3><p>Atama ve Bilgi İşlem hareketleri</p></div></div><div class="inventory-history-list"><div class="text-muted">Yükleniyor...</div></div></div></div>
+    <div class="inventory-detail-card"><div class="panel" id="inventoryLicensePanel"><div class="panel-head"><div><h3>Bağlı Lisanslar</h3><p>Bu cihaza bağlı lisanslar</p></div></div><div class="inventory-license-list"><div class="text-muted">Yükleniyor...</div></div></div></div>
+    <div class="inventory-detail-card" style="grid-column:1/-1"><div class="panel" id="inventoryMaintenancePanel"><div class="panel-head"><div><h3>Bakım Geçmişi</h3><p>Bu cihaza ait bakım kayıtları</p></div></div><div class="panel-body"><div class="text-muted">Yükleniyor...</div></div></div></div>
+  </div>`;
+  loadRelated(x);
+}
 async function linkLicense(id){try{const d=await inventoryScreenApi('/api/licenses?per_page=100');const items=(d.items||[]).filter(v=>v.status!=='scrapped'&&!v.inventory_id);if(!items.length){toast('Bağlanabilecek lisans bulunamadı.');return}const body='<form id="inventoryLicenseForm"><label class="form-label">Lisans</label><select class="form-select" name="license_id" required><option value="">Lisans seçiniz</option>'+items.map(v=>'<option value="'+esc(v.id)+'">'+esc((v.license_name?.name||'Lisans')+' / '+(v.license_model?.name||'')+' · '+(v.barcode||''))+'</option>').join('')+'</select><label class="form-label mt-3">Not</label><textarea class="form-control" name="note" rows="2"></textarea></form>';if(!window.ITUI)return;ITUI.modal('Lisansı Kasaya Bağla',body,{size:'modal-md',footer:'<button class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button class="btn btn-primary" data-inventory-license-save>Bağla</button>'});document.querySelector('#itManagerModal [data-inventory-license-save]')?.addEventListener('click',async()=>{const f=document.getElementById('inventoryLicenseForm');if(!f?.reportValidity())return;try{await inventoryScreenApi('/api/licenses/'+f.license_id.value+'/assign-inventory',{method:'POST',body:JSON.stringify({inventory_id:id,note:f.note.value})});bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide();toast('Lisans kasaya bağlandı.');const x=await inventoryScreenApi('/api/inventory/'+id);renderDetail(x)}catch(e){toast(e.message)}})}catch(e){toast(e.message)}}
 async function loadRelated(x){
- const panels=document.querySelectorAll('#pageContent .panel .text-muted');
- const history=document.querySelector('#inventoryHistoryPanel .text-muted');
- const licensePanel=document.querySelector('#inventoryLicensePanel .text-muted');
- const maintenancePanel=panels[panels.length-1];
- try{
-   const d=await inventoryScreenApi(`/api/inventory/${x.id}/history`);
-   history?.replaceWith(Object.assign(document.createElement('div'),{innerHTML:(d.items||[]).length?(d.items||[]).map(v=>`<div class="activity"><strong>${esc(v.action_label||v.action||'İşlem')}</strong><span>${esc(v.created_at?new Date(v.created_at).toLocaleString('tr-TR'):'')}${v.details?.note?' · '+esc(v.details.note):''}</span></div>`).join(''):'<p class="text-muted">Henüz işlem kaydı yok.</p>'}));
- }catch(e){if(history)history.textContent='İşlem geçmişi alınamadı.'}
- try{
-   const l=await inventoryScreenApi(`/api/licenses?per_page=100&inventory_id=${x.id}`);
-   const ls=l.items||[];
-   licensePanel?.replaceWith(Object.assign(document.createElement('div'),{innerHTML:ls.length?ls.map(v=>`<div class="activity"><strong>${esc(v.license_name?.name||'Lisans')}</strong><span>${esc(v.license_model?.name||'')} · ${esc(v.status||'')}</span></div>`).join(''):'<p class="text-muted">Bu cihaza doğrudan bağlı lisans bulunamadı.</p>'}));
- }catch(e){if(licensePanel)licensePanel.textContent='Lisans kayıtları alınamadı.'}
- try{
-   const d=await inventoryScreenApi(`/api/maintenance?per_page=100&inventory_id=${x.id}`);
-   maintenancePanel?.replaceWith(Object.assign(document.createElement('div'),{innerHTML:(d.items||[]).length?(d.items||[]).map(v=>`<div class="activity"><strong>${esc(v.fault||'Bakım')}</strong><span>${esc(v.service||'İç bakım')} · ${esc(v.status||'')} · ${v.started_at?new Date(v.started_at).toLocaleString('tr-TR'):''}</span></div>`).join(''):'<p class="text-muted">Bu cihaza ait bakım kaydı yok.</p>'}));
- }catch(e){if(maintenancePanel)maintenancePanel.textContent='Bakım kayıtları alınamadı.'}
-}async function init(){if(location.hash!=='#inventory')return;document.querySelector('#pageContent')?.classList.remove('inventory-detail-view');const content=document.querySelector('#pageContent');if(!content)return;let screen=content.querySelector('#inventoryScreen');if(!screen){screen=document.createElement('div');screen.id='inventoryScreen';content.innerHTML='';content.appendChild(screen)}if(!document.querySelector('.inv-screen-panel')){const existing=content.querySelector('#inventoryScreen');if(!existing)return;existing.className='panel inv-screen-panel';existing.innerHTML=`<div class="panel-head"><div><h3>Envanter Takip</h3><p>PostgreSQL envanter kayıtları</p></div><div class="page-actions"><button type="button" class="btn btn-primary" id="ivAddBtn"><i class="ti ti-plus me-1"></i>Envanter Ekle</button></div></div><div class="row g-3 mb-3"><div class="col-md-3"><div class="stat-card"><div class="stat-icon"><i class="ti ti-devices"></i></div><div><span>Toplam Envanter</span><h2 id="ivTotal">0</h2></div></div></div></div>${filters()}${table()}`;existing.querySelector('.table-responsive table')?.classList.add('inv-screen-table');}
+  const historyHost=document.querySelector('#inventoryHistoryPanel .inventory-history-list');
+  const licenseHost=document.querySelector('#inventoryLicensePanel .inventory-license-list');
+  const maintenanceHost=document.querySelector('#inventoryMaintenancePanel .panel-body');
+  let historyPage=1;
+  async function renderHistory(page=1){
+    if(!historyHost)return;
+    try{
+      const d=await inventoryScreenApi('/api/inventory/'+x.id+'/history?page='+page+'&per_page=10');
+      const items=d.items||[], p=d.pagination||{};
+      historyPage=Number(p.page||page);
+      historyHost.innerHTML=items.length?items.map(v=>{
+        const person=v.personnel?.name;
+        let title=v.action_label||v.action||'İşlem';
+        if(v.assignment_action==='assign')title=person?'Kime atandı: '+person:'Atama yapıldı';
+        else if(v.assignment_action==='unassign')title=person?'Ataması kaldırıldı: '+person:'Atama kaldırıldı';
+        else if(v.action==='inventory.assigned')title=person?'Kime atandı: '+person:'Atama güncellendi';
+        const note=v.note||v.details?.note;
+        return '<div class="inventory-history-item"><div class="inventory-history-icon"><i class="ti ti-history"></i></div><div class="inventory-history-main"><strong>'+esc(title)+'</strong><span>'+esc(v.created_at?new Date(v.created_at).toLocaleString('tr-TR'):'')+(note?' · '+esc(note):'')+'</span></div></div>';
+      }).join(''):'<p class="text-muted mb-0">Henüz işlem / zimmet geçmişi yok.</p>';
+      const pages=Math.max(1,Number(p.pages||1)),total=Number(p.total||0);
+      if(total>10)historyHost.insertAdjacentHTML('beforeend','<div class="inventory-history-pagination"><button type="button" class="btn btn-sm btn-outline-secondary" data-history-prev '+(historyPage<=1?'disabled':'')+'><i class="ti ti-chevron-left"></i> Önceki</button><span class="small text-muted">'+historyPage+' / '+pages+' · '+total+' kayıt</span><button type="button" class="btn btn-sm btn-outline-secondary" data-history-next '+(historyPage>=pages?'disabled':'')+'>Sonraki <i class="ti ti-chevron-right"></i></button></div>');
+    }catch(e){historyHost.innerHTML='<p class="text-danger mb-0">İşlem geçmişi alınamadı.</p>'}
+  }
+  historyHost?.addEventListener('click',e=>{if(e.target.closest('[data-history-prev]')&&historyPage>1)renderHistory(historyPage-1);if(e.target.closest('[data-history-next]'))renderHistory(historyPage+1)});
+  await renderHistory(1);
+  try{
+    const l=await inventoryScreenApi('/api/licenses?per_page=100&inventory_id='+encodeURIComponent(x.id));
+    const ls=l.items||[];
+    licenseHost.innerHTML=ls.length?ls.map(v=>{
+      const lid='inventory-license-'+v.id;
+      return '<div class="inventory-license-item"><div class="inventory-license-summary"><div class="inventory-license-main"><strong>'+esc(v.license_name?.name||'Lisans')+'</strong><span>'+esc(v.license_model?.name||'Lisans modeli')+' · '+esc(v.status||'')+'</span></div><button type="button" class="btn btn-sm btn-light inventory-license-toggle" data-license-target="'+lid+'" aria-expanded="false" title="Lisans bilgilerini göster"><i class="ti ti-eye"></i></button></div><div id="'+lid+'" class="inventory-license-details" hidden><div class="inventory-license-detail-grid">'+field('Lisans Adı',v.license_name?.name)+field('Lisans Modeli',v.license_model?.name)+field('Lisans No',v.license_no||v.serial_number||v.barcode)+field('Durum',v.status)+field('Kime Atandı',v.personnel?.name||x.personnel?.name)+field('Başlangıç',(v.start_date||v.assigned_at)?new Date(v.start_date||v.assigned_at).toLocaleString('tr-TR'):'—')+field('Bitiş',(v.end_date||v.expiry_date)?new Date(v.end_date||v.expiry_date).toLocaleString('tr-TR'):'—')+field('Açıklama',v.note||v.description)+'</div></div></div>';
+    }).join(''):'<p class="text-muted mb-0">Bu cihaza bağlı lisans bulunamadı.</p>';
+  }catch(e){licenseHost.innerHTML='<p class="text-danger mb-0">Lisans kayıtları alınamadı.</p>'}
+  licenseHost?.addEventListener('click',e=>{
+    const btn=e.target.closest('.inventory-license-toggle');if(!btn)return;
+    const target=document.getElementById(btn.dataset.licenseTarget);if(!target)return;
+    const open=target.hasAttribute('hidden');if(open)target.removeAttribute('hidden');else target.setAttribute('hidden','');
+    btn.setAttribute('aria-expanded',String(open));btn.innerHTML=open?'<i class="ti ti-eye-off"></i>':'<i class="ti ti-eye"></i>';
+  });
+  try{
+    const d=await inventoryScreenApi('/api/maintenance?per_page=100&inventory_id='+encodeURIComponent(x.id));
+    const items=d.items||[];
+    maintenanceHost.innerHTML=items.length?items.map(v=>'<div class="activity"><strong>'+esc(v.fault||'Bakım')+'</strong><span>'+esc(v.service||'İç bakım')+' · '+esc(v.status||'')+' · '+esc(v.started_at?new Date(v.started_at).toLocaleString('tr-TR'):'')+'</span></div>').join(''):'<p class="text-muted mb-0">Bu cihaza ait bakım kaydı yok.</p>';
+  }catch(e){if(maintenanceHost)maintenanceHost.innerHTML='<p class="text-danger mb-0">Bakım kayıtları alınamadı.</p>'}
+}
+async function init(){if(location.hash!=='#inventory')return;document.querySelector('#pageContent')?.classList.remove('inventory-detail-view');const content=document.querySelector('#pageContent');if(!content)return;let screen=content.querySelector('#inventoryScreen');if(!screen){screen=document.createElement('div');screen.id='inventoryScreen';content.innerHTML='';content.appendChild(screen)}if(!document.querySelector('.inv-screen-panel')){const existing=content.querySelector('#inventoryScreen');if(!existing)return;existing.className='panel inv-screen-panel';existing.innerHTML=`<div class="panel-head"><div><h3>Envanter Takip</h3><p>PostgreSQL envanter kayıtları</p></div><div class="page-actions"><button type="button" class="btn btn-primary" id="ivAddBtn"><i class="ti ti-plus me-1"></i>Envanter Ekle</button></div></div><div class="row g-3 mb-3"><div class="col-md-3"><div class="stat-card"><div class="stat-icon"><i class="ti ti-devices"></i></div><div><span>Toplam Envanter</span><h2 id="ivTotal">0</h2></div></div></div></div>${filters()}${table()}`;existing.querySelector('.table-responsive table')?.classList.add('inv-screen-table');}
 bindEvents();try{await loadMaster();setSelect('#ivFactory',md.factories,'Tüm Fabrikalar');setSelect('#ivDepartment',md.departments,'Tüm Departmanlar');setSelect('#ivType',md.hardware_types,'Tüm Donanım Tipleri');setSelect('#ivBrand',md.brands,'Tüm Markalar');setSelect('#ivModel',md.models,'Tüm Modeller');await load()}catch(e){console.error(e);toast('Envanter ekranı yüklenemedi: '+e.message)}}
 let bound=false;function bindEvents(){if(bound)return;bound=true;function printInventoryBarcode(x){const barcode=x?.barcode||("ENV-"+String(x?.id||"").padStart(6,"0"));if(window.IT_BARCODE_PRINT){window.IT_BARCODE_PRINT.open(barcode,x?.model?.name||x?.inventory_no||"Envanter");return}const w=window.open("","_blank","width=500,height=400");if(!w)return;w.document.write("<html><head><title>Barkod Yazdır</title><style>body{font-family:Arial;text-align:center;padding:40px}.code{font-size:30px;font-weight:700;letter-spacing:2px;margin-top:20px}button{margin-top:25px;padding:10px 18px}</style></head><body><div>"+esc(x?.model?.name||x?.inventory_no||"Envanter")+"</div><div class=\"code\">"+esc(barcode)+"</div><button onclick=\"window.print()\">Yazdır</button></body></html>");w.document.close();w.onload=()=>w.print()}
 document.addEventListener('click',e=>{if(location.hash==='#inventory'&&e.target.closest('#ivAddBtn')){e.preventDefault();e.stopImmediatePropagation();window.IT_INVENTORY_CREATE_ADD?.();return}if(location.hash==='#inventory'&&e.target.closest('#ivPrev')){e.preventDefault();if(currentPage>1)load(currentPage-1);return}if(location.hash==='#inventory'&&e.target.closest('#ivNext')){e.preventDefault();if(currentPage<currentPages)load(currentPage+1);return}if(location.hash==='#inventory'){if(e.target.closest('#ivFilterBtn')){e.preventDefault();e.stopImmediatePropagation();load();return}if(e.target.closest('#ivClearBtn')){e.preventDefault();e.stopImmediatePropagation();['#ivSearch','#ivFactory','#ivDepartment','#ivType','#ivBrand','#ivModel','#ivStatus'].forEach(id=>{const n=document.querySelector(id);if(n)n.value=''});syncBrands();load();return}if(e.target.closest('.iv-eye,.row-eye')){const id=e.target.closest('tr[data-iv-id]')?.dataset.ivId||e.target.closest('tr[data-inventory-id]')?.dataset.inventoryId;if(id){e.preventDefault();e.stopImmediatePropagation();location.hash=`#inventory/${id}`}return}}const detail=location.hash.match(/^#inventory\/(\d+)$/)?.[1];if(detail&&e.target.closest('.iv-back')){e.preventDefault();history.replaceState(null,'',`${location.pathname}${location.search}#inventory`);window.dispatchEvent(new Event('hashchange'));return}if(detail&&e.target.closest('.iv-op[data-op="license"]')){e.preventDefault();linkLicense(detail);return}if(detail&&e.target.closest('.iv-edit,.inventory-detail-edit')){e.preventDefault();e.stopImmediatePropagation();if(window.IT_INVENTORY_CREATE_EDIT){window.IT_INVENTORY_CREATE_EDIT(detail);return}toast('Envanter düzenleme modülü hazır değil.');return}if(detail&&e.target.closest('.iv-print')){e.preventDefault();inventoryScreenApi(`/api/inventory/${detail}`).then(printInventoryBarcode).catch(()=>toast('Barkod bilgisi alınamadı.'));return}},true);document.addEventListener('change',e=>{if(location.hash!=='#inventory')return;if(e.target.id==='ivPageSize'){currentPageSize=Number(e.target.value)||20;currentPage=1;load(1);return}if(e.target.id==='ivType'){syncBrands();document.querySelector('#ivModel').value=''}else if(e.target.id==='ivBrand'){syncModels();document.querySelector('#ivModel').value=''}},true);document.addEventListener('input',e=>{if(location.hash!=='#inventory'||e.target.id!=='ivSearch')return;clearTimeout(searchTimer);const v=e.target.value.trim();if(!v){load();return}if(v.length>=3)searchTimer=setTimeout(load,300)},true)}
