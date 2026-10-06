@@ -176,3 +176,52 @@ html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca
   .inventory-detail-view .activity{align-items:flex-start;flex-direction:column}
   .inventory-detail-view .activity span{text-align:left}
 }
+
+
+/* Modern detay görünümü — Lisans / Bakım */
+.license-detail-page{max-width:1480px;margin:0 auto;padding-bottom:30px}
+.license-detail-page>.page-head{align-items:flex-end;margin-bottom:22px}
+.license-detail-page>.page-head h1{font-size:28px;letter-spacing:-.03em;margin-bottom:5px}
+.license-detail-page>.page-head p{font-size:12px;color:var(--muted)}
+.license-detail-page .license-back{border:0!important;background:transparent!important;color:var(--muted)!important;padding:0!important;margin-bottom:12px}
+.license-detail-page .license-back:hover{color:var(--text)!important}
+.license-detail-page>.page-head .page-actions{flex-wrap:wrap}
+.license-detail-page>.page-head .page-actions .btn{height:36px;border-radius:9px;font-size:11px}
+.license-detail-page>.panel{border:1px solid var(--border);border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.045);background:var(--panel)}
+.license-detail-page>.panel>.panel-head{padding:18px 22px;border-bottom:1px solid var(--border)}
+.license-detail-page>.panel>.row{padding:0 22px 22px}
+.license-detail-page>.panel .panel{border:1px solid var(--border);border-radius:12px;box-shadow:none;background:var(--panel2)}
+.license-detail-page .panel .panel-head{padding:16px 18px}
+.license-detail-page .panel .panel-head h3{font-size:13px;margin:0}
+.license-detail-page .panel .panel-head p{font-size:10px;margin:4px 0 0;color:var(--muted)}
+.license-detail-page .detail-field{padding:12px 14px;border-bottom:1px solid var(--border);background:transparent}
+.license-detail-page .detail-field:last-child{border-bottom:0}
+.license-detail-page .detail-field span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-bottom:4px}
+.license-detail-page .detail-field strong{font-size:12px;color:var(--text);font-weight:600;overflow-wrap:anywhere}
+.license-detail-page .license-assignment-history{min-height:70px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--panel2)}
+.license-detail-page .license-history-refresh{border-radius:8px;font-size:10px}
+.license-detail-page img{background:var(--panel2)!important}
+.maintenance-inline-detail>td{padding:0!important;border-top:0!important;background:transparent!important}
+.maintenance-inline-detail .inline-detail-box{margin:8px 12px 14px;padding:0;background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.045);overflow:hidden}
+.maintenance-inline-detail .inline-detail-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.maintenance-inline-detail .inline-detail-head>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.maintenance-inline-detail .inline-detail-head strong{font-size:14px;color:var(--text)}
+.maintenance-inline-detail .inline-detail-head span{padding:4px 9px;border-radius:999px;background:var(--active-nav);color:var(--ui-primary);font-size:9px;font-weight:700}
+.maintenance-inline-detail .maintenance-close{border-radius:8px;font-size:10px}
+.maintenance-inline-detail .detail-grid{padding:8px 12px 14px}
+.maintenance-inline-detail .detail-field{padding:12px 10px;border-bottom:1px solid var(--border)}
+.maintenance-inline-detail .detail-field span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-bottom:4px}
+.maintenance-inline-detail .detail-field strong{font-size:12px;color:var(--text);font-weight:600;overflow-wrap:anywhere}
+@media(max-width:700px){
+ .license-detail-page>.page-head{align-items:flex-start;flex-direction:column}
+ .license-detail-page>.page-head .page-actions{width:100%}
+ .license-detail-page>.page-head .page-actions .btn{flex:1}
+ .license-detail-page>.panel>.row{padding:0 12px 12px}
+ .maintenance-inline-detail .inline-detail-head{align-items:flex-start;flex-direction:column}
+ .maintenance-inline-detail .maintenance-close{width:100%}
+}
+
+/* Stock detail history panel is the second panel, not an adjacent sibling. */
+.stock-screen[data-rendered="detail"] .panel.mt-3{padding:0}
+.stock-screen[data-rendered="detail"] .panel.mt-3 .panel-head{padding:18px 22px}
+.stock-screen[data-rendered="detail"] .panel.mt-3 .table-responsive{padding:0 22px 16px}
