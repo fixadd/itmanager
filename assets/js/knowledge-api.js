@@ -41,10 +41,8 @@
       const params = new URLSearchParams();
       const q = document.querySelector('#knowledgeSearch')?.value?.trim();
       const category = document.querySelector('#knowledgeCategory')?.value;
-      const status = document.querySelector('#knowledgeStatus')?.value;
       if (q) params.set('q', q);
       if (category) params.set('category', category);
-      if (status) params.set('status', status);
       params.set('page', page);
       params.set('per_page', state.pagination.per_page || 20);
       const res = await fetch(`${API}?${params}`, {signal});
@@ -292,7 +290,7 @@
         }
       } catch (err) { notify(err.message); }
     }
-    if (e.target.id === 'knowledgeCategory' || e.target.id === 'knowledgeStatus') load(1);
+    if (e.target.id === 'knowledgeCategory') load(1);
   });
 
   document.addEventListener('input', e => {
