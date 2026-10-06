@@ -250,7 +250,7 @@
   }
 
   document.addEventListener('click', async e => {
-    const b = e.target.closest('[data-knowledge-view],[data-knowledge-edit],[data-knowledge-publish],[data-knowledge-archive],[data-knowledge-restore],[data-knowledge-page],[data-knowledge-delete-attachment]');
+    const b = e.target.closest('[data-knowledge-view],[data-knowledge-page],[data-knowledge-delete-attachment]');
     if (!b) return;
     try {
       if (b.dataset.knowledgePage) return load(Number(b.dataset.knowledgePage));
@@ -261,14 +261,7 @@
         await deleteAttachment(id, b.dataset.knowledgeDeleteAttachment);
         return refreshEditorAttachments(id);
       }
-      const id = b.dataset.knowledgeView || b.dataset.knowledgeEdit || b.dataset.knowledgePublish || b.dataset.knowledgeArchive || b.dataset.knowledgeRestore;
-      if (b.dataset.knowledgeView) show(await get(id, true));
-      else if (b.dataset.knowledgeEdit) openEditor(await get(id));
-      else {
-        const action = b.dataset.knowledgePublish ? 'publish' : b.dataset.knowledgeArchive ? 'archive' : 'restore';
-        await change(id, action);
-        await load(state.pagination.page);
-      }
+      if (b.dataset.knowledgeView) show(await get(b.dataset.knowledgeView, true));
     } catch(err) { notify(err.message); }
   });
 
