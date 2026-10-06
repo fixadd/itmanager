@@ -35,6 +35,8 @@ completed:'Tamamlandı',cancelled:'İptal',draft:'Taslak',rejected:'Reddedildi',
 low:'Düşük',urgent:'Acil'
 };
 const label=v=>{
+ const ui=window.IT_UI_LABELS;
+ if(ui?.label)return ui.label(v);
  const s=String(v??'—').trim();
  if(!s)return '—';
  if(s.includes(','))return s.split(',').map(x=>label(x)).filter(Boolean).join(', ');
