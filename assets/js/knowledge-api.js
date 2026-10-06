@@ -227,17 +227,46 @@
   async function show(a) {
     const content = document.querySelector('#pageContent');
     if (!content) return;
-    const history = await getHistory(a.id);
-    content.innerHTML = `
-      <div class="page-head"><div><h1>${esc(a.title)}</h1><p>Bilgi Bankası / Makale detayı</p></div>
-      <div class="page-actions"><button class="btn btn-outline-secondary" id="knowledgeBack"><i class="ti ti-arrow-left me-1"></i>Geri</button><button class="btn btn-primary" id="knowledgeDetailEdit"><i class="ti ti-edit me-1"></i>Düzenle</button></div></div>
-      <div class="row g-3"><div class="col-xl-8"><div class="panel"><div class="panel-head"><div><h3>${esc(a.title)}</h3><p>${esc(a.category || 'Genel')} · ${esc(a.author?.name || '-')}</p></div></div>
-      ${a.summary ? '<div class="alert alert-secondary">'+esc(a.summary)+'</div>' : ''}<div style="white-space:pre-wrap">${esc(a.content)}</div>
-      ${a.tags?.length ? '<div class="mt-4 small text-secondary">Etiketler: '+a.tags.map(esc).join(', ')+'</div>' : ''}</div></div>
-      <div class="col-xl-4"><div class="panel"><div class="panel-head"><div><h3>Ek Dosyalar</h3><p>Bu bilgiye bağlı dosyalar</p></div></div>${attachmentList(a.attachments)}</div>
-      <div class="panel mt-3"><div class="panel-head"><div><h3>Geçmiş</h3></div></div>${historyList(history)}</div></div></div>`;
-    document.getElementById('knowledgeBack')?.addEventListener('click', () => window.IT_KNOWLEDGE_UI?.render?.());
-    document.getElementById('knowledgeDetailEdit')?.addEventListener('click', async () => openEditor(await get(a.id)));
+    try {
+      const history = await getHistory(a.id);
+      content.innerHTML = `
+        <div class="knowledge-detail-page">
+          <div class="knowledge-detail-head">
+            <div class="knowledge-detail-title">
+              <button class="knowledge-back-btn" id="knowledgeBack" type="button"><i class="ti ti-arrow-left"></i><span>Bilgi Bankası</span></button>
+              <div class="knowledge-title-meta">
+                <span class="knowledge-category-pill">${esc(a.category || 'Genel')}</span>
+                <h1>${esc(a.title)}</h1>
+                <p>${esc(a.author?.name || '—')} · ${a.updated_at ? new Date(a.updated_at).toLocaleDateString('tr-TR') : 'Güncel'}</p>
+              </div>
+            </div>
+            <button class="knowledge-edit-btn" id="knowledgeDetailEdit" type="button"><i class="ti ti-edit"></i>Düzenle</button>
+          </div>
+
+          <div class="knowledge-detail-layout">
+            <main class="knowledge-article-card">
+              ${a.summary ? `<div class="knowledge-summary"><i class="ti ti-info-circle"></i><div><span>Özet</span><p>${esc(a.summary)}</p></div></div>` : ''}
+              <article class="knowledge-article-content">${esc(a.content).replace(/\n/g,'<br>')}</article>
+              ${a.tags?.length ? `<div class="knowledge-tags"><span>Etiketler</span>${a.tags.map(t => `<span class="knowledge-tag">#${esc(t)}</span>`).join('')}</div>` : ''}
+            </main>
+
+            <aside class="knowledge-side-column">
+              <section class="knowledge-side-card">
+                <div class="knowledge-side-heading"><i class="ti ti-paperclip"></i><div><strong>Ek Dosyalar</strong><small>${a.attachments?.length || 0} dosya</small></div></div>
+                <div class="knowledge-side-body">${attachmentList(a.attachments)}</div>
+              </section>
+              <section class="knowledge-side-card">
+                <div class="knowledge-side-heading"><i class="ti ti-history"></i><div><strong>Geçmiş</strong><small>Son değişiklikler</small></div></div>
+                <div class="knowledge-side-body knowledge-history">${historyList(history)}</div>
+              </section>
+            </aside>
+          </div>
+        </div>`;
+      document.getElementById('knowledgeBack')?.addEventListener('click', () => window.IT_KNOWLEDGE_UI?.render?.());
+      document.getElementById('knowledgeDetailEdit')?.addEventListener('click', async () => openEditor(await get(a.id)));
+    } catch (err) {
+      notify(err.message || 'Bilgi detayı yüklenemedi.');
+    }
   }
 
   document.addEventListener('click', async e => {
