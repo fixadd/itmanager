@@ -59,7 +59,17 @@ document.addEventListener('DOMContentLoaded',()=>{
       hideSelected:false,
       dropdownParent:'body'
     });
-    const sync=()=>{try{ts.sync();}catch{}};
+    let syncTimer=null;
+    const sync=()=>{
+      clearTimeout(syncTimer);
+      syncTimer=setTimeout(()=>{
+        if(!document.documentElement.contains(select)){
+          mo.disconnect();
+          return;
+        }
+        try{ts.sync();}catch{}
+      },40);
+    };
     const mo=new MutationObserver(sync);
     mo.observe(select,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','selected']});
     select._itSearchObserver=mo;
