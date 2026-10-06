@@ -225,3 +225,109 @@ html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca
 .stock-screen[data-rendered="detail"] .panel.mt-3{padding:0}
 .stock-screen[data-rendered="detail"] .panel.mt-3 .panel-head{padding:18px 22px}
 .stock-screen[data-rendered="detail"] .panel.mt-3 .table-responsive{padding:0 22px 16px}
+
+
+/* Son grup sayfa tasarım standardı — Talep / Personel / Hurda / Kayıt / Rapor */
+#pageContent .request-api-row,
+#pageContent .transfer-item,
+#pageContent .tr-record{
+  border-color:var(--border)!important;
+  border-radius:10px!important;
+  background:var(--panel2);
+}
+#pageContent .request-api-row{padding:12px!important}
+#pageContent .request-api-row .form-label,
+#pageContent .transfer-item .form-label,
+#pageContent .tr-record .form-label{font-size:10px;font-weight:600;color:var(--muted);margin-bottom:5px}
+#pageContent .request-api-row .btn{border-radius:8px}
+#pageContent .transfer-item{padding:16px!important}
+#pageContent .transfer-item> .d-flex:first-child{padding-bottom:12px;border-bottom:1px solid var(--border)}
+#pageContent .transfer-item h6{font-size:12px}
+#pageContent .transfer-fields{padding-top:14px}
+#pageContent .tr-record{background:var(--panel);padding:14px!important}
+#pageContent .tr-record h6{font-size:11px;color:var(--text)}
+
+#pageContent .personnel-pager{padding-top:10px}
+#pageContent .inline-detail-box{
+  margin:8px 12px 14px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:14px;
+  box-shadow:0 3px 14px rgba(15,23,42,.045);
+  overflow:hidden;
+}
+#pageContent .inline-detail-head{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:16px 20px;border-bottom:1px solid var(--border)
+}
+#pageContent .inline-detail-head strong{font-size:14px;color:var(--text)}
+#pageContent .inline-detail-head span{display:block;margin-top:3px;font-size:10px;color:var(--muted)}
+#pageContent .inline-detail-box .detail-grid{
+  padding:8px 12px 12px;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+#pageContent .inline-detail-box .detail-field{
+  padding:12px 10px;border-bottom:1px solid var(--border)
+}
+#pageContent .inline-detail-box .detail-field span,
+#pageContent .inline-detail-box .detail-section h4{
+  font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700
+}
+#pageContent .inline-detail-box .detail-field span{display:block;margin-bottom:4px}
+#pageContent .inline-detail-box .detail-field strong{font-size:12px;color:var(--text);overflow-wrap:anywhere}
+#pageContent .inline-detail-box .detail-section{padding:16px 20px;border-top:1px solid var(--border)}
+#pageContent .inline-detail-box .detail-section h4{margin:0 0 10px}
+#pageContent .inline-detail-box .table{font-size:11px}
+#pageContent .inline-detail-box .table td,#pageContent .inline-detail-box .table th{padding:9px 8px}
+#pageContent .inline-detail-box .personnel-close{border-radius:8px;font-size:10px}
+
+#pageContent .filter-bar:has(#scrapSearch){
+  display:flex!important;flex-wrap:nowrap!important;align-items:center;gap:6px!important;
+  padding:7px!important;border:1px solid var(--border)!important;border-radius:9px;
+  background:var(--panel2)!important;overflow-x:auto
+}
+#pageContent .filter-bar:has(#scrapSearch)>input,
+#pageContent .filter-bar:has(#scrapSearch)>select{
+  flex:0 0 145px;width:145px!important;min-width:145px;height:34px!important;
+  padding:4px 9px!important;font-size:13px
+}
+#pageContent .filter-bar:has(#scrapSearch)>#scrapSearch{flex:1 1 240px;min-width:200px}
+#pageContent .filter-bar:has(#scrapSearch) + .panel{margin-top:14px}
+#pageContent .filter-bar:has(#scrapSearch) + .panel .panel-head{padding:18px 22px}
+#pageContent .filter-bar:has(#scrapSearch) + .panel table{font-size:11px}
+#pageContent .filter-bar:has(#scrapSearch) + .panel tbody tr:hover td{background:var(--panel2)}
+
+#pageContent #logTable .audit-action{border:1px solid rgba(100,116,139,.12);font-size:10px}
+#pageContent #logTable table{font-size:11px}
+#pageContent #logTable td{vertical-align:middle}
+#pageContent #logTable td:last-child{width:54px;text-align:right}
+#pageContent #logTable [data-log-id]{width:32px;height:30px;padding:0;border-radius:8px}
+#pageContent #logTable .soft-danger{background:#fde8e8;color:#a61b1b}
+#pageContent #logTable .soft-warning{background:#fff4d6;color:#8a5a00}
+#pageContent #logTable .soft-primary{background:#e8f0ff;color:#315ea8}
+#pageContent #logTable .soft-success{background:#e8f7ee;color:#287a4d}
+#pageContent #logTable .soft-info{background:#e7f5f8;color:#216878}
+#pageContent #logTable .soft-secondary{background:#f0f2f5;color:#59636f}
+
+#pageContent .simple-bars{display:grid;gap:11px}
+#pageContent .simple-bars>div{display:grid;grid-template-columns:minmax(110px,1fr) minmax(100px,2fr) 55px;align-items:center;gap:10px}
+#pageContent .simple-bars>div>span{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pageContent .simple-bars>div>b{display:block;height:8px;border-radius:999px;background:var(--active-nav);position:relative;overflow:hidden}
+#pageContent .simple-bars>div>b:after{content:"";display:block;width:100%;height:100%;border-radius:inherit;background:var(--ui-primary)}
+#pageContent .simple-bars>div>strong{text-align:right;font-size:11px;color:var(--text)}
+#pageContent .report-export-menu .dropdown-item{font-size:11px;border-radius:7px}
+#pageContent .report-export-menu .dropdown-item:hover{background:var(--active-nav)}
+
+@media(max-width:900px){
+ #pageContent .inline-detail-box .detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+ #pageContent .filter-bar:has(#scrapSearch){display:grid!important;grid-template-columns:1fr;overflow:visible}
+ #pageContent .filter-bar:has(#scrapSearch)>input,
+ #pageContent .filter-bar:has(#scrapSearch)>select{width:100%!important;min-width:0;flex:none}
+ #pageContent .inline-detail-box .detail-grid{grid-template-columns:1fr}
+ #pageContent .inline-detail-head{align-items:flex-start;flex-direction:column}
+ #pageContent .inline-detail-box .personnel-close{width:100%}
+ #pageContent .simple-bars>div{grid-template-columns:1fr 80px 45px}
+}
