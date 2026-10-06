@@ -53,8 +53,8 @@ async function loadDashboard(){
     document.getElementById('dashMaintenanceStatus').innerHTML=maint.map(x=>`<div><span>${x[0]}</span><b style="width:${x[1]?Math.min(100,x[1]*10):0}%"></b><strong>${fmt(x[1])}</strong></div>`).join('');
     const requests=[['Bekleyen',req.pending],['Onaylandı',req.approved],['Sipariş',req.ordered],['Tamamlandı',req.completed]];
     document.getElementById('dashRequestStatus').innerHTML=requests.map(x=>`<div><span>${x[0]}</span><b style="width:${x[1]?Math.min(100,x[1]*10):0}%"></b><strong>${fmt(x[1])}</strong></div>`).join('');
-    const actionNames={'inventory.created':'Envanter oluşturuldu','inventory.assigned':'Envanter zimmetlendi','inventory.sent_to_it':'Envanter Bilgi İşleme gönderildi','inventory.scrapped':'Envanter hurdaya ayrıldı','stock.created':'Stok oluşturuldu','stock.movement':'Stok hareketi','maintenance.created':'Bakım kaydı oluşturuldu','maintenance.updated':'Bakım kaydı güncellendi','request.created':'Satın alma talebi oluşturuldu','settings.catalog_model_created':'Model oluşturuldu'};
-    document.getElementById('dashRecent').innerHTML=(d.recent_activity||[]).map(x=>`<div class="activity"><div class="activity-icon"><i class="ti ti-history"></i></div><div><strong>${esc(actionNames[x.action]||x.action||'İşlem')}</strong><span>${esc(x.actor)} · ${x.created_at?new Date(x.created_at).toLocaleString('tr-TR'):'-'}</span></div></div>`).join('')||'<span class="text-secondary">Henüz işlem kaydı yok.</span>';
+    const actionNames=window.IT_UI_LABELS?.actions||{};
+    document.getElementById('dashRecent').innerHTML=(d.recent_activity||[]).map(x=>`<div class="activity"><div class="activity-icon"><i class="ti ti-history"></i></div><div><strong>${esc(window.IT_UI_LABELS?.action?.(x.action)||actionNames[x.action]||'İşlem')}</strong><span>${esc(x.actor)} · ${x.created_at?new Date(x.created_at).toLocaleString('tr-TR'):'-'}</span></div></div>`).join('')||'<span class="text-secondary">Henüz işlem kaydı yok.</span>';
     box.textContent='Veriler güncel.';
   }catch(e){
     if(e.name==='AbortError')return;
