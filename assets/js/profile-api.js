@@ -60,7 +60,7 @@ function renderUser(user){
  <div class="d-flex align-items-center gap-3 mb-4"><div class="avatar" style="width:56px;height:56px;font-size:18px">${esc((user.personnel?.name||user.username||'IT').split(/\\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase())}</div><div><h4 class="mb-1">${esc(personnel)}</h4><div class="text-secondary">${esc(user.username)}</div></div></div>
  <div class="detail-grid"><div><span>Personel</span><strong>${esc(personnel)}</strong></div><div><span>Rol</span><strong>${esc(role)}</strong></div><div><span>E-posta</span><strong>${esc(user.email||'—')}</strong></div><div><span>Durum</span><strong>${user.active?'<span class="status success">Aktif</span>':'<span class="status danger">Pasif</span>'}</strong></div></div>`;
  const perms=user.permissions||[];
- document.querySelector('#profilePermissions').innerHTML=`<div class="mb-3"><strong>${esc(role)}</strong> <span class="text-secondary">· ${perms.length} yetki</span></div><div class="d-flex flex-wrap gap-2">${perms.map(p=>`<span class="badge text-bg-dark border">${esc(label(p))}</span>`).join('')||'<span class="text-secondary">Tanımlı yetki bulunmuyor.</span>'}</div>`;
+ document.querySelector('#profilePermissions').innerHTML=`<div class="mb-3"><strong>${esc(role)}</strong> <span class="text-secondary">· ${perms.length} yetki</span></div><div class="d-flex flex-wrap gap-2">${perms.map(p=>`<span class="badge text-bg-dark border">${esc(window.IT_UI_LABELS?.permission?.(p)||label(p))}</span>`.join('')||'<span class="text-secondary">Tanımlı yetki bulunmuyor.</span>'}</div>`;
  document.querySelector('#profileSecurity').innerHTML=`<div class="detail-grid"><div><span>Hesap Durumu</span><strong>${user.active?'Aktif':'Pasif'}</strong></div><div><span>Son Giriş</span><strong>${esc(date(user.last_login_at))}</strong></div><div><span>Kullanıcı ID</span><strong>#${esc(user.id)}</strong></div><div><span>Personel Bağlantısı</span><strong>${user.personnel?'Bağlı':'Bağlı değil'}</strong></div></div>`;
 }
 
@@ -83,6 +83,8 @@ const profileValueLabels={active:'Aktif',faulty:'Arızalı',maintenance:'Bakım 
 const profileDetailLabels={personnel_id:'Personel',brand_id:'Marka',model_id:'Model',product_type_id:'Donanım Tipi',factory_id:'Fabrika',department_id:'Departman',inventory_id:'Envanter',stock_item_id:'Stok',license_id:'Lisans',status:'Durum',old_status:'Eski durum',new_status:'Yeni durum',reason:'Neden',note:'Not',name:'Ad',title:'Başlık',serial_no:'Seri No',inventory_no:'Envanter No',barcode:'Barkod'};
 
 const profileLabel=v=>{
+ const ui=window.IT_UI_LABELS;
+ if(ui?.label)return ui.label(v);
  const s=String(v??'—');
  return profileActionLabels[s]||profileEntityLabels[s]||profileValueLabels[s]||s.replaceAll('_',' ');
 };
