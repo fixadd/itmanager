@@ -54,7 +54,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     const group=tab.parentElement;$$('button',group).forEach(x=>x.classList.remove('active'));tab.classList.add('active');
     const label=tab.textContent.trim();
     if(group.classList.contains('detail-tabs')){const panel=tab.closest('.panel');const timeline=panel?.querySelector('.timeline');if(timeline){const data={"Genel":[["12.02.2026","Ahmet Yılmaz'a zimmetlendi"]],"Donanım":[["CPU","Intel Core i5 · RAM 16 GB · SSD 512 GB"],["Ağ","MAC 00:1B:44:11:3A:B7 · IP 172.35.10.24"]],"Zimmet Geçmişi":[["12.02.2026","Ahmet Yılmaz · Zimmet"],["04.01.2026","Bilgi İşlem Stoğu · Teslim"]],"Bakım":[["18.08.2026","Periyodik bakım tamamlandı"],["04.09.2026","Yeni kontrol planlandı"]],"Hareketler":[["04.09.2026","Durum kontrolü · Aktif"],["18.08.2026","Bakım tamamlandı"],["12.02.2026","Zimmet oluşturuldu"]]}[label]||[["04.09.2026","İlgili kayıtlar görüntüleniyor"]];timeline.innerHTML=data.map(x=>`<div><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}
-    else toast(`${label} görünümü seçildi.`);
+    } else {
+      toast(`${label} görünümü seçildi.`);
+    }
   });
 
   // Filter bars: live filter table rows by visible text.
