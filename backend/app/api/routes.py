@@ -142,8 +142,7 @@ def inventory_history(inventory_id):
     audits=AuditLog.query.filter_by(entity_type="inventory",entity_id=inventory_id).order_by(AuditLog.created_at.desc(),AuditLog.id.desc()).limit(500).all()
     assignments=AssignmentHistory.query.filter_by(asset_type="inventory",asset_id=inventory_id).order_by(AssignmentHistory.created_at.desc(),AssignmentHistory.id.desc()).limit(500).all()
     personnel_ids={r.personnel_id for r in assignments if r.personnel_id}
-    personnel_map={p.id:p for p in Personnel.query.filter(Personnel.id.in_(personnel_ids)).all()} if personnel_ids else {}
-    labels={
+    personnel_map={p.id:p for p in Personnel.query.filter(Personnel.id.in_(personnel_ids)).all()} if personnel_ids else {}    labels={
         "inventory.created":"Envanter oluşturuldu",
         "inventory.updated":"Envanter güncellendi",
         "inventory.assigned":"Envanter ataması güncellendi",
