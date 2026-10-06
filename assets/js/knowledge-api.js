@@ -81,22 +81,13 @@
     if (!tbody) return;
     tbody.innerHTML = state.items.length ? state.items.map(a => {
       const meta = statusMeta[a.status] || statusMeta.draft;
-      const action = a.status === 'published'
-        ? `<button class="btn btn-outline-warning" data-knowledge-archive="${a.id}">Arşivle</button>`
-        : a.status === 'archived'
-          ? `<button class="btn btn-outline-success" data-knowledge-restore="${a.id}">Geri Al</button>`
-          : `<button class="btn btn-outline-success" data-knowledge-publish="${a.id}">Yayınla</button>`;
       return `<tr>
         <td><strong>${esc(a.title)}</strong><div class="small text-secondary">${esc(a.summary || '')}</div></td>
         <td>${esc(a.category)}</td>
         <td>${esc(a.author?.name || '-')}</td>
         <td><span class="badge ${meta.badge}">${meta.label}</span></td>
         <td>${a.view_count ?? 0}</td>
-        <td class="text-end"><div class="btn-group btn-group-sm">
-          <button class="btn btn-outline-light" data-knowledge-view="${a.id}">Görüntüle</button>
-          <button class="btn btn-outline-secondary" data-knowledge-edit="${a.id}">Düzenle</button>
-          ${action}
-        </div></td>
+        <td class="text-end"><button class="btn btn-outline-light btn-sm" data-knowledge-view="${a.id}" title="Detayı Görüntüle"><i class="ti ti-eye"></i></button></td>
       </tr>`;
     }).join('') : '<tr><td colspan="6" class="text-center text-secondary py-4">Kayıt bulunamadı.</td></tr>';
   }
