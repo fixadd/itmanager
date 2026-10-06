@@ -149,7 +149,8 @@ def inventory_history(inventory_id):
             if value:
                 try: personnel_ids.add(int(value))
                 except (TypeError,ValueError): pass
-    personnel_map={p.id:p for p in Personnel.query.filter(Personnel.id.in_(personnel_ids)).all()} if personnel_ids else {}    labels={
+    personnel_map={p.id:p for p in Personnel.query.filter(Personnel.id.in_(personnel_ids)).all()} if personnel_ids else {}
+    labels={
         "inventory.created":"Envanter oluşturuldu",
         "inventory.updated":"Envanter güncellendi",
         "inventory.assigned":"Envanter ataması güncellendi",
