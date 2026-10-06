@@ -125,19 +125,29 @@ def _transfer_missing(x,data):
  by_id={str(v.get("item_id")):v for v in raw if isinstance(v,dict) and v.get("item_id") is not None}
  result=[]
  for item in x.items:
-  v=by_id.get(str(item.id),{}); missing=[]
+  v=by_id.get(str(item.id),{})
+  selected=bool(v.get("selected"))
+  if not selected:
+   result.append({"item_id":item.id,"product_type":item.product_type,"missing":[],"data":v,"selected":False})
+   continue
+  try: received=float(v.get("received_quantity",item.quantity or 1))
+  except (TypeError,ValueError): received=0
+  missing=[]
+  if received<=0: missing.append({"key":"received_quantity","label":"Gelen miktar"})
+  if received>(float(item.quantity or 0)+1e-9): missing.append({"key":"received_quantity","label":"Gelen miktar talep miktarını aşamaz"})
   if item.product_type=="Envanter":
-   for key,label in (("inventory_no","Envanter No"),("factory","Fabrika"),("department","Departman"),("device_type","Donanım Tipi"),("brand","Marka")):
-    value=v.get(key) or (x.factory_id if key=="factory" else x.department_id if key=="department" else item.device_type if key=="device_type" else item.brand if key=="brand" else None)
-    if value in (None,""): missing.append({"key":key,"label":label})
+   records=v.get("records") if isinstance(v.get("records"),list) else []
+   if len(records)!=int(received) if received>0 and received.is_integer() else True: missing.append({"key":"records","label":"Her cihaz için envanter bilgileri"})
+   for idx,rec in enumerate(records):
+    for key,label in (("inventory_no","Envanter No"),("factory","Fabrika"),("department","Departman"),("device_type","Donanım Tipi"),("brand","Marka")):
+     if not isinstance(rec,dict) or rec.get(key) in (None,""): missing.append({"key":f"records[{idx}].{key}","label":f"{idx+1}. cihaz {label}"})
   elif item.product_type=="Lisans":
    for key,label in (("license_name","Lisans Adı"),("license_model_id","Lisans Modeli")):
     if v.get(key) in (None,""): missing.append({"key":key,"label":label})
   else:
    for key,label in (("device_type","Donanım Tipi"),("brand","Marka")):
-    value=v.get(key) or getattr(item,key,None)
-    if value in (None,""): missing.append({"key":key,"label":label})
-  result.append({"item_id":item.id,"product_type":item.product_type,"missing":missing,"data":v})
+    if v.get(key) in (None,""): missing.append({"key":key,"label":label})
+  result.append({"item_id":item.id,"product_type":item.product_type,"missing":missing,"data":v,"selected":True,"received_quantity":received})
  return result
 
 @requests_bp.post("/requests/<int:request_id>/transfer")
@@ -145,26 +155,31 @@ def _transfer_missing(x,data):
 def transfer_request(request_id):
  x=PurchaseRequest.query.with_for_update().filter_by(id=request_id).first(); data=request.get_json(silent=True) or {}
  if not x:return jsonify({"error":"Talep bulunamadı"}),404
- if x.status!="completed":return jsonify({"error":"Aktarım için talep önce Tamamlandı durumunda olmalıdır"}),400
  if AuditLog.query.filter_by(action="request.transferred",entity_type="purchase_request",entity_id=x.id).first():return jsonify({"error":"Bu satın alma talebi daha önce aktarılmış"}),409
  missing=_transfer_missing(x,data)
- if any(v["missing"] for v in missing):return jsonify({"error":"Aktarım için eksik bilgiler var","requires_input":True,"items":missing}),409
+ selected=[v for v in missing if v.get("selected")]
+ if not selected:return jsonify({"error":"En az bir gelen talep kalemi seçmelisiniz","requires_input":True,"items":missing}),400
+ if any(v["missing"] for v in selected):return jsonify({"error":"Aktarım için eksik bilgiler var","requires_input":True,"items":missing}),409
  by_id={str(v.get("item_id")):v for v in (data.get("items") or [])}; created=[]
  try:
   for item in x.items:
    v=by_id.get(str(item.id),{})
+   if not v.get("selected"): continue
+   received=float(v.get("received_quantity",item.quantity or 1))
    if item.product_type=="Envanter":
-    factory=_resolve(Factory,v.get("factory") or x.factory_id,"fabrika"); department=_resolve(Department,v.get("department") or x.department_id,"departman"); ptype=_resolve(ProductType,v.get("device_type") or item.device_type,"donanım tipi"); brand=_resolve(Brand,v.get("brand") or item.brand,"marka"); model=None
-    if not all(obj.active for obj in (factory,department,ptype,brand)): raise ValueError("Aktarımda pasif master kayıt kullanılamaz")
-    if ptype not in brand.product_types: raise ValueError("Envanter marka, donanım tipiyle eşleşmiyor")
-    if v.get("model") or item.model:
-     model=_resolve(ProductModel,v.get("model") or item.model,"model")
-     if not model.active: raise ValueError("Aktarımda pasif model kullanılamaz")
-     if model.brand_id!=brand.id or (model.product_type_id and model.product_type_id!=ptype.id):raise ValueError("Envanter model, marka/donanım tipiyle eşleşmiyor")
-    person=_resolve(Personnel,v.get("person"),"personel") if v.get("person") not in (None,"") else None
-    if person and not person.active: raise ValueError("Aktarımda pasif personel kullanılamaz")
-    obj=Inventory(inventory_no=str(v["inventory_no"]).strip(),computer_name=v.get("computer_name") or None,serial_no=v.get("serial_no") or None,machine_no=v.get("machine_no") or None,ifs_no=v.get("ifs_no") or None,note=v.get("note") or item.description or None,factory_id=factory.id,department_id=department.id,product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,personnel_id=person.id if person else None)
-    db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Envanter","id":obj.id})
+    records=v.get("records") or []
+    for rec in records:
+     factory=_resolve(Factory,rec.get("factory") or x.factory_id,"fabrika"); department=_resolve(Department,rec.get("department") or x.department_id,"departman"); ptype=_resolve(ProductType,rec.get("device_type") or item.device_type,"donanım tipi"); brand=_resolve(Brand,rec.get("brand") or item.brand,"marka"); model=None
+     if not all(obj.active for obj in (factory,department,ptype,brand)): raise ValueError("Aktarımda pasif master kayıt kullanılamaz")
+     if ptype not in brand.product_types: raise ValueError("Envanter marka, donanım tipiyle eşleşmiyor")
+     if rec.get("model") or item.model:
+      model=_resolve(ProductModel,rec.get("model") or item.model,"model")
+      if not model.active: raise ValueError("Aktarımda pasif model kullanılamaz")
+      if model.brand_id!=brand.id or (model.product_type_id and model.product_type_id!=ptype.id):raise ValueError("Envanter model, marka/donanım tipiyle eşleşmiyor")
+     person=_resolve(Personnel,rec.get("person"),"personel") if rec.get("person") not in (None,"") else None
+     if person and not person.active: raise ValueError("Aktarımda pasif personel kullanılamaz")
+     obj=Inventory(inventory_no=str(rec["inventory_no"]).strip(),computer_name=rec.get("computer_name") or None,serial_no=rec.get("serial_no") or None,machine_no=rec.get("machine_no") or None,ifs_no=rec.get("ifs_no") or None,note=rec.get("note") or item.description or None,factory_id=factory.id,department_id=department.id,product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,personnel_id=person.id if person else None)
+     db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Envanter","id":obj.id})
    elif item.product_type=="Lisans":
     name=_resolve(LicenseName,v.get("license_name"),"lisans adı"); model=_resolve(LicenseModel,v.get("license_model_id") or v.get("license_model"),"lisans modeli")
     if not name.active or not model.active: raise ValueError("Aktarımda pasif lisans master kaydı kullanılamaz")
@@ -173,8 +188,9 @@ def transfer_request(request_id):
     if starts and expires and expires < starts: raise ValueError("Lisans bitiş tarihi başlangıç tarihinden önce olamaz")
     person=_resolve(Personnel,v.get("person"),"personel") if v.get("person") not in (None,"") else None
     if person and not person.active: raise ValueError("Aktarımda pasif personel kullanılamaz")
-    obj=License(license_name_id=name.id,license_model_id=model.id,license_type=v.get("license_type") or "subscription",license_key=v.get("license_key") or None,email=v.get("email") or None,password=v.get("password") or None,starts_at=starts,expires_at=expires,note=v.get("note") or item.description or None,status="active",personnel_id=person.id if person else None)
-    db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Lisans","id":obj.id})
+    for _ in range(int(received)):
+     obj=License(license_name_id=name.id,license_model_id=model.id,license_type=v.get("license_type") or "subscription",license_key=v.get("license_key") or None,email=v.get("email") or None,password=v.get("password") or None,starts_at=starts,expires_at=expires,note=v.get("note") or item.description or None,status="active",personnel_id=person.id if person else None)
+     db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Lisans","id":obj.id})
    else:
     ptype=_resolve(ProductType,v.get("device_type") or item.device_type,"donanım tipi"); brand=_resolve(Brand,v.get("brand") or item.brand,"marka"); model=None
     if not ptype.active or not brand.active: raise ValueError("Aktarımda pasif master kayıt kullanılamaz")
@@ -183,9 +199,7 @@ def transfer_request(request_id):
      model=_resolve(ProductModel,v.get("model") or item.model,"model")
      if not model.active: raise ValueError("Aktarımda pasif model kullanılamaz")
      if model.brand_id!=brand.id or (model.product_type_id and model.product_type_id!=ptype.id):raise ValueError("Stok model, marka/donanım tipiyle eşleşmiyor")
-    try:q=float(v.get("quantity",item.quantity or 1))
-    except (TypeError,ValueError):raise ValueError("Stok miktarı geçersiz")
-    if q<=0:raise ValueError("Stok miktarı 0'dan büyük olmalıdır")
+    q=received
     obj=StockItem(product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,quantity=q,unit=v.get("unit") or item.unit or "Adet",note=v.get("note") or item.description or None)
     db.session.add(obj);db.session.flush();db.session.add(StockMovement(stock_item_id=obj.id,movement_type="in",quantity=q,unit=obj.unit,note=f"Satın alma talebi {x.request_no}"));created.append({"item_id":item.id,"type":"Stok","id":obj.id})
   _audit("request.transferred",x.id,{"request_no":x.request_no,"targets":created});db.session.commit();return jsonify({"request_id":x.id,"request_no":x.request_no,"transferred":created})
