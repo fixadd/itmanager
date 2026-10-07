@@ -37,7 +37,7 @@ function renderDetail(x){
   const c=document.querySelector('#pageContent');
   if(!c)return;
   c.classList.add('inventory-detail-view');
-  const sendToIt=x.status!=='it'?'`<button type="button" class="btn btn-outline-info iv-op" data-op="send-to-it"><i class="ti ti-building-factory-2 me-1"></i>Bilgi İşleme Gir</button>':'';
+  const sendToIt=x.status!=='it'?'<button type="button" class="btn btn-outline-info iv-op" data-op="send-to-it"><i class="ti ti-building-factory-2 me-1"></i>Bilgi İşleme Gir</button>':'';
   c.innerHTML=`<div class="page-head"><div><button type="button" class="btn btn-outline-secondary iv-back mb-2"><i class="ti ti-arrow-left me-1"></i>Geri</button><h1>${esc(x.inventory_no)}</h1><p>${esc([x.brand?.name,x.model?.name].filter(Boolean).join(' ')||x.device_type?.name||'Envanter cihazı')} · ${status(x.status)}</p></div></div>
   <style>
   .inventory-detail-view{display:block}
