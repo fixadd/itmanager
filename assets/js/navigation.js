@@ -81,9 +81,9 @@ function generic(k){return head(k,btn('Yeni Kayıt'))+filters()+panel(pages[k][0
 function layout(k){return ({dashboard,barcode,inventory,licenses,stock,maintenance,requests,people,knowledge,scrap,reports,profile,admin,settings,logs}[k]||(()=>generic(k)))()}
 let renderedPage=null;
 let dashboardController=null;
-function go(k){
+function go(k,force=false){
   if(!pages[k])return;
-  const pageChanged=renderedPage!==k;
+  const pageChanged=renderedPage!==k||force;
   if(!pageChanged && k!=='admin')return;
   renderedPage=k;
   document.querySelectorAll('.nav-link').forEach(x=>x.classList.remove('active'));
