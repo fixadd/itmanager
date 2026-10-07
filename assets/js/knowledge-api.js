@@ -204,8 +204,16 @@
     }
   }
 
+  function ensureEditorModal() {
+    if (document.querySelector('#knowledgeEditModal')) return document.querySelector('#knowledgeEditModal');
+    const wrap = document.createElement('div');
+    wrap.innerHTML = \`<div class="modal fade" id="knowledgeEditModal" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-scrollable knowledge-editor-dialog"><div class="modal-content knowledge-editor-content"><div class="modal-header"><h5 class="modal-title">Makale Düzenle</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form id="knowledgeEditForm" class="knowledge-editor-form"><div class="modal-body knowledge-editor-body"><div class="row g-3"><div class="col-md-8"><label class="form-label">Başlık</label><input class="form-control" name="title" required></div><div class="col-md-4"><label class="form-label">Kategori</label><input class="form-control" name="category" value="Genel"></div><div class="col-12"><label class="form-label">Özet</label><input class="form-control" name="summary"></div><div class="col-12"><label class="form-label">Etiketler</label><input class="form-control" name="tags" placeholder="vpn, ağ, yazıcı"></div><div class="col-12"><label class="form-label">İçerik</label><textarea class="form-control" name="content" rows="18" required></textarea></div><div class="col-12" id="knowledgeEditorAttachmentSection"><hr><div class="d-flex justify-content-between align-items-center mb-2"><div><h6 class="mb-1">Ek Dosyalar</h6><div class="small text-secondary">Her türlü dosya · Dosya başına 100 MB</div></div><label class="btn btn-outline-secondary btn-sm mb-0"><i class="ti ti-upload me-1"></i>Dosya Ekle<input type="file" id="knowledgeAttachmentInput" class="d-none" multiple></label></div><div id="knowledgeEditorAttachments"></div></div></div></div><div class="modal-footer knowledge-editor-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Vazgeç</button><button type="submit" class="btn btn-primary px-4">Kaydet</button></div></form></div></div></div>\`;
+    document.body.appendChild(wrap.firstElementChild);
+    return document.querySelector('#knowledgeEditModal');
+  }
+
   function openEditor(article) {
-    const modal = document.querySelector('#knowledgeEditModal');
+    const modal = ensureEditorModal();
     const form = document.querySelector('#knowledgeEditForm');
     if (!modal || !form) return;
     form.dataset.id = article?.id || '';
