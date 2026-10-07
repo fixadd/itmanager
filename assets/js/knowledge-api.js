@@ -85,7 +85,6 @@
         <td><strong>${esc(a.title)}</strong><div class="small text-secondary">${esc(a.summary || '')}</div></td>
         <td>${esc(a.category)}</td>
         <td>${esc(a.author?.name || '-')}</td>
-        <td><span class="badge ${meta.badge}">${meta.label}</span></td>
         <td>${a.view_count ?? 0}</td>
         <td class="text-end"><button class="knowledge-eye-btn" data-knowledge-view="${a.id}" title="Detayı Görüntüle"><i class="ti ti-eye"></i></button></td>
       </tr>`;
