@@ -122,8 +122,8 @@ function openTransferForm(x,d){
    : {types:d.stock_hardware_types||[],brands:d.stock_brands||[],models:d.stock_models||[]};
   const qty=Number(item.quantity||1); const receivedAlready=Number(item.received_quantity||0); const remaining=Math.max(0,qty-receivedAlready);
   let html='<div class="border rounded p-3 mb-3 transfer-item" data-item-id="'+item.id+'" data-product-type="'+esc(p)+'" data-device-type="'+esc(item.device_type||'')+'" data-brand="'+esc(item.brand||'')+'" data-model="'+esc(item.model||'')+'" data-unit="'+esc(item.unit||'Adet')+'">';
-  html+='<div class="d-flex justify-content-between align-items-center mb-3"><div><h6 class="mb-1">Kalem '+(i+1)+' — '+esc(p)+'</h6><div class="small text-muted">'+esc(item.device_type||'')+(item.brand?' · '+esc(item.brand):'')+(item.model?' · '+esc(item.model):'')+'</div></div><div class="d-flex align-items-center gap-2"><label class="form-label mb-0">Talep: <strong>'+qty+'</strong> '+esc(item.unit||'Adet')+' · Kalan: <strong>'+remaining+'</strong></label><input class="form-control tr-received" type="number" min="0" max="'+remaining+'" step="'+(p==='Envanter'||p==='Lisans'?'1':'0.01')+'" value="'+remaining+'" style="width:100px" '+(remaining<=0?'disabled':'')+'><label class="form-check mb-0"><input class="form-check-input tr-selected" type="checkbox" '+(remaining<=0?'disabled':'')+'> <span class="form-check-label">'+(remaining<=0?'Tamamlandı':'Geldi')+'</span></label></div></div>';
-  html+='<div class="transfer-fields" style="display:none">';
+  html+='<div class="d-flex justify-content-between align-items-center mb-3"><div><h6 class="mb-1">Kalem '+(i+1)+' — '+esc(p)+'</h6><div class="small text-muted">'+esc(item.device_type||'')+(item.brand?' · '+esc(item.brand):'')+(item.model?' · '+esc(item.model):'')+'</div></div><div class="d-flex align-items-center gap-2"><label class="form-label mb-0">Talep: <strong>'+qty+'</strong> '+esc(item.unit||'Adet')+' · Kalan: <strong>'+remaining+'</strong></label><input class="form-control tr-received" type="number" min="0" max="'+remaining+'" step="'+(p==='Envanter'||p==='Lisans'?'1':'0.01')+'" value="'+remaining+'" style="width:100px" '+(remaining<=0?'disabled':'')+'><label class="form-check mb-0"><input class="form-check-input tr-selected" type="checkbox" '+(remaining<=0?'disabled':'checked')+'> <span class="form-check-label">'+(remaining<=0?'Tamamlandı':'Geldi')+'</span></label></div></div>';
+  html+='<div class="transfer-fields" style="display:'+(remaining>0?'':'none')+'">';
   if(p==='Envanter'){
    html+='<div class="alert alert-secondary py-2 small">Gelen her cihaz için aşağıdaki bilgileri tek tek doldurun. Boş zorunlu alan kalırsa sistem size hangi cihazın hangi bilgisini istediğini gösterecek.</div><div class="tr-records"></div>';
   }else if(p==='Lisans'){
@@ -152,7 +152,7 @@ function openTransferForm(x,d){
  const itemName=row=>{const item=x.items.find(v=>String(v.id)===String(row.dataset.itemId));return item?.device_type||''};
  form.querySelectorAll('.transfer-item').forEach(row=>{
   const cb=row.querySelector('.tr-selected'),qty=row.querySelector('.tr-received');
-  cb?.addEventListener('change',()=>{row.querySelector('.transfer-fields').style.display=cb.checked?'':'none';if(cb.checked)buildRecords(row)});
+  cb?.addEventListener('change',()=>{row.querySelector('.transfer-fields').style.display=cb.checked?'':'none';if(cb.checked)buildRecords(row)}); if(cb?.checked)buildRecords(row);
   qty?.addEventListener('input',()=>{if(cb?.checked)buildRecords(row)});
   row.querySelector('.tr-brand')?.addEventListener('change',()=>refreshModels(row));
   row.querySelector('.tr-device')?.addEventListener('change',()=>refreshModels(row));
