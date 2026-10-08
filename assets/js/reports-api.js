@@ -2,8 +2,12 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const n=v=>Number(v||0).toLocaleString('tr-TR');
 const statusLabel=v=>({active:'Aktif',inactive:'Pasif',faulty:'Arızalı',arizali:'Arızalı',broken:'Arızalı',maintenance:'Bakımda',service:'Serviste',scrapped:'Hurda',pending:'Bekliyor',in_progress:'İşlemde',completed:'Tamamlandı',cancelled:'İptal',draft:'Taslak',approved:'Onaylandı',ordered:'Sipariş Verildi',rejected:'Reddedildi',expired:'Süresi Doldu',expiring:'Süresi Yaklaşıyor',available:'Mevcut',unavailable:'Mevcut Değil'}[v]||v||'Bilinmiyor');
+let reportController=null;
 async function load(){
  if(location.hash.slice(1)!=='reports')return;
+ reportController?.abort();
+ reportController=new AbortController();
+ const signal=reportController.signal;
  const c=document.querySelector('#pageContent'); if(!c)return;
  c.innerHTML='<div class="text-center text-secondary py-5">Raporlar yükleniyor...</div>';
  try{
