@@ -201,8 +201,16 @@ def transfer_request(request_id):
      if not model.active: raise ValueError("Aktarımda pasif model kullanılamaz")
      if model.brand_id!=brand.id or (model.product_type_id and model.product_type_id!=ptype.id):raise ValueError("Stok model, marka/donanım tipiyle eşleşmiyor")
     q=received
-    obj=StockItem(product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,quantity=q,unit=v.get("unit") or item.unit or "Adet",note=v.get("note") or item.description or None)
-    db.session.add(obj);db.session.flush();db.session.add(StockMovement(stock_item_id=obj.id,movement_type="in",quantity=q,unit=obj.unit,note=f"Satın alma talebi {x.request_no}"));created.append({"item_id":item.id,"type":"Stok","id":obj.id})
+    unit=v.get("unit") or item.unit or "Adet"
+    obj=StockItem.query.filter_by(product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,unit=unit).filter(StockItem.status!="scrapped").order_by(StockItem.id.asc()).first()
+    if obj:
+     obj.quantity=(obj.quantity or 0)+q
+     if v.get("note") or item.description: obj.note=v.get("note") or item.description
+     db.session.add(StockMovement(stock_item_id=obj.id,movement_type="in",quantity=q,unit=obj.unit,note=f"Satın alma talebi {x.request_no}"))
+    else:
+     obj=StockItem(product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,quantity=q,unit=unit,note=v.get("note") or item.description or None)
+     db.session.add(obj);db.session.flush();db.session.add(StockMovement(stock_item_id=obj.id,movement_type="in",quantity=q,unit=obj.unit,note=f"Satın alma talebi {x.request_no}"))
+    created.append({"item_id":item.id,"type":"Stok","id":obj.id,"merged_into_existing":bool(obj.id)})
   for item in x.items:
    v=by_id.get(str(item.id),{})
    if v.get("selected"):
