@@ -165,12 +165,13 @@ def create_stock():
     try:
         vals = _payload(data)
         quantity = vals.pop("quantity")
-        # Aynı donanım tipi + marka + model + barkod + birim için tek stok satırı kullan.
+        # Aynı donanım tipi + marka + model + birim tek stok satırında tutulur.
+        # Barkod stok satırının kimliğidir; aynı ürün yeniden geldiğinde yeni barkod
+        # oluşturmak yerine mevcut stok satırının miktarı artırılır.
         q = StockItem.query.filter_by(
             product_type_id=vals["product_type_id"],
             brand_id=vals["brand_id"],
             model_id=vals["model_id"],
-            barcode=vals["barcode"],
             unit=vals["unit"],
         ).filter(StockItem.status != "scrapped")
         x = q.order_by(StockItem.id.asc()).first()
@@ -178,7 +179,11 @@ def create_stock():
             x.quantity = (x.quantity or Decimal("0")) + quantity
             if vals.get("note"):
                 x.note = vals["note"]
-            db.session.add(StockMovement(stock_item_id=x.id, movement_type="in", quantity=quantity, unit=x.unit, note=data.get("note")))
+            movement_note = data.get("note")
+            incoming_barcode = vals.get("barcode")
+            if incoming_barcode and incoming_barcode != x.barcode:
+                movement_note = f"{movement_note} | Girilen barkod: {incoming_barcode}" if movement_note else f"Girilen barkod: {incoming_barcode}"
+            db.session.add(StockMovement(stock_item_id=x.id, movement_type="in", quantity=quantity, unit=x.unit, note=movement_note)
             _audit("stock.created", x.id, {"quantity": float(quantity), "merged_into_existing": True})
             db.session.commit()
             return jsonify(_dict(x)), 200
