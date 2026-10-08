@@ -109,8 +109,22 @@ async function transfer(id){
    const rr=await fetch('/api/requests/'+id,{headers:{Accept:'application/json'}});
    const dd=await rr.json(); if(!rr.ok)throw Error(dd.error||'Talep bulunamadı'); x=dd;
   }
-  const options=await (await fetch('/api/requests/transfer-options',{headers:{Accept:'application/json'}})).json();
+  const headers={Accept:'application/json'};
+  const [optRes,typesRes,brandsRes,modelsRes]=await Promise.all([
+   fetch('/api/requests/transfer-options',{headers}),
+   fetch('/api/settings/product-types',{headers}),
+   fetch('/api/settings/brands',{headers}),
+   fetch('/api/settings/models',{headers})
+  ]);
+  const options=await optRes.json();
   if(!options||options.error)throw Error(options?.error||'Aktarım seçenekleri alınamadı');
+  // Envanter masterları product scope'tan boş dönerse global aktif master verilerini kullan.
+  const typesData=typesRes.ok?await typesRes.json():{items:[]};
+  const brandsData=brandsRes.ok?await brandsRes.json():{items:[]};
+  const modelsData=modelsRes.ok?await modelsRes.json():{items:[]};
+  if(!(options.inventory_hardware_types||[]).length)options.inventory_hardware_types=typesData.items||[];
+  if(!(options.inventory_brands||[]).length)options.inventory_brands=brandsData.items||[];
+  if(!(options.inventory_models||[]).length)options.inventory_models=modelsData.items||[];
   openTransferForm(x,options);
  }catch(e){notify(e.message)}
 }
