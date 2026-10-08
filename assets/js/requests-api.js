@@ -117,16 +117,17 @@ const optionList=(arr,selected='')=>'<option value="">Seçiniz</option>'+(arr||[
 function openTransferForm(x,d){
  const rows=x.items.map((item,i)=>{
   const p=String(item.product_type||'').trim();
-  const catalog=p==='Envanter'
+  const productTypeKey=p.toLowerCase();
+  const catalog=productTypeKey==='envanter'
    ? {types:d.inventory_hardware_types||[],brands:d.inventory_brands||[],models:d.inventory_models||[]}
    : {types:d.stock_hardware_types||[],brands:d.stock_brands||[],models:d.stock_models||[]};
   const qty=Number(item.quantity||1); const receivedAlready=Number(item.received_quantity||0); const remaining=Math.max(0,qty-receivedAlready);
   let html='<div class="border rounded p-3 mb-3 transfer-item" data-item-id="'+item.id+'" data-product-type="'+esc(p)+'" data-device-type="'+esc(item.device_type||'')+'" data-brand="'+esc(item.brand||'')+'" data-model="'+esc(item.model||'')+'" data-unit="'+esc(item.unit||'Adet')+'">';
   html+='<div class="d-flex justify-content-between align-items-start mb-3"><div><h6 class="mb-1">Kalem '+(i+1)+' — '+esc(p)+'</h6><div class="small text-muted">Talepte açılan ürün: <strong>'+esc(item.device_type||'—')+'</strong>'+(item.brand?' · <strong>'+esc(item.brand)+'</strong>':'')+(item.model?' · <strong>'+esc(item.model)+'</strong>':'')+' · Miktar: <strong>'+esc(qty)+'</strong> '+esc(item.unit||'Adet')+'</div><div class="small text-primary mt-1">Talepteki ürün bilgileri aşağıdaki alanlara otomatik aktarılmıştır.</div></div><div class="d-flex align-items-center gap-2"><label class="form-label mb-0">Kalan: <strong>'+remaining+'</strong></label><input class="form-control tr-received" type="number" min="0" max="'+remaining+'" step="'+(p==='Envanter'||p==='Lisans'?'1':'0.01')+'" value="'+remaining+'" style="width:100px" '+(remaining<=0?'disabled':'')+'><label class="form-check mb-0"><input class="form-check-input tr-selected" type="checkbox" '+(remaining<=0?'disabled':'')+'> <span class="form-check-label">'+(remaining<=0?'Tamamlandı':'Geldi')+'</span></label></div></div>';
   html+='<div class="transfer-fields" style="display:none">';
-  if(p==='Envanter'){
+  if(productTypeKey==='envanter'){
    html+='<div class="alert alert-secondary py-2 small">Gelen her cihaz için aşağıdaki bilgileri tek tek doldurun. Boş zorunlu alan kalırsa sistem size hangi cihazın hangi bilgisini istediğini gösterecek.</div><div class="tr-records"></div>';
-  }else if(p==='Lisans'){
+  }else if(productTypeKey==='lisans'){
    html+='<div class="row g-2"><div class="col-md-6"><label class="form-label">Lisans Adı *</label><select class="form-select tr-license_name" required>'+optionList(d.license_names,(d.license_names||[]).find(v=>String(v.name)===String(item.brand))?.id)+'</select></div><div class="col-md-6"><label class="form-label">Lisans Modeli *</label><select class="form-select tr-license_model" required><option value="">Önce lisans adı seçin</option></select></div><div class="col-md-4"><label class="form-label">Lisans Anahtarı</label><input class="form-control tr-license_key"></div><div class="col-md-4"><label class="form-label">E-posta</label><input class="form-control tr-email" type="email"></div><div class="col-md-4"><label class="form-label">Sorumlu Personel</label><select class="form-select tr-person">'+optionList(d.personnel,x.requester?.id)+'</select></div><div class="col-md-4"><label class="form-label">Şifre</label><input class="form-control tr-password"></div><div class="col-md-3"><label class="form-label">Başlangıç</label><input class="form-control tr-starts_at" type="date"></div><div class="col-md-3"><label class="form-label">Bitiş</label><input class="form-control tr-expires_at" type="date"></div><div class="col-12"><label class="form-label">Not</label><textarea class="form-control tr-note" rows="2">'+esc(item.description||'')+'</textarea></div></div>';
   }else{
    html+='<div class="row g-2"><div class="col-md-4"><label class="form-label">Donanım Tipi *</label><select class="form-select tr-device" required>'+optionList(catalog.types,catalog.types.find(v=>v.name===item.device_type)?.id)+'</select></div><div class="col-md-4"><label class="form-label">Marka *</label><select class="form-select tr-brand" required>'+optionList(catalog.brands,catalog.brands.find(v=>v.name===item.brand)?.id)+'</select></div><div class="col-md-4"><label class="form-label">Model</label><select class="form-select tr-model"><option value="">Seçiniz</option></select></div><div class="col-md-4"><label class="form-label">Birim</label><select class="form-select tr-unit"><option>Adet</option><option>Kutu</option><option>Paket</option><option>Metre</option></select></div><div class="col-12"><label class="form-label">Not</label><textarea class="form-control tr-note" rows="2">'+esc(item.description||'')+'</textarea></div></div>';
@@ -152,7 +153,7 @@ function openTransferForm(x,d){
  const itemName=row=>{const item=x.items.find(v=>String(v.id)===String(row.dataset.itemId));return item?.device_type||''};
  form.querySelectorAll('.transfer-item').forEach(row=>{
   const cb=row.querySelector('.tr-selected'),qty=row.querySelector('.tr-received');
-  const syncFields=()=>{const fields=row.querySelector('.transfer-fields');if(!fields)return;if(!cb?.checked){fields.style.setProperty('display','none','important');const box=row.querySelector('.tr-records');if(box)box.innerHTML='';return;}const amount=Math.max(0,Math.floor(Number(qty?.value||0)));fields.style.setProperty('display',amount>0?'block':'none','important');if(amount>0)buildRecords(row);};
+  const syncFields=()=>{const fields=row.querySelector('.transfer-fields');if(!fields)return;const checked=!!cb?.checked;const amount=Math.max(0,Math.floor(Number(qty?.value||0)));if(!checked||amount<=0){fields.style.setProperty('display','none','important');const box=row.querySelector('.tr-records');if(box)box.innerHTML='';return;}fields.style.setProperty('display','block','important');buildRecords(row);};
   cb?.addEventListener('change',syncFields);
   qty?.addEventListener('input',syncFields);
   qty?.addEventListener('change',syncFields);
@@ -162,7 +163,7 @@ function openTransferForm(x,d){
   row.querySelector('.tr-device')?.addEventListener('change',()=>refreshModels(row));
   row.querySelector('.tr-license_name')?.addEventListener('change',e=>{const m=row.querySelector('.tr-license_model');m.innerHTML='<option value="">Seçiniz</option>'+(d.license_models||[]).filter(v=>String(v.license_name_id)===String(e.target.value)).map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');});
   refreshModels(row);
-  if(row.dataset.productType==='Lisans'){
+  if(String(row.dataset.productType||'').trim().toLowerCase()==='lisans'){
    const lm=(d.license_models||[]).find(v=>String(v.name)===String(row.dataset.model||'')||String(v.id)===String(row.dataset.model||''));
    if(lm)row.querySelector('.tr-license_model').value=String(lm.id);
   }else{
@@ -180,13 +181,13 @@ function openTransferForm(x,d){
    const val=s=>row.querySelector('.'+s)?.value||null,received=Number(row.querySelector('.tr-received')?.value||0);
    if(!received||received>Number(row.querySelector('.tr-received')?.max||0)){notify('Gelen miktar talep miktarı içinde olmalıdır.');return}
    const itemId=Number(row.dataset.itemId);
-   if(row.dataset.productType==='Envanter'){
+   if(String(row.dataset.productType||'').trim().toLowerCase()==='envanter'){
     const records=[...row.querySelectorAll('.tr-record')].map(rec=>{const rv=k=>rec.querySelector('.'+k)?.value||null;return {inventory_no:rv('tr-inventory_no'),factory:rv('tr-factory'),department:rv('tr-department'),device_type:rv('tr-device'),brand:rv('tr-brand'),model:rv('tr-model'),person:rv('tr-person'),computer_name:rv('tr-computer_name'),serial_no:rv('tr-serial_no'),ifs_no:rv('tr-ifs_no'),machine_no:rv('tr-machine_no'),note:rv('tr-note')}}); 
     const missing=records.flatMap((rec,i)=>[['inventory_no','Envanter No'],['factory','Fabrika'],['department','Departman'],['device_type','Donanım Tipi'],['brand','Marka']].filter(([key])=>!rec[key]).map(([,label])=>(i+1)+'. cihaz '+label));
     if(records.length!==Math.floor(received)){notify('Gelen cihaz sayısı ile cihaz bilgi alanları eşleşmiyor.');return}
     if(missing.length){notify('Eksik alan: '+missing[0]);return}
     items.push({item_id:itemId,selected:true,received_quantity:received,records});
-   }else if(row.dataset.productType==='Lisans')items.push({item_id:itemId,selected:true,received_quantity:received,license_name:val('tr-license_name'),license_model_id:val('tr-license_model'),license_key:val('tr-license_key'),email:val('tr-email'),password:val('tr-password'),person:val('tr-person'),starts_at:val('tr-starts_at'),expires_at:val('tr-expires_at'),note:val('tr-note')});
+   }else if(String(row.dataset.productType||'').trim().toLowerCase()==='lisans')items.push({item_id:itemId,selected:true,received_quantity:received,license_name:val('tr-license_name'),license_model_id:val('tr-license_model'),license_key:val('tr-license_key'),email:val('tr-email'),password:val('tr-password'),person:val('tr-person'),starts_at:val('tr-starts_at'),expires_at:val('tr-expires_at'),note:val('tr-note')});
    else items.push({item_id:itemId,selected:true,received_quantity:received,device_type:val('tr-device'),brand:val('tr-brand'),model:val('tr-model'),unit:val('tr-unit'),note:val('tr-note')});
   }
   transferSaving=true;
