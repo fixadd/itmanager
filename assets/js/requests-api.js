@@ -137,7 +137,7 @@ function openTransferForm(x,d){
  }).join('');
  const body='<form id="requestTransferForm"><div class="alert alert-info">Gelen ürünleri işaretleyin ve gelen miktarı girin. Sadece işaretlediğiniz kalemler sisteme kaydedilir. Envanter cihazlarında her cihazın bilgisi ayrı ayrı istenir.</div>'+rows+'</form>';
  if(window.ITUI)ITUI.modal('Gelen Talepleri Envantere / Stoka / Lisansa Gir',body,{size:'modal-xl',footer:'<button class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button class="btn btn-primary" data-transfer-save>Seçilenleri Kaydet</button>'});
- const form=document.querySelector('#itManagerModal #requestTransferForm');if(!form)return;
+ const form=document.querySelector('#requestTransferForm');if(!form)return;
  const refreshModels=row=>{const p=String(row.dataset.productType||'').trim();const catalog=p.toLowerCase()==='envanter'?{types:d.inventory_hardware_types||[],brands:d.inventory_brands||[],models:d.inventory_models||[]}:{types:d.stock_hardware_types||[],brands:d.stock_brands||[],models:d.stock_models||[]};const brand=row.querySelector('.tr-brand')?.value,type=row.querySelector('.tr-device')?.value,model=row.querySelector('.tr-model');if(!model)return;const b=catalog.brands.find(v=>String(v.id)===String(brand)),t=catalog.types.find(v=>String(v.id)===String(type));const ms=catalog.models.filter(v=>String(v.brand_id)===String(b?.id)&&(!t||!v.product_type_id||String(v.product_type_id)===String(t.id)));model.innerHTML='<option value="">Seçiniz</option>'+ms.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');};
  const buildRecords=row=>{
   if(String(row.dataset.productType||'').trim().toLowerCase()!=='envanter')return;
@@ -155,10 +155,11 @@ function openTransferForm(x,d){
   const cb=row.querySelector('.tr-selected'),qty=row.querySelector('.tr-received');
   const syncFields=()=>{const fields=row.querySelector('.transfer-fields');if(!fields)return;const checked=!!cb?.checked;const amount=Math.max(0,Math.floor(Number(qty?.value||0)));if(!checked||amount<=0){fields.style.setProperty('display','none','important');const box=row.querySelector('.tr-records');if(box)box.innerHTML='';return;}fields.style.setProperty('display','block','important');buildRecords(row);};
   cb?.addEventListener('change',syncFields);
+  row.addEventListener('change',e=>{if(e.target===cb)syncFields();});
   qty?.addEventListener('input',syncFields);
   qty?.addEventListener('change',syncFields);
   qty?.addEventListener('blur',syncFields);
-  if(cb?.checked)syncFields();
+  syncFields();
   row.querySelector('.tr-brand')?.addEventListener('change',()=>refreshModels(row));
   row.querySelector('.tr-device')?.addEventListener('change',()=>refreshModels(row));
   row.querySelector('.tr-license_name')?.addEventListener('change',e=>{const m=row.querySelector('.tr-license_model');m.innerHTML='<option value="">Seçiniz</option>'+(d.license_models||[]).filter(v=>String(v.license_name_id)===String(e.target.value)).map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');});
@@ -171,7 +172,7 @@ function openTransferForm(x,d){
    const unit=row.querySelector('.tr-unit');if(unit&&row.dataset.unit){const opt=[...unit.options].find(o=>o.value===row.dataset.unit||o.textContent===row.dataset.unit);if(opt)unit.value=opt.value;}
   }
  });
- document.querySelector('#itManagerModal [data-transfer-save]')?.addEventListener('click',async e=>{
+ document.querySelector('[data-transfer-save]')?.addEventListener('click',async e=>{
   if(transferSaving)return;
   const saveButton=e.currentTarget;
   const selected=[...form.querySelectorAll('.transfer-item')].filter(r=>r.querySelector('.tr-selected')?.checked);
