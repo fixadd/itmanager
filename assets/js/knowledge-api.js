@@ -48,8 +48,9 @@
       const res = await fetch(`${API}?${params}`, {signal});
       if (!res.ok) throw new Error('Bilgi bankası alınamadı');
       const data = await res.json();
-      state.items = data.items || [];
-      state.pagination = data.pagination || state.pagination;
+      const items = Array.isArray(data) ? data : (data.items || data.articles || data.knowledge || []);
+      state.items = Array.isArray(items) ? items : [];
+      state.pagination = (data && !Array.isArray(data) && data.pagination) ? data.pagination : { ...state.pagination, page, pages: 1, total: state.items.length };
       render();
       renderPagination();
       if (!state.categories.length) loadCategories();
@@ -66,7 +67,8 @@
     try {
       const res = await fetch(`${API}/categories`);
       if (!res.ok) return;
-      state.categories = await res.json();
+      const categoryData = await res.json();
+      state.categories = Array.isArray(categoryData) ? categoryData : (categoryData.categories || []);
       const s = document.querySelector('#knowledgeCategory');
       if (!s) return;
       const current = s.value;
