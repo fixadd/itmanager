@@ -162,6 +162,7 @@ def transfer_request(request_id):
  if not selected:return jsonify({"error":"En az bir gelen talep kalemi seçmelisiniz","requires_input":True,"items":missing}),400
  if any(v["missing"] for v in selected):return jsonify({"error":"Aktarım için eksik bilgiler var","requires_input":True,"items":missing}),409
  by_id={str(v.get("item_id")):v for v in (data.get("items") or [])}; created=[]
+ seen_inventory_nos=set()
  try:
   for item in x.items:
    v=by_id.get(str(item.id),{})
@@ -179,7 +180,13 @@ def transfer_request(request_id):
       if model.brand_id!=brand.id or (model.product_type_id and model.product_type_id!=ptype.id):raise ValueError("Envanter model, marka/donanım tipiyle eşleşmiyor")
      person=_resolve(Personnel,rec.get("person"),"personel") if rec.get("person") not in (None,"") else None
      if person and not person.active: raise ValueError("Aktarımda pasif personel kullanılamaz")
-     obj=Inventory(inventory_no=str(rec["inventory_no"]).strip(),computer_name=rec.get("computer_name") or None,serial_no=rec.get("serial_no") or None,machine_no=rec.get("machine_no") or None,ifs_no=rec.get("ifs_no") or None,note=rec.get("note") or item.description or None,factory_id=factory.id,department_id=department.id,product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,personnel_id=person.id if person else None)
+     inventory_no=str(rec.get("inventory_no") or "").strip()
+     if not inventory_no: raise ValueError("Envanter No alanı zorunludur")
+     inventory_key=inventory_no.casefold()
+     if inventory_key in seen_inventory_nos or db.session.query(Inventory.id).filter(func.lower(Inventory.inventory_no)==inventory_key).first():
+      raise ValueError(f"Envanter No zaten kullanılıyor: {inventory_no}")
+     seen_inventory_nos.add(inventory_key)
+     obj=Inventory(inventory_no=inventory_no,computer_name=rec.get("computer_name") or None,serial_no=rec.get("serial_no") or None,machine_no=rec.get("machine_no") or None,ifs_no=rec.get("ifs_no") or None,note=rec.get("note") or item.description or None,factory_id=factory.id,department_id=department.id,product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,personnel_id=person.id if person else None)
      db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Envanter","id":obj.id})
    elif item.product_type=="Lisans":
     name=_resolve(LicenseName,v.get("license_name"),"lisans adı"); model=_resolve(LicenseModel,v.get("license_model_id") or v.get("license_model"),"lisans modeli")
