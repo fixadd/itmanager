@@ -42,31 +42,32 @@ async function loadAllRequestPersonnel(headers){
 async function loadRequestMasterData(){
  if(requestMasterData)return requestMasterData;
  const headers={Accept:'application/json'};
- const [g,inv,stock,lic]=await Promise.all([
+ const [g,inv,stock,transfer]=await Promise.all([
   fetch('/api/settings/product-hierarchy',{headers}),
   fetch('/api/settings/product-catalog?scope=inventory',{headers}),
   fetch('/api/settings/product-catalog?scope=stock',{headers}),
-  fetch('/api/settings/license-catalog',{headers})
+  fetch('/api/requests/transfer-options',{headers})
  ]);
- if(!g.ok||!inv.ok||!stock.ok||!lic.ok)throw Error('Ana veriler alınamadı');
- const [gd,id,sd,ld]=await Promise.all([g.json(),inv.json(),stock.json(),lic.json()]);
- // Personel listesi form açılışını bloklamasın; ihtiyaç olduğunda arka planda yüklenir.
+ if(!g.ok||!inv.ok||!stock.ok||!transfer.ok)throw Error('Ana veriler alınamadı');
+ const [gd,id,sd,td]=await Promise.all([g.json(),inv.json(),stock.json(),transfer.json()]);
  const personnel=[];
+ const licenseNames=Array.isArray(td.license_names)?td.license_names:[];
+ const licenseModels=Array.isArray(td.license_models)?td.license_models:[];
  requestMasterData={
-  inventoryTypes:id.hardware_types||[],
-  inventoryBrands:id.brands||[],
-  inventoryModels:id.models||[],
-  stockTypes:sd.hardware_types||[],
-  stockBrands:sd.brands||[],
-  stockModels:sd.models||[],
-  brands:id.brands||[],
-  models:id.models||[],
-  factories:gd.factories||[],
-  departments:gd.departments||[],
+  inventoryTypes:id.hardware_types?.length?id.hardware_types:(td.inventory_hardware_types||[]),
+  inventoryBrands:id.brands?.length?id.brands:(td.inventory_brands||[]),
+  inventoryModels:id.models?.length?id.models:(td.inventory_models||[]),
+  stockTypes:sd.hardware_types?.length?sd.hardware_types:(td.stock_hardware_types||[]),
+  stockBrands:sd.brands?.length?sd.brands:(td.stock_brands||[]),
+  stockModels:sd.models?.length?sd.models:(td.stock_models||[]),
+  brands:id.brands?.length?id.brands:(td.inventory_brands||[]),
+  models:id.models?.length?id.models:(td.inventory_models||[]),
+  factories:gd.factories||td.factories||[],
+  departments:gd.departments||td.departments||[],
   personnel,
-  licenseNames:Array.isArray(ld.names)?ld.names:(Array.isArray(ld.license_names)?ld.license_names:(Array.isArray(ld.items)?ld.items:[])),
-  licenseModels:Array.isArray(ld.models)?ld.models:(Array.isArray(ld.license_models)?ld.license_models:[]),
-  licenses:Array.isArray(ld.names)?ld.names:(Array.isArray(ld.license_names)?ld.license_names:(Array.isArray(ld.items)?ld.items:[]))
+  licenseNames,
+  licenseModels,
+  licenses:licenseNames
  };
  window.IT_MASTER_DATA=requestMasterData; window.IT_REQUEST_MASTER_DATA=requestMasterData;
  return requestMasterData;
@@ -140,15 +141,17 @@ function openTransferForm(x,d){
  const form=document.querySelector('#requestTransferForm');if(!form)return;
  const refreshModels=row=>{const p=String(row.dataset.productType||'').trim();const catalog=p.toLowerCase()==='envanter'?{types:d.inventory_hardware_types||[],brands:d.inventory_brands||[],models:d.inventory_models||[]}:{types:d.stock_hardware_types||[],brands:d.stock_brands||[],models:d.stock_models||[]};const brand=row.querySelector('.tr-brand')?.value,type=row.querySelector('.tr-device')?.value,model=row.querySelector('.tr-model');if(!model)return;const b=catalog.brands.find(v=>String(v.id)===String(brand)),t=catalog.types.find(v=>String(v.id)===String(type));const ms=catalog.models.filter(v=>String(v.brand_id)===String(b?.id)&&(!t||!v.product_type_id||String(v.product_type_id)===String(t.id)));model.innerHTML='<option value="">Seçiniz</option>'+ms.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');};
  const buildRecords=row=>{
-  if(String(row.dataset.productType||'').trim().toLowerCase()!=='envanter')return;
+  if(String(row.dataset.productType||'').trim().toLocaleLowerCase('tr')!=='envanter')return;
   const box=row.querySelector('.tr-records');if(!box)return;
-  const n=Math.floor(Number(row.querySelector('.tr-received')?.value||0));box.innerHTML='';
+  const n=Math.max(0,Math.floor(Number(row.querySelector('.tr-received')?.value||0)));box.innerHTML='';
+  const norm=v=>String(v??'').trim().toLocaleLowerCase('tr');
   const deviceType=row.dataset.deviceType||'',brandName=row.dataset.brand||'',modelName=row.dataset.model||'';
   const factoryId=x.factory?.id||'',departmentId=x.department?.id||'',personId=x.requester?.id||'';
-  const typeId=(d.inventory_hardware_types||[]).find(v=>String(v.name).trim().toLocaleLowerCase('tr')===String(deviceType).trim().toLocaleLowerCase('tr'))?.id;
-  const brandId=(d.inventory_brands||[]).find(v=>String(v.name).trim().toLocaleLowerCase('tr')===String(brandName).trim().toLocaleLowerCase('tr'))?.id;
-  const modelId=(d.inventory_models||[]).find(v=>v.name===modelName)?.id;
-  for(let i=0;i<n;i++)box.insertAdjacentHTML('beforeend','<div class="border rounded p-3 mb-2 tr-record" data-index="'+i+'"><h6 class="mb-2">'+(i+1)+'. Cihaz</h6><div class="row g-2"><div class="col-md-4"><label class="form-label">Envanter No *</label><input class="form-control tr-inventory_no" required></div><div class="col-md-4"><label class="form-label">Fabrika *</label><select class="form-select tr-factory" required>'+optionList(d.factories,factoryId)+'</select></div><div class="col-md-4"><label class="form-label">Departman *</label><select class="form-select tr-department" required>'+optionList(d.departments,departmentId)+'</select></div><div class="col-md-4"><label class="form-label">Donanım Tipi *</label><select class="form-select tr-device" required>'+optionList(d.inventory_hardware_types||[],typeId)+'</select></div><div class="col-md-4"><label class="form-label">Marka *</label><select class="form-select tr-brand" required>'+optionList(d.inventory_brands||[],brandId)+'</select></div><div class="col-md-4"><label class="form-label">Model</label><select class="form-select tr-model"><option value="">Seçiniz</option>'+((d.inventory_models||[]).filter(v=>String(v.brand_id)===String(brandId)&&(!v.product_type_id||String(v.product_type_id)===String(typeId))).map(v=>'<option value="'+esc(v.id)+'"'+(String(v.id)===String(modelId)?' selected':'')+'>'+esc(v.name)+'</option>').join(''))+'</select></div><div class="col-md-4"><label class="form-label">Sorumlu Personel</label><select class="form-select tr-person">'+optionList(d.personnel,personId)+'</select></div><div class="col-md-4"><label class="form-label">Bilgisayar Adı</label><input class="form-control tr-computer_name"></div><div class="col-md-4"><label class="form-label">Seri No</label><input class="form-control tr-serial_no"></div><div class="col-md-4"><label class="form-label">IFS No</label><input class="form-control tr-ifs_no"></div><div class="col-md-4"><label class="form-label">Bağlı Makina No</label><input class="form-control tr-machine_no"></div><div class="col-12"><label class="form-label">Not</label><textarea class="form-control tr-note">'+esc(item.description||'')+'</textarea></div></div></div>');
+  const typeId=(d.inventory_hardware_types||[]).find(v=>norm(v.name)===norm(deviceType))?.id;
+  const brandId=(d.inventory_brands||[]).find(v=>norm(v.name)===norm(brandName))?.id;
+  const modelId=(d.inventory_models||[]).find(v=>norm(v.name)===norm(modelName))?.id;
+  const modelOptions=(d.inventory_models||[]).filter(v=>String(v.brand_id)===String(brandId)&&(!v.product_type_id||String(v.product_type_id)===String(typeId)));
+  for(let i=0;i<n;i++)box.insertAdjacentHTML('beforeend','<div class="border rounded p-3 mb-2 tr-record" data-index="'+i+'"><h6 class="mb-2">'+(i+1)+'. Cihaz</h6><div class="row g-2"><div class="col-md-4"><label class="form-label">Envanter No *</label><input class="form-control tr-inventory_no" required></div><div class="col-md-4"><label class="form-label">Fabrika *</label><select class="form-select tr-factory" required>'+optionList(d.factories,factoryId)+'</select></div><div class="col-md-4"><label class="form-label">Departman *</label><select class="form-select tr-department" required>'+optionList(d.departments,departmentId)+'</select></div><div class="col-md-4"><label class="form-label">Donanım Tipi *</label><select class="form-select tr-device" required>'+optionList(d.inventory_hardware_types||[],typeId)+'</select></div><div class="col-md-4"><label class="form-label">Marka *</label><select class="form-select tr-brand" required>'+optionList(d.inventory_brands||[],brandId)+'</select></div><div class="col-md-4"><label class="form-label">Model</label><select class="form-select tr-model"><option value="">Seçiniz</option>'+modelOptions.map(v=>'<option value="'+esc(v.id)+'"'+(String(v.id)===String(modelId)?' selected':'')+'>'+esc(v.name)+'</option>').join('')+'</select></div><div class="col-md-4"><label class="form-label">Sorumlu Personel</label><select class="form-select tr-person">'+optionList(d.personnel,personId)+'</select></div><div class="col-md-4"><label class="form-label">Bilgisayar Adı</label><input class="form-control tr-computer_name"></div><div class="col-md-4"><label class="form-label">Seri No</label><input class="form-control tr-serial_no"></div><div class="col-md-4"><label class="form-label">IFS No</label><input class="form-control tr-ifs_no"></div><div class="col-md-4"><label class="form-label">Bağlı Makina No</label><input class="form-control tr-machine_no"></div><div class="col-12"><label class="form-label">Not</label><textarea class="form-control tr-note">'+esc(item.description||'')+'</textarea></div></div></div>');
  };
  const itemName=row=>{const item=x.items.find(v=>String(v.id)===String(row.dataset.itemId));return item?.device_type||''};
  form.querySelectorAll('.transfer-item').forEach(row=>{
