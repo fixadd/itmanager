@@ -154,11 +154,14 @@ function openTransferForm(x,d){
  form.querySelectorAll('.transfer-item').forEach(row=>{
   const cb=row.querySelector('.tr-selected'),qty=row.querySelector('.tr-received');
   const syncFields=()=>{const fields=row.querySelector('.transfer-fields');if(!fields)return;const checked=!!cb?.checked;const amount=Math.max(0,Math.floor(Number(qty?.value||0)));if(!checked||amount<=0){fields.style.setProperty('display','none','important');const box=row.querySelector('.tr-records');if(box)box.innerHTML='';return;}fields.style.setProperty('display','block','important');buildRecords(row);};
+  // Checkbox ve miktar alanını doğrudan bağla; modal içindeki diğer global event'lerden etkilenmesin.
   cb?.addEventListener('change',syncFields);
+  cb?.addEventListener('click',()=>setTimeout(syncFields,0));
   row.addEventListener('change',e=>{if(e.target===cb)syncFields();});
   qty?.addEventListener('input',syncFields);
   qty?.addEventListener('change',syncFields);
   qty?.addEventListener('blur',syncFields);
+  qty?.addEventListener('keyup',syncFields);
   syncFields();
   row.querySelector('.tr-brand')?.addEventListener('change',()=>refreshModels(row));
   row.querySelector('.tr-device')?.addEventListener('change',()=>refreshModels(row));
