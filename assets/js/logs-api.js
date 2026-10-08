@@ -63,7 +63,7 @@ const formatDetail=(v,key='')=>{
  if(key==='action'||key==='status'||key==='old_status'||key==='new_status'||key==='source_type')return label(v);
  return String(v);
 };
-let page=1, meta={actions:[],entity_types:[],users:[]};
+let page=1, meta={actions:[],entity_types:[],users:[]},metaController=null,refreshController=null;
 async function json(url,opts){const r=await fetch(url,opts);const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'İşlem başarısız');return d}
 async function loadMeta(){metaController?.abort();metaController=new AbortController();try{meta=await json('/api/logs/meta',{signal:metaController.signal})}catch(e){if(e.name!=='AbortError')console.error(e)}}
 async function load(){
