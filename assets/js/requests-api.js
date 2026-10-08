@@ -197,7 +197,7 @@ function openTransferForm(x,d){
  document.addEventListener('input',e=>{if(!e.target.matches('.transfer-item .tr-received'))return;const row=e.target.closest('.transfer-item'),cb=row?.querySelector('.tr-selected'),fields=row?.querySelector('.transfer-fields');if(!row||!cb||!fields||!cb.checked)return;const amount=Math.max(0,Math.floor(Number(e.target.value||0)));fields.style.setProperty('display',amount>0?'block':'none','important');if(amount>0&&String(row.dataset.productType||'').trim().toLowerCase()==='envanter')buildRecords(row);},true);
  document.querySelector('[data-transfer-save]')?.addEventListener('click',async e=>{
   if(transferSaving)return;
-  const saveButton=e.currentTarget;
+  const saveButton=e.target.closest('[data-transfer-save]');
   const selected=[...form.querySelectorAll('.transfer-item')].filter(r=>r.querySelector('.tr-selected')?.checked);
   if(!selected.length){notify('En az bir gelen kalemi seçin.');return}
   const items=[];
