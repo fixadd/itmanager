@@ -183,7 +183,7 @@ def transfer_request(request_id):
      inventory_no=str(rec.get("inventory_no") or "").strip()
      if not inventory_no: raise ValueError("Envanter No alanı zorunludur")
      inventory_key=inventory_no.casefold()
-     if inventory_key in seen_inventory_nos or db.session.query(Inventory.id).filter(func.lower(Inventory.inventory_no)==inventory_key).first():
+     if inventory_key in seen_inventory_nos or db.session.query(Inventory.id).filter(db.func.lower(Inventory.inventory_no)==inventory_key).first():
       raise ValueError(f"Envanter No zaten kullanılıyor: {inventory_no}")
      seen_inventory_nos.add(inventory_key)
      obj=Inventory(inventory_no=inventory_no,computer_name=rec.get("computer_name") or None,serial_no=rec.get("serial_no") or None,machine_no=rec.get("machine_no") or None,ifs_no=rec.get("ifs_no") or None,note=rec.get("note") or item.description or None,factory_id=factory.id,department_id=department.id,product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,personnel_id=person.id if person else None)
