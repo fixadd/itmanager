@@ -96,6 +96,7 @@ function go(k,force=false){
   window.scrollTo(0,0);
   if(k==='dashboard')setTimeout(loadDashboard,0);
   if(k==='knowledge')setTimeout(()=>window.IT_KNOWLEDGE_UI?.render?.(),0);
+  if(k==='people')setTimeout(()=>window.IT_PERSONNEL_API?.load?.(1),0);
   if(k==='barcode'){
     const run=async()=>{
       const input=document.querySelector('#navBarcode'),box=document.querySelector('#navBarcodeResult'),q=input?.value.trim();
