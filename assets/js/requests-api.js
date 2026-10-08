@@ -116,14 +116,14 @@ async function transfer(id){
 const optionList=(arr,selected='')=>'<option value="">Seçiniz</option>'+(arr||[]).map(v=>'<option value="'+esc(v.id)+'"'+(String(v.id)===String(selected)?' selected':'')+'>'+esc(v.name)+'</option>').join('');
 function openTransferForm(x,d){
  const rows=x.items.map((item,i)=>{
-  const p=item.product_type;
+  const p=String(item.product_type||'').trim();
   const catalog=p==='Envanter'
    ? {types:d.inventory_hardware_types||[],brands:d.inventory_brands||[],models:d.inventory_models||[]}
    : {types:d.stock_hardware_types||[],brands:d.stock_brands||[],models:d.stock_models||[]};
   const qty=Number(item.quantity||1); const receivedAlready=Number(item.received_quantity||0); const remaining=Math.max(0,qty-receivedAlready);
   let html='<div class="border rounded p-3 mb-3 transfer-item" data-item-id="'+item.id+'" data-product-type="'+esc(p)+'" data-device-type="'+esc(item.device_type||'')+'" data-brand="'+esc(item.brand||'')+'" data-model="'+esc(item.model||'')+'" data-unit="'+esc(item.unit||'Adet')+'">';
-  html+='<div class="d-flex justify-content-between align-items-start mb-3"><div><h6 class="mb-1">Kalem '+(i+1)+' — '+esc(p)+'</h6><div class="small text-muted">Talepte açılan ürün: <strong>'+esc(item.device_type||'—')+'</strong>'+(item.brand?' · <strong>'+esc(item.brand)+'</strong>':'')+(item.model?' · <strong>'+esc(item.model)+'</strong>':'')+' · Miktar: <strong>'+esc(qty)+'</strong> '+esc(item.unit||'Adet')+'</div><div class="small text-primary mt-1">Talepteki ürün bilgileri aşağıdaki alanlara otomatik aktarılmıştır.</div></div><div class="d-flex align-items-center gap-2"><label class="form-label mb-0">Kalan: <strong>'+remaining+'</strong></label><input class="form-control tr-received" type="number" min="0" max="'+remaining+'" step="'+(p==='Envanter'||p==='Lisans'?'1':'0.01')+'" value="'+remaining+'" style="width:100px" '+(remaining<=0?'disabled':'')+'><label class="form-check mb-0"><input class="form-check-input tr-selected" type="checkbox" '+(remaining<=0?'disabled':'checked')+'> <span class="form-check-label">'+(remaining<=0?'Tamamlandı':'Geldi')+'</span></label></div></div>';
-  html+='<div class="transfer-fields" style="display:'+(remaining>0?'':'none')+'">';
+  html+='<div class="d-flex justify-content-between align-items-start mb-3"><div><h6 class="mb-1">Kalem '+(i+1)+' — '+esc(p)+'</h6><div class="small text-muted">Talepte açılan ürün: <strong>'+esc(item.device_type||'—')+'</strong>'+(item.brand?' · <strong>'+esc(item.brand)+'</strong>':'')+(item.model?' · <strong>'+esc(item.model)+'</strong>':'')+' · Miktar: <strong>'+esc(qty)+'</strong> '+esc(item.unit||'Adet')+'</div><div class="small text-primary mt-1">Talepteki ürün bilgileri aşağıdaki alanlara otomatik aktarılmıştır.</div></div><div class="d-flex align-items-center gap-2"><label class="form-label mb-0">Kalan: <strong>'+remaining+'</strong></label><input class="form-control tr-received" type="number" min="0" max="'+remaining+'" step="'+(p==='Envanter'||p==='Lisans'?'1':'0.01')+'" value="'+remaining+'" style="width:100px" '+(remaining<=0?'disabled':'')+'><label class="form-check mb-0"><input class="form-check-input tr-selected" type="checkbox" '+(remaining<=0?'disabled':'')+'> <span class="form-check-label">'+(remaining<=0?'Tamamlandı':'Geldi')+'</span></label></div></div>';
+  html+='<div class="transfer-fields" style="display:none">';
   if(p==='Envanter'){
    html+='<div class="alert alert-secondary py-2 small">Gelen her cihaz için aşağıdaki bilgileri tek tek doldurun. Boş zorunlu alan kalırsa sistem size hangi cihazın hangi bilgisini istediğini gösterecek.</div><div class="tr-records"></div>';
   }else if(p==='Lisans'){
@@ -137,9 +137,9 @@ function openTransferForm(x,d){
  const body='<form id="requestTransferForm"><div class="alert alert-info">Gelen ürünleri işaretleyin ve gelen miktarı girin. Sadece işaretlediğiniz kalemler sisteme kaydedilir. Envanter cihazlarında her cihazın bilgisi ayrı ayrı istenir.</div>'+rows+'</form>';
  if(window.ITUI)ITUI.modal('Gelen Talepleri Envantere / Stoka / Lisansa Gir',body,{size:'modal-xl',footer:'<button class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button class="btn btn-primary" data-transfer-save>Seçilenleri Kaydet</button>'});
  const form=document.querySelector('#itManagerModal #requestTransferForm');if(!form)return;
- const refreshModels=row=>{const p=row.dataset.productType;const catalog=p==='Envanter'?{types:d.inventory_hardware_types||[],brands:d.inventory_brands||[],models:d.inventory_models||[]}:{types:d.stock_hardware_types||[],brands:d.stock_brands||[],models:d.stock_models||[]};const brand=row.querySelector('.tr-brand')?.value,type=row.querySelector('.tr-device')?.value,model=row.querySelector('.tr-model');if(!model)return;const b=catalog.brands.find(v=>String(v.id)===String(brand)),t=catalog.types.find(v=>String(v.id)===String(type));const ms=catalog.models.filter(v=>String(v.brand_id)===String(b?.id)&&(!t||!v.product_type_id||String(v.product_type_id)===String(t.id)));model.innerHTML='<option value="">Seçiniz</option>'+ms.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');};
+ const refreshModels=row=>{const p=String(row.dataset.productType||'').trim();const catalog=p.toLowerCase()==='envanter'?{types:d.inventory_hardware_types||[],brands:d.inventory_brands||[],models:d.inventory_models||[]}:{types:d.stock_hardware_types||[],brands:d.stock_brands||[],models:d.stock_models||[]};const brand=row.querySelector('.tr-brand')?.value,type=row.querySelector('.tr-device')?.value,model=row.querySelector('.tr-model');if(!model)return;const b=catalog.brands.find(v=>String(v.id)===String(brand)),t=catalog.types.find(v=>String(v.id)===String(type));const ms=catalog.models.filter(v=>String(v.brand_id)===String(b?.id)&&(!t||!v.product_type_id||String(v.product_type_id)===String(t.id)));model.innerHTML='<option value="">Seçiniz</option>'+ms.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');};
  const buildRecords=row=>{
-  if(row.dataset.productType!=='Envanter')return;
+  if(String(row.dataset.productType||'').trim().toLowerCase()!=='envanter')return;
   const box=row.querySelector('.tr-records');if(!box)return;
   const n=Math.floor(Number(row.querySelector('.tr-received')?.value||0));box.innerHTML='';
   const deviceType=row.dataset.deviceType||itemName(row),brandName=row.dataset.brand||'',modelName=row.dataset.model||'';
@@ -152,7 +152,7 @@ function openTransferForm(x,d){
  const itemName=row=>{const item=x.items.find(v=>String(v.id)===String(row.dataset.itemId));return item?.device_type||''};
  form.querySelectorAll('.transfer-item').forEach(row=>{
   const cb=row.querySelector('.tr-selected'),qty=row.querySelector('.tr-received');
-  const syncFields=()=>{const fields=row.querySelector('.transfer-fields');if(!fields)return;if(!cb?.checked){fields.style.setProperty('display','none','important');return;}const amount=Math.max(0,Math.floor(Number(qty?.value||0)));fields.style.setProperty('display',amount>0?'block':'none','important');if(amount>0)buildRecords(row);};
+  const syncFields=()=>{const fields=row.querySelector('.transfer-fields');if(!fields)return;if(!cb?.checked){fields.style.setProperty('display','none','important');const box=row.querySelector('.tr-records');if(box)box.innerHTML='';return;}const amount=Math.max(0,Math.floor(Number(qty?.value||0)));fields.style.setProperty('display',amount>0?'block':'none','important');if(amount>0)buildRecords(row);};
   cb?.addEventListener('change',syncFields);
   qty?.addEventListener('input',syncFields);
   qty?.addEventListener('change',syncFields);
