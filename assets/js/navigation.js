@@ -95,6 +95,8 @@ function go(k,force=false){
   content.innerHTML=layout(k);
   window.scrollTo(0,0);
   if(k==='dashboard')setTimeout(loadDashboard,0);
+  if(k==='reports')setTimeout(()=>window.IT_REPORTS_API?.load?.(),0);
+  if(k==='logs')setTimeout(()=>window.IT_LOGS_API?.load?.(),0);
   if(k==='knowledge')setTimeout(()=>window.IT_KNOWLEDGE_UI?.render?.(),0);
   if(k==='people')setTimeout(()=>window.IT_PERSONNEL_API?.load?.(1),0);
   if(k==='barcode'){
