@@ -64,9 +64,9 @@ async function loadRequestMasterData(){
   factories:gd.factories||[],
   departments:gd.departments||[],
   personnel,
-  licenseNames:ld.names||ld.license_names||[],
-  licenseModels:ld.models||[],
-  licenses:ld.names||ld.license_names||[]
+  licenseNames:Array.isArray(ld.names)?ld.names:(Array.isArray(ld.license_names)?ld.license_names:(Array.isArray(ld.items)?ld.items:[])),
+  licenseModels:Array.isArray(ld.models)?ld.models:(Array.isArray(ld.license_models)?ld.license_models:[]),
+  licenses:Array.isArray(ld.names)?ld.names:(Array.isArray(ld.license_names)?ld.license_names:(Array.isArray(ld.items)?ld.items:[]))
  };
  window.IT_MASTER_DATA=requestMasterData; window.IT_REQUEST_MASTER_DATA=requestMasterData;
  return requestMasterData;
@@ -143,10 +143,10 @@ function openTransferForm(x,d){
   if(String(row.dataset.productType||'').trim().toLowerCase()!=='envanter')return;
   const box=row.querySelector('.tr-records');if(!box)return;
   const n=Math.floor(Number(row.querySelector('.tr-received')?.value||0));box.innerHTML='';
-  const deviceType=row.dataset.deviceType||itemName(row),brandName=row.dataset.brand||'',modelName=row.dataset.model||'';
+  const deviceType=row.dataset.deviceType||'',brandName=row.dataset.brand||'',modelName=row.dataset.model||'';
   const factoryId=x.factory?.id||'',departmentId=x.department?.id||'',personId=x.requester?.id||'';
-  const typeId=(d.inventory_hardware_types||[]).find(v=>v.name===deviceType)?.id;
-  const brandId=(d.inventory_brands||[]).find(v=>v.name===brandName)?.id;
+  const typeId=(d.inventory_hardware_types||[]).find(v=>String(v.name).trim().toLocaleLowerCase('tr')===String(deviceType).trim().toLocaleLowerCase('tr'))?.id;
+  const brandId=(d.inventory_brands||[]).find(v=>String(v.name).trim().toLocaleLowerCase('tr')===String(brandName).trim().toLocaleLowerCase('tr'))?.id;
   const modelId=(d.inventory_models||[]).find(v=>v.name===modelName)?.id;
   for(let i=0;i<n;i++)box.insertAdjacentHTML('beforeend','<div class="border rounded p-3 mb-2 tr-record" data-index="'+i+'"><h6 class="mb-2">'+(i+1)+'. Cihaz</h6><div class="row g-2"><div class="col-md-4"><label class="form-label">Envanter No *</label><input class="form-control tr-inventory_no" required></div><div class="col-md-4"><label class="form-label">Fabrika *</label><select class="form-select tr-factory" required>'+optionList(d.factories,factoryId)+'</select></div><div class="col-md-4"><label class="form-label">Departman *</label><select class="form-select tr-department" required>'+optionList(d.departments,departmentId)+'</select></div><div class="col-md-4"><label class="form-label">Donanım Tipi *</label><select class="form-select tr-device" required>'+optionList(d.inventory_hardware_types||[],typeId)+'</select></div><div class="col-md-4"><label class="form-label">Marka *</label><select class="form-select tr-brand" required>'+optionList(d.inventory_brands||[],brandId)+'</select></div><div class="col-md-4"><label class="form-label">Model</label><select class="form-select tr-model"><option value="">Seçiniz</option>'+((d.inventory_models||[]).filter(v=>String(v.brand_id)===String(brandId)&&(!v.product_type_id||String(v.product_type_id)===String(typeId))).map(v=>'<option value="'+esc(v.id)+'"'+(String(v.id)===String(modelId)?' selected':'')+'>'+esc(v.name)+'</option>').join(''))+'</select></div><div class="col-md-4"><label class="form-label">Sorumlu Personel</label><select class="form-select tr-person">'+optionList(d.personnel,personId)+'</select></div><div class="col-md-4"><label class="form-label">Bilgisayar Adı</label><input class="form-control tr-computer_name"></div><div class="col-md-4"><label class="form-label">Seri No</label><input class="form-control tr-serial_no"></div><div class="col-md-4"><label class="form-label">IFS No</label><input class="form-control tr-ifs_no"></div><div class="col-md-4"><label class="form-label">Bağlı Makina No</label><input class="form-control tr-machine_no"></div><div class="col-12"><label class="form-label">Not</label><textarea class="form-control tr-note">'+esc(item.description||'')+'</textarea></div></div></div>');
  };
