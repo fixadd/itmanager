@@ -208,7 +208,14 @@ def transfer_request(request_id):
    if v.get("selected"):
     received=float(v.get("received_quantity",0) or 0)
     item.received_quantity=(item.received_quantity or 0)+received
-  _audit("request.transferred",x.id,{"request_no":x.request_no,"targets":created});db.session.commit();return jsonify({"request_id":x.id,"request_no":x.request_no,"transferred":created})
+  # Tüm talep kalemleri tamamen teslim alındıysa talebi otomatik tamamla.
+  all_received=all(float(item.received_quantity or 0) >= float(item.quantity or 0) - 1e-9 for item in x.items)
+  if all_received and x.status not in {"completed","cancelled","rejected"}:
+   old_status=x.status
+   x.status="completed"
+   if not x.completed_at:x.completed_at=datetime.now(timezone.utc)
+   _audit("request.completed",x.id,{"from_status":old_status,"reason":"Tüm talep kalemleri teslim alındı"})
+  _audit("request.transferred",x.id,{"request_no":x.request_no,"targets":created});db.session.commit();return jsonify({"request_id":x.id,"request_no":x.request_no,"status":x.status,"transferred":created})
  except ValueError as e:db.session.rollback();return jsonify({"error":str(e)}),400
  except Exception as e:db.session.rollback();return jsonify({"error":"Talep aktarımı başarısız","detail":str(e)}),409
 
