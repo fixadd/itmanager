@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db
-from ..models import AuditLog, Brand, Department, Factory, LicenseName, ProductModel, ProductType
+from ..models import AuditLog, Brand, ConnectionSetting, Department, Factory, LicenseName, ProductModel, ProductType
 from .auth_routes import login_required, permission_required
 
 settings_bp = Blueprint("settings", __name__)
@@ -237,3 +237,56 @@ def connections():
     uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
     return jsonify({"database": {"type": "PostgreSQL", "configured": bool(uri), "host": "hidden", "credentials_exposed": False},
                     "backend": {"status": "ok"}, "environment": current_app.config.get("ENV", "production")})
+
+
+BRANDING_KEY = "system_branding"
+DEFAULT_BRANDING = {"system_name": "Baylan IT Manager", "company_name": "BAYLAN", "subtitle": "IT MANAGER", "logo_data": ""}
+
+
+def _branding_setting():
+    row = ConnectionSetting.query.filter_by(name=BRANDING_KEY).first()
+    values = dict(DEFAULT_BRANDING)
+    if row and isinstance(row.options, dict):
+        values.update({key: row.options.get(key, values[key]) for key in values})
+    return row, values
+
+
+@settings_bp.get("/settings/branding")
+@login_required
+def get_branding():
+    _, values = _branding_setting()
+    return jsonify(values)
+
+
+@settings_bp.put("/settings/branding")
+@permission_required("settings.manage")
+def update_branding():
+    data = request.get_json(silent=True) or {}
+    row, values = _branding_setting()
+    for key, limit in (("system_name", 80), ("company_name", 80), ("subtitle", 80)):
+        if key in data:
+            value = str(data.get(key) or "").strip()
+            if not value:
+                return jsonify({"error": "Bu alan boş bırakılamaz.", "field": key}), 400
+            values[key] = value[:limit]
+    if "logo_data" in data:
+        logo = str(data.get("logo_data") or "")
+        if logo and (not logo.startswith(("data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,"))):
+            return jsonify({"error": "Logo PNG, JPG veya WebP biçiminde olmalıdır."}), 400
+        if len(logo) > 1400000:
+            return jsonify({"error": "Logo dosyası en fazla 1 MB olabilir."}), 400
+        values["logo_data"] = logo
+    if row is None:
+        row = ConnectionSetting(name=BRANDING_KEY, kind="branding", active=True, options=values)
+        db.session.add(row)
+    else:
+        row.kind = "branding"
+        row.options = values
+        row.active = True
+    user = __import__("app.api.auth_routes", fromlist=["current_user"]).current_user()
+    db.session.add(AuditLog(action="settings.branding_updated", entity_type="system_branding",
+                            actor_user_id=user.id if user else None,
+                            details={"system_name": values["system_name"], "company_name": values["company_name"],
+                                     "logo_changed": "logo_data" in data}))
+    db.session.commit()
+    return jsonify(values)
