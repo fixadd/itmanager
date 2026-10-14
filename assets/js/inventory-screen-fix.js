@@ -41,17 +41,17 @@ function renderDetail(x){
   c.innerHTML=`<div class="page-head"><div class="d-flex align-items-center gap-3"><button type="button" class="btn btn-light iv-back" title="Envanter listesine dön" aria-label="Envanter listesine dön"><i class="ti ti-arrow-left"></i></button><div><h1>${esc(x.inventory_no)}</h1><p>${esc([x.brand?.name,x.model?.name].filter(Boolean).join(' ')||x.device_type?.name||'Envanter cihazı')} · ${status(x.status)}</p></div></div><div class="page-actions d-flex align-items-center justify-content-end gap-2 flex-wrap"><button type="button" class="btn btn-outline-secondary iv-print"><i class="ti ti-printer me-1"></i>Barkod Yazdır</button><button type="button" class="btn btn-primary iv-edit"><i class="ti ti-pencil me-1"></i>Düzenle</button><button type="button" class="btn btn-outline-primary iv-op" data-op="assign"><i class="ti ti-user-plus me-1"></i>Atama Yap</button>${sendToIt}${x.status!=='scrapped'?'<button type="button" class="btn btn-outline-danger iv-op" data-op="scrap"><i class="ti ti-trash me-1"></i>Hurdaya Ayır</button>':''}</div></div>
   <style>
   .inventory-detail-view{display:block}
-  .inventory-detail-view .inventory-detail-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:18px;align-items:start}
-  .inventory-detail-view .inventory-detail-card{min-width:0;overflow:hidden}
-  .inventory-detail-view .inventory-detail-card .panel-body{padding:18px}
-  .inventory-detail-view .inventory-detail-image{height:260px;display:flex;align-items:center;justify-content:center;background:rgba(148,163,184,.06);border:1px solid rgba(148,163,184,.16);border-radius:12px;overflow:hidden}
+  .inventory-detail-view .inventory-detail-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}
+  .inventory-detail-view .inventory-detail-card{min-width:0;overflow:hidden;grid-column:1/-1}
+  .inventory-detail-view .inventory-detail-grid > .inventory-detail-card:first-child .panel-body{padding:18px;display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:18px;align-items:start}
+  .inventory-detail-view .inventory-detail-image{grid-column:1;grid-row:1;height:280px;display:flex;align-items:center;justify-content:center;background:rgba(148,163,184,.06);border:1px solid rgba(148,163,184,.16);border-radius:12px;overflow:hidden}
   .inventory-detail-view .inventory-detail-image img{display:block;width:auto;height:auto;max-width:100%;max-height:100%;object-fit:contain;padding:18px}
-  .inventory-detail-view .inventory-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
-  .inventory-detail-view .inventory-field{min-width:0;padding:12px 14px;border:1px solid rgba(148,163,184,.15);border-radius:10px;background:rgba(148,163,184,.035)}
+  .inventory-detail-view .inventory-fields{grid-column:2;grid-row:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin-top:0;border:1px solid rgba(148,163,184,.15);border-radius:10px;overflow:hidden}
+  .inventory-detail-view .inventory-field{min-width:0;padding:12px 14px;border-bottom:1px solid rgba(148,163,184,.15);background:transparent}
   .inventory-detail-view .inventory-field span{display:block;font-size:.76rem;color:var(--bs-secondary-color,#94a3b8);margin-bottom:4px}
   .inventory-detail-view .inventory-field strong{display:block;overflow-wrap:anywhere}
-  .inventory-detail-view .inventory-note{margin-top:12px;padding:12px 14px;border:1px solid rgba(148,163,184,.15);border-radius:10px}
-  .inventory-detail-view .inventory-history-list,.inventory-detail-view .inventory-license-list{padding:0 18px 18px}
+  .inventory-detail-view .inventory-note{grid-column:1/-1;margin-top:0;padding:12px 14px;border:1px solid rgba(148,163,184,.15);border-radius:10px}
+  .inventory-detail-view .inventory-history-list,.inventory-detail-view .inventory-license-list{padding:0 18px 18px}.inventory-detail-view .inventory-history-list table{margin:0;font-size:12px}.inventory-detail-view .inventory-history-list th,.inventory-detail-view .inventory-history-list td{padding:10px 12px;vertical-align:middle;border-color:rgba(148,163,184,.14)}
   .inventory-detail-view .inventory-history-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(148,163,184,.14)}
   .inventory-detail-view .inventory-history-item:last-child{border-bottom:0}
   .inventory-detail-view .inventory-history-icon{width:34px;height:34px;flex:0 0 34px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(59,130,246,.08)}
@@ -67,8 +67,8 @@ function renderDetail(x){
   .inventory-detail-view .inventory-license-toggle{width:38px;height:38px;flex:0 0 38px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px}
   .inventory-detail-view .inventory-license-details{padding:0 14px 14px;border-top:1px solid rgba(148,163,184,.14)}
   .inventory-detail-view .inventory-license-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding-top:12px}
-  @media(max-width:1000px){.inventory-detail-view .inventory-detail-grid{grid-template-columns:1fr}}
-  @media(max-width:650px){.inventory-detail-view .inventory-fields,.inventory-detail-view .inventory-license-detail-grid{grid-template-columns:1fr}}
+  @media(max-width:1000px){.inventory-detail-view .inventory-detail-grid{grid-template-columns:1fr}.inventory-detail-view .inventory-detail-card .panel-body{grid-template-columns:minmax(0,1fr)}.inventory-detail-view .inventory-detail-image,.inventory-detail-view .inventory-fields,.inventory-detail-view .inventory-note{grid-column:1;grid-row:auto}.inventory-detail-view .inventory-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:650px){.inventory-detail-view .inventory-fields,.inventory-detail-view .inventory-license-detail-grid{grid-template-columns:1fr}.inventory-detail-view>.page-head{align-items:flex-start}.inventory-detail-view>.page-head .page-actions{width:100%;justify-content:flex-start!important}.inventory-detail-view>.page-head .page-actions .btn{flex:1 1 calc(50% - 8px)}}
   </style><div class="inventory-detail-grid">
     <div class="inventory-detail-card"><div class="panel"><div class="panel-head"><div><h3>Cihaz Bilgileri</h3><p>Envanter ve zimmet bilgileri</p></div></div><div class="panel-body">
       <div class="inventory-detail-image"><img src="${esc(x.model?.image_path||'/assets/images/product-placeholder.svg')}" onerror="this.onerror=null;this.src='/assets/images/product-placeholder.svg'" alt="${esc(x.model?.name||'Ürün modeli')}"></div>
@@ -97,15 +97,15 @@ async function loadRelated(x){
       const d=await inventoryScreenApi('/api/inventory/'+x.id+'/history?page='+page+'&per_page=10');
       const items=d.items||[], p=d.pagination||{};
       historyPage=Number(p.page||page);
-      historyHost.innerHTML=items.length?items.map(v=>{
+      historyHost.innerHTML=items.length?'<div class="table-responsive"><table class="table align-middle"><thead><tr><th>TARİH</th><th>İŞLEM</th><th>KİŞİ</th><th>AÇIKLAMA</th></tr></thead><tbody>'+items.map(v=>{
         const person=v.personnel?.name;
         let title=v.action_label||v.action||'İşlem';
         if(v.assignment_action==='assign')title=person?'Kime atandı: '+person:'Atama yapıldı';
         else if(v.assignment_action==='unassign')title=person?'Ataması kaldırıldı: '+person:'Atama kaldırıldı';
         else if(v.action==='inventory.assigned')title=person?'Kime atandı: '+person:'Atama güncellendi';
         const note=v.note||v.details?.note;
-        return '<div class="inventory-history-item"><div class="inventory-history-icon"><i class="ti ti-history"></i></div><div class="inventory-history-main"><strong>'+esc(title)+'</strong><span>'+esc(v.created_at?new Date(v.created_at).toLocaleString('tr-TR'):'')+(note?' · '+esc(note):'')+'</span></div></div>';
-      }).join(''):'<p class="text-muted mb-0">Henüz işlem / zimmet geçmişi yok.</p>';
+        return '<tr><td>'+esc(v.created_at?new Date(v.created_at).toLocaleString('tr-TR'):'—')+'</td><td>'+esc(title)+'</td><td>'+esc(person||'—')+'</td><td>'+esc(note||'—')+'</td></tr>';
+      }).join('')+'</tbody></table></div>':'<p class="text-muted mb-0">Henüz işlem / zimmet geçmişi yok.</p>';
       const pages=Math.max(1,Number(p.pages||1)),total=Number(p.total||0);
       if(total>10)historyHost.insertAdjacentHTML('beforeend','<div class="inventory-history-pagination"><button type="button" class="btn btn-sm btn-outline-secondary" data-history-prev '+(historyPage<=1?'disabled':'')+'><i class="ti ti-chevron-left"></i> Önceki</button><span class="small text-muted">'+historyPage+' / '+pages+' · '+total+' kayıt</span><button type="button" class="btn btn-sm btn-outline-secondary" data-history-next '+(historyPage>=pages?'disabled':'')+'>Sonraki <i class="ti ti-chevron-right"></i></button></div>');
     }catch(e){historyHost.innerHTML='<p class="text-danger mb-0">İşlem geçmişi alınamadı.</p>'}
