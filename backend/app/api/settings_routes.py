@@ -283,7 +283,8 @@ def update_branding():
         row.kind = "branding"
         row.options = values
         row.active = True
-    from .auth_routes import current_user\n    user = current_user()
+    from .auth_routes import current_user
+    user = current_user()
     db.session.add(AuditLog(action="settings.branding_updated", entity_type="system_branding",
                             actor_user_id=user.id if user else None,
                             details={"system_name": values["system_name"], "company_name": values["company_name"],
