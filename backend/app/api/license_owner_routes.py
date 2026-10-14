@@ -18,6 +18,7 @@ def owners():
     raw_ids = request.args.get("license_ids", "")
     ids = [int(v) for v in raw_ids.split(",") if v.strip().isdigit() and int(v) > 0]
     query = License.query.filter(License.id.in_(ids)) if ids else License.query
+    rows = query.order_by(License.id).all()
     return jsonify({"items": [{"license_id": x.id, "personnel": {"id": x.personnel.id, "name": x.personnel.name} if x.personnel else None} for x in rows]})
 
 
@@ -52,6 +53,7 @@ def owner_history(license_id):
     person_ids={r.personnel_id for r in rows if r.personnel_id}
     people={p.id:p.name for p in Personnel.query.filter(Personnel.id.in_(person_ids)).all()} if person_ids else {}
     return jsonify({"items":[{"id":r.id,"personnel":{"id":r.personnel_id,"name":people.get(r.personnel_id,"—")},"action":r.action,"note":r.note,"created_at":r.created_at.isoformat() if r.created_at else None} for r in rows]})
+
 
 @license_owner_bp.post("/license-owners/<int:license_id>/clear")
 @login_required
