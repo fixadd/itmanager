@@ -11,7 +11,7 @@ def audit(action,x,details):
  u=current_user();db.session.add(AuditLog(action=action,entity_type="connection",entity_id=x.id,actor_user_id=u.id if u else None,details=details))
 @connections_bp.get("/connections")
 @permission_required("settings.manage")
-def list_connections():return jsonify({"items":[item(x) for x in ConnectionSetting.query.order_by(ConnectionSetting.name).all()]})
+def list_connections():return jsonify({"items":[item(x) for x in ConnectionSetting.query.filter(ConnectionSetting.kind != "branding").order_by(ConnectionSetting.name).all()]})
 @connections_bp.post("/connections")
 @permission_required("settings.manage")
 def create_connection():
