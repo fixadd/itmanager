@@ -245,11 +245,9 @@ def upload_model_image(model_id):
         if os.path.exists(path):
             os.remove(path)
         raise
-    for old_name in os.listdir(_product_image_dir()):
-        if old_name.startswith(f"product_model_{model_id}.") and old_name != filename:
-            old_file = os.path.join(_product_image_dir(), old_name)
-            if os.path.isfile(old_file):
-                os.remove(old_file)
+    # Eski görselleri yükleme isteğinin sonunda otomatik silme.
+    # Eşzamanlı yüklemelerde bir isteğin temizliği diğer isteğin yeni dosyasını
+    # silebilir; dosyalar audit kayıtlarıyla eşleşecek şekilde korunur.
     return jsonify(_model(obj))
 
 @catalog_bp.get("/settings/product-catalog/model/<int:model_id>/image")
@@ -408,11 +406,9 @@ def upload_license_model_image(model_id):
         if os.path.exists(path):
             os.remove(path)
         raise
-    for old_name in os.listdir(_product_image_dir()):
-        if old_name.startswith(f"license_model_{model_id}.") and old_name != filename:
-            old_file = os.path.join(_product_image_dir(), old_name)
-            if os.path.isfile(old_file):
-                os.remove(old_file)
+    # Eski görselleri yükleme isteğinin sonunda otomatik silme.
+    # Eşzamanlı yüklemelerde bir isteğin temizliği diğer isteğin yeni dosyasını
+    # silebilir; dosyalar audit kayıtlarıyla eşleşecek şekilde korunur.
     return jsonify({"id": model_id, "image_path": image_path})
 
 @catalog_bp.get("/settings/license-catalog/model/<int:model_id>/image")
