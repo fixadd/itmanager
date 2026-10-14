@@ -26,8 +26,9 @@
     });
   }
   function shell(title,sub,body){return '<div class="page-header"><div><h1>'+esc(title)+'</h1><p>'+esc(sub)+'</p></div></div>'+body;}
-  function render(root){
+  async function render(root){
     if(!root)return;
+    await loadBranding();
     root.innerHTML=shell('Sistem Ayarları','Uygulamanın adını ve sol üstte görünen şirket logosunu buradan yönetin.',`
       <div class="row g-3">
         <div class="col-xl-7">
@@ -108,10 +109,15 @@
     fill(branding);loadHealth();
   }
   async function loadBranding(){
-    try{const response=await fetch('/api/settings/branding',{credentials:'same-origin',headers:{Accept:'application/json'}});if(response.ok)applyBranding(await response.json());}
-    catch(_){}
+    try{
+      const response=await fetch('/api/settings/branding',{method:'GET',cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json','Cache-Control':'no-cache'}});
+      if(!response.ok)return null;
+      const value=await response.json();
+      applyBranding(value);
+      return value;
+    }catch(_){return null;}
   }
   window.IT_SETTINGS={render:()=>render(document.getElementById('pageContent')),applyBranding};
-  window.addEventListener('itmanager:auth',()=>{loadBranding();if(route())window.IT_SETTINGS.render();});
+  window.addEventListener('itmanager:auth',()=>{if(route())window.IT_SETTINGS.render();else loadBranding();});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadBranding);else loadBranding();
 })();
