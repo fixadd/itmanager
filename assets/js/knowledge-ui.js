@@ -3,6 +3,9 @@
     if (location.hash.replace('#','') !== 'knowledge') return;
     const content = document.querySelector('#pageContent');
     if (!content) return;
+    // Navigation, hashchange and initial-load hooks can all request this render.
+    // Keep the current screen intact when another hook already rendered it.
+    if (content.querySelector('#knowledgeSearch')) return;
     content.innerHTML = `<div class="page-head"><div><h1>Bilgi Bankası</h1><p>IT ekipleri için teknik doküman, çözüm ve prosedür merkezi.</p></div><div class="page-actions"><button class="btn btn-primary" id="knowledgeNew"><i class="ti ti-plus me-1"></i>Bilgi Ekle</button></div></div>
       <div class="filter-bar"><input id="knowledgeSearch" placeholder="Başlık, içerik veya etiket ara..."><select id="knowledgeCategory"><option value="">Tüm Kategoriler</option></select><button class="btn btn-outline-secondary" id="knowledgeFilter"><i class="ti ti-filter me-1"></i>Filtrele</button></div>
       <div class="panel"><div class="panel-head"><div><h3>Teknik Dokümanlar</h3><p>Merkezi PostgreSQL bilgi bankası</p></div></div><div class="table-responsive"><table class="table align-middle"><thead><tr><th>BAŞLIK</th><th>KATEGORİ</th><th>YAZAR</th><th>GÖRÜNTÜLEME</th><th class="text-end">İŞLEM</th></tr></thead><tbody id="knowledgeTableBody"><tr><td colspan="5" class="text-center text-secondary py-4">Yükleniyor...</td></tr></tbody></table></div><div id="knowledgePagination"></div></div>
