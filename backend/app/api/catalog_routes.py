@@ -38,14 +38,27 @@ def _ids(entity_type, scope):
 
 def _type(x): return {"id":x.id,"name":x.name,"active":x.active}
 def _brand(x): return {"id":x.id,"name":x.name,"active":x.active,"product_type_ids":[t.id for t in x.product_types if t.active]}
+def _audited_image_filename(action, entity_type, entity_id, directory):
+    # Eski sürümlerde dosyalar UUID ile kaydedilmiş olabilir. En yeni audit
+    # kaydı silinmiş/eski bir dosyayı gösterebilir; mevcut dosyaya ulaşana kadar
+    # geçmiş kayıtları geriye doğru tara.
+    audits = AuditLog.query.filter_by(
+        action=action, entity_type=entity_type, entity_id=entity_id
+    ).order_by(AuditLog.id.desc()).all()
+    for audit in audits:
+        filename = (audit.details or {}).get("filename")
+        if filename and os.path.isfile(os.path.join(directory, filename)):
+            return filename
+    return None
+
 def _model_image_path(x):
     if x.image_path:
         return x.image_path
-    # Önceki bir kayıt sırasında image_path boş kalmış olsa bile diskteki
-    # mevcut model fotoğrafını bulup yeniden görünür yap.
     directory = _product_image_dir()
     prefix = f"product_model_{x.id}."
     if any(name.startswith(prefix) and os.path.isfile(os.path.join(directory, name)) for name in os.listdir(directory)):
+        return _image_url(x.id)
+    if _audited_image_filename("settings.product_model_image_updated", "product_model", x.id, directory):
         return _image_url(x.id)
     return None
 
@@ -55,6 +68,8 @@ def _license_model_image_path(model_id, image_path):
     directory = _product_image_dir()
     prefix = f"license_model_{model_id}."
     if any(name.startswith(prefix) and os.path.isfile(os.path.join(directory, name)) for name in os.listdir(directory)):
+        return _license_image_url(model_id)
+    if _audited_image_filename("settings.license_model_image_updated", "license_model", model_id, directory):
         return _license_image_url(model_id)
     return None
 
@@ -247,9 +262,8 @@ def get_model_image(model_id):
     prefix = f"product_model_{model_id}."
     candidates = [name for name in os.listdir(directory) if name.startswith(prefix)]
     if not candidates:
-        audit = AuditLog.query.filter_by(action="settings.product_model_image_updated", entity_type="product_model", entity_id=model_id).order_by(AuditLog.id.desc()).first()
-        filename = (audit.details or {}).get("filename") if audit else None
-        if not filename or not os.path.isfile(os.path.join(directory, filename)):
+        filename = _audited_image_filename("settings.product_model_image_updated", "product_model", model_id, directory)
+        if not filename:
             return jsonify({"error": "image_file_not_found"}), 404
     else:
         filename = max(candidates, key=lambda name: os.path.getmtime(os.path.join(directory, name)))
@@ -411,9 +425,8 @@ def get_license_model_image(model_id):
     prefix = f"license_model_{model_id}."
     candidates = [name for name in os.listdir(directory) if name.startswith(prefix)]
     if not candidates:
-        audit = AuditLog.query.filter_by(action="settings.license_model_image_updated", entity_type="license_model", entity_id=model_id).order_by(AuditLog.id.desc()).first()
-        filename = (audit.details or {}).get("filename") if audit else None
-        if not filename or not os.path.isfile(os.path.join(directory, filename)):
+        filename = _audited_image_filename("settings.license_model_image_updated", "license_model", model_id, directory)
+        if not filename:
             return jsonify({"error": "image_file_not_found"}), 404
     else:
         filename = max(candidates, key=lambda name: os.path.getmtime(os.path.join(directory, name)))
