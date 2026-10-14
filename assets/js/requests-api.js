@@ -122,9 +122,13 @@ async function transfer(id){
   const typesData=typesRes.ok?await typesRes.json():{items:[]};
   const brandsData=brandsRes.ok?await brandsRes.json():{items:[]};
   const modelsData=modelsRes.ok?await modelsRes.json():{items:[]};
+  // Katalog scope'u boşsa genel aktif master verilerini hem envanter hem stok için kullan.
   if(!(options.inventory_hardware_types||[]).length)options.inventory_hardware_types=typesData.items||[];
   if(!(options.inventory_brands||[]).length)options.inventory_brands=brandsData.items||[];
   if(!(options.inventory_models||[]).length)options.inventory_models=modelsData.items||[];
+  if(!(options.stock_hardware_types||[]).length)options.stock_hardware_types=typesData.items||[];
+  if(!(options.stock_brands||[]).length)options.stock_brands=brandsData.items||[];
+  if(!(options.stock_models||[]).length)options.stock_models=modelsData.items||[];
   openTransferForm(x,options);
  }catch(e){notify(e.message)}
 }
@@ -183,11 +187,13 @@ function openTransferForm(x,d){
   syncFields();
   row.querySelector('.tr-brand')?.addEventListener('change',()=>refreshModels(row));
   row.querySelector('.tr-device')?.addEventListener('change',()=>refreshModels(row));
-  row.querySelector('.tr-license_name')?.addEventListener('change',e=>{const m=row.querySelector('.tr-license_model');m.innerHTML='<option value="">Seçiniz</option>'+(d.license_models||[]).filter(v=>String(v.license_name_id)===String(e.target.value)).map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');});
+  const refreshLicenseModels=(row,preferred='')=>{const name=row.querySelector('.tr-license_name')?.value||'';const model=row.querySelector('.tr-license_model');if(!model)return;const ms=(d.license_models||[]).filter(v=>String(v.license_name_id)===String(name));model.innerHTML='<option value="">Seçiniz</option>'+ms.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');if(preferred&&ms.some(v=>String(v.id)===String(preferred)))model.value=String(preferred);};
+  row.querySelector('.tr-license_name')?.addEventListener('change',()=>refreshLicenseModels(row));
   refreshModels(row);
   if(String(row.dataset.productType||'').trim().toLowerCase()==='lisans'){
-   const lm=(d.license_models||[]).find(v=>String(v.name)===String(row.dataset.model||'')||String(v.id)===String(row.dataset.model||''));
-   if(lm)row.querySelector('.tr-license_model').value=String(lm.id);
+   const name=row.querySelector('.tr-license_name');
+   const lm=(d.license_models||[]).find(v=>(String(v.name)===String(row.dataset.model||'')||String(v.id)===String(row.dataset.model||''))&&(!name?.value||String(v.license_name_id)===String(name.value)));
+   refreshLicenseModels(row,lm?.id||'');
   }else{
    const model=row.querySelector('.tr-model'); if(model&&row.dataset.model){const opt=[...model.options].find(o=>o.textContent===row.dataset.model);if(opt)model.value=opt.value;}
    const unit=row.querySelector('.tr-unit');if(unit&&row.dataset.unit){const opt=[...unit.options].find(o=>o.value===row.dataset.unit||o.textContent===row.dataset.unit);if(opt)unit.value=opt.value;}
@@ -220,9 +226,12 @@ function openTransferForm(x,d){
     const rr=await fetch('/api/requests/'+x.id+'/transfer',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({items})});
     const xx=await rr.json().catch(()=>({}));
     if(!rr.ok)throw Error(xx.error||xx.detail||'Kayıt işlemi başarısız');
+    const counts=(xx.transferred||[]).reduce((acc,item)=>{const key=item.type||'Ürün';acc[key]=(acc[key]||0)+1;return acc;},{});
+    const summary=Object.entries(counts).map(([type,count])=>type==='Stok'?count+' stok kaydı':type==='Lisans'?count+' lisans':count+' envanter kaydı').join(', ');
     bootstrap.Modal.getInstance(document.getElementById('itManagerModal'))?.hide();
-    notify('Seçilen gelen talepler sisteme kaydedildi.');
-    load();
+    notify('Talep girildi. '+(summary?'Kaydedilen: '+summary+'.':'Seçilen ürünler sisteme kaydedildi.'));
+    // Kullanıcıya başarı bildirimi gecikmeden göster; listeyi arka planda yenile.
+    void load(currentPage);
   }catch(e){
     notify(e.message);
   }finally{
