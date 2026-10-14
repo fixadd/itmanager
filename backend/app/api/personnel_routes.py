@@ -3,13 +3,26 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from flask import Blueprint,jsonify,request
 from ..extensions import db
-from ..models import Personnel,Department,Inventory,License,AssignmentHistory,StockMovement,StockItem,AuditLog
+from ..models import Personnel,Department,Inventory,License,AssignmentHistory,StockMovement,StockItem,AuditLog,User
 from .auth_routes import current_user,login_required
 personnel_bp=Blueprint("personnel",__name__)
 def person_json(p):return {"id":p.id,"employee_no":p.employee_no,"name":p.name,"email":p.email,"active":p.active,"department":{"id":p.department.id,"name":p.department.name} if p.department else None}
 def asset_json(p):
  inventory=Inventory.query.options(joinedload(Inventory.product_type),joinedload(Inventory.brand),joinedload(Inventory.model)).filter_by(personnel_id=p.id).order_by(Inventory.id.desc()).all();licenses=License.query.options(joinedload(License.license_name)).filter_by(personnel_id=p.id).order_by(License.id.desc()).all();stock=StockMovement.query.options(joinedload(StockMovement.stock_item).joinedload(StockItem.product_type),joinedload(StockMovement.stock_item).joinedload(StockItem.brand),joinedload(StockMovement.stock_item).joinedload(StockItem.model)).filter_by(personnel_id=p.id).order_by(StockMovement.id.desc()).all()
- return {"inventory":[{"id":x.id,"inventory_no":x.inventory_no,"computer_name":x.computer_name,"serial_no":x.serial_no,"status":x.status,"type":x.product_type.name if x.product_type else None,"brand":x.brand.name if x.brand else None,"model":x.model.name if x.model else None} for x in inventory],"licenses":[{"id":x.id,"name":x.license_name.name if x.license_name else None,"expires_at":x.expires_at.isoformat() if x.expires_at else None} for x in licenses],"stock_movements":[{"id":x.id,"stock_item_id":x.stock_item_id,"barcode":x.stock_item.barcode if x.stock_item else None,"product_type":x.stock_item.product_type.name if x.stock_item and x.stock_item.product_type else None,"brand":x.stock_item.brand.name if x.stock_item and x.stock_item.brand else None,"model":x.stock_item.model.name if x.stock_item and x.stock_item.model else None,"movement_type":x.movement_type,"quantity":float(x.quantity),"unit":x.unit,"note":x.note,"created_at":x.created_at.isoformat()} for x in stock]}
+ stock_ids={m.stock_item_id for m in stock if m.movement_type=="out"}
+ assignment_logs=AuditLog.query.filter(AuditLog.action=="stock.assigned",AuditLog.entity_type=="stock",AuditLog.entity_id.in_(stock_ids)).order_by(AuditLog.created_at.desc()).all() if stock_ids else []
+ assignment_users={u.id:u for u in User.query.options(joinedload(User.personnel)).filter(User.id.in_({a.actor_user_id for a in assignment_logs if a.actor_user_id})).all()} if assignment_logs else {}
+ stock_json=[]
+ for m in stock:
+  actor=None
+  if m.movement_type=="out":
+   matches=[a for a in assignment_logs if a.entity_id==m.stock_item_id and (a.details or {}).get("to_personnel_id")==m.personnel_id and float((a.details or {}).get("quantity",0) or 0)==float(m.quantity) and (a.details or {}).get("note")==m.note]
+   if matches:
+    audit_row=min(matches,key=lambda a:abs((a.created_at-m.created_at).total_seconds()))
+    user=assignment_users.get(audit_row.actor_user_id)
+    actor=(user.personnel.name if user and user.personnel else user.username) if user else None
+  stock_json.append({"id":m.id,"stock_item_id":m.stock_item_id,"barcode":m.stock_item.barcode if m.stock_item else None,"product_type":m.stock_item.product_type.name if m.stock_item and m.stock_item.product_type else None,"brand":m.stock_item.brand.name if m.stock_item and m.stock_item.brand else None,"model":m.stock_item.model.name if m.stock_item and m.stock_item.model else None,"movement_type":m.movement_type,"quantity":float(m.quantity),"unit":m.unit,"note":m.note,"assigned_by":actor,"created_at":m.created_at.isoformat()})
+ return {"inventory":[{"id":x.id,"inventory_no":x.inventory_no,"computer_name":x.computer_name,"serial_no":x.serial_no,"status":x.status,"type":x.product_type.name if x.product_type else None,"brand":x.brand.name if x.brand else None,"model":x.model.name if x.model else None} for x in inventory],"licenses":[{"id":x.id,"name":x.license_name.name if x.license_name else None,"expires_at":x.expires_at.isoformat() if x.expires_at else None} for x in licenses],"stock_movements":stock_json}
 def audit(action,entity_type,entity_id,details=None):
  u=current_user();db.session.add(AuditLog(action=action,entity_type=entity_type,entity_id=entity_id,actor_user_id=u.id if u else None,details=details or {}))
 @personnel_bp.get("/personnel")
