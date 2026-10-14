@@ -76,14 +76,34 @@
       preview();
     }
     ['companyName','brandSubtitle'].forEach(id=>byId(id).addEventListener('input',preview));
+    async function persistLogo(logoData){
+      const applyButton=byId('brandingLogoApply');
+      const removeButton=byId('brandingLogoRemove');
+      applyButton.disabled=true;removeButton.disabled=true;
+      try{
+        const response=await fetch('/api/settings/branding',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({logo_data:logoData})});
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(data.error||'Logo kaydedilemedi.');
+        applyBranding(data);fill(data);
+        message(logoData?'Logo kaydedildi ve sol menü güncellendi.':'Logo kaldırıldı ve değişiklik kaydedildi.','success');
+      }catch(err){
+        pendingLogo=branding.logo_data||'';preview();
+        message(err.message||'Logo kaydedilemedi.','danger');
+      }finally{applyButton.disabled=false;removeButton.disabled=false;}
+    }
     byId('brandingLogoApply').addEventListener('click',()=>{
       const file=byId('brandingLogo').files?.[0];
       if(!file){message('Önce bir logo dosyası seçin.','warning');return;}
       if(!['image/png','image/jpeg','image/webp'].includes(file.type)){message('PNG, JPG veya WebP dosyası seçin.','danger');return;}
       if(file.size>1024*1024){message('Logo en fazla 1 MB olabilir.','danger');return;}
-      const reader=new FileReader();reader.onload=()=>{pendingLogo=String(reader.result||'');preview();message('Logo önizlemeye alındı. Kalıcı olması için değişiklikleri kaydedin.','info');};reader.onerror=()=>message('Logo dosyası okunamadı.','danger');reader.readAsDataURL(file);
+      const reader=new FileReader();
+      reader.onload=()=>{pendingLogo=String(reader.result||'');preview();persistLogo(pendingLogo);};
+      reader.onerror=()=>message('Logo dosyası okunamadı.','danger');
+      reader.readAsDataURL(file);
     });
-    byId('brandingLogoRemove').addEventListener('click',()=>{pendingLogo='';byId('brandingLogo').value='';preview();});
+    byId('brandingLogoRemove').addEventListener('click',()=>{
+      pendingLogo='';byId('brandingLogo').value='';preview();persistLogo('');
+    });
     function message(text,type='success'){byId('brandingMessage').innerHTML='<div class="alert alert-'+type+' py-2 mb-0">'+esc(text)+'</div>';}
     byId('brandingReset').addEventListener('click',()=>fill(defaults));
     byId('brandingForm').addEventListener('submit',async e=>{
