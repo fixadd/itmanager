@@ -112,7 +112,6 @@
     catch(_){}
   }
   window.IT_SETTINGS={render:()=>render(document.getElementById('pageContent')),applyBranding};
-  window.addEventListener('hashchange',()=>{if(route())window.IT_SETTINGS.render();});
   window.addEventListener('itmanager:auth',()=>{loadBranding();if(route())window.IT_SETTINGS.render();});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadBranding);else loadBranding();
 })();
