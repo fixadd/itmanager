@@ -336,3 +336,15 @@ html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca
 /* Sidebar: gizle scrollbar görselini, kaydırma işlevini koru. */
 .sidebar-scroll{scrollbar-width:none;-ms-overflow-style:none;}
 .sidebar-scroll::-webkit-scrollbar{width:0;height:0;display:none;}
+
+
+/* Sistem kimliği: sidebar marka alanı ve ayarlar önizlemesi. */
+.brand-mark{overflow:hidden;display:flex;align-items:center;justify-content:center}
+.brand-mark img{display:block;width:100%;height:100%;object-fit:contain}
+.brand-mark.has-custom-logo{background:transparent!important;border:0!important;box-shadow:none!important}
+.branding-preview{min-height:112px;background:var(--bs-tertiary-bg,#f8fafc);color:var(--bs-body-color,#1f2937)}
+.branding-preview-mark{width:54px;height:54px;flex:0 0 54px;border-radius:12px;background:#e8eef9;color:#254b8d;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;overflow:hidden}
+.branding-preview-mark img{width:100%;height:100%;object-fit:contain}
+.branding-preview-mark.has-custom-logo{background:transparent}
+.branding-preview strong{font-size:15px;letter-spacing:.02em}
+#brandingForm .form-label,#pageContent .card .form-label{font-weight:600}
