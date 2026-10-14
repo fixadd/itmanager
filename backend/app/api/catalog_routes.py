@@ -196,10 +196,9 @@ def upload_model_image(model_id):
     f.stream.seek(0)
     if size <= 0 or size > MAX_IMAGE_SIZE:
         return jsonify({"error": "Görsel 10 MB sınırını aşamaz"}), 400
-    old_path = obj.image_path
-    # Model başına deterministik dosya adı kullanılır. Böylece image_path yalnızca
-    # API adresini taşısa bile GET endpoint hangi dosyayı servis edeceğini bilir.
-    filename = f"product_model_{obj.id}.{ext}"
+    # Her yüklemeyi ayrı dosyaya yaz: aynı uzantılı fotoğraf değiştirilirken
+    # veritabanı commit hatası eski dosyanın üzerine yazıp onu kaybettirmesin.
+    filename = f"product_model_{obj.id}.{uuid.uuid4().hex}.{ext}"
     path = os.path.join(_product_image_dir(), filename)
     f.save(path)
     obj.image_path = _image_url(obj.id)
@@ -211,12 +210,11 @@ def upload_model_image(model_id):
         if os.path.exists(path):
             os.remove(path)
         raise
-    if old_path and old_path.startswith("/api/settings/product-catalog/model/"):
-        for old_name in os.listdir(_product_image_dir()):
-            if old_name.startswith(f"product_model_{model_id}.") and old_name != filename:
-                old_file = os.path.join(_product_image_dir(), old_name)
-                if os.path.isfile(old_file):
-                    os.remove(old_file)
+    for old_name in os.listdir(_product_image_dir()):
+        if old_name.startswith(f"product_model_{model_id}.") and old_name != filename:
+            old_file = os.path.join(_product_image_dir(), old_name)
+            if os.path.isfile(old_file):
+                os.remove(old_file)
     return jsonify(_model(obj))
 
 @catalog_bp.get("/settings/product-catalog/model/<int:model_id>/image")
@@ -361,8 +359,9 @@ def upload_license_model_image(model_id):
     f.stream.seek(0)
     if size <= 0 or size > MAX_IMAGE_SIZE:
         return jsonify({"error": "Görsel 10 MB sınırını aşamaz"}), 400
-    old_path = row["image_path"]
-    filename = f"license_model_{model_id}.{ext}"
+    # Her yüklemeyi ayrı dosyaya yaz: aynı uzantılı fotoğraf değiştirilirken
+    # veritabanı commit hatası eski dosyanın üzerine yazıp onu kaybettirmesin.
+    filename = f"license_model_{model_id}.{uuid.uuid4().hex}.{ext}"
     path = os.path.join(_product_image_dir(), filename)
     f.save(path)
     image_path = _license_image_url(model_id)
@@ -375,12 +374,11 @@ def upload_license_model_image(model_id):
         if os.path.exists(path):
             os.remove(path)
         raise
-    if old_path and old_path.startswith("/api/settings/license-catalog/model/"):
-        for old_name in os.listdir(_product_image_dir()):
-            if old_name.startswith(f"license_model_{model_id}.") and old_name != filename:
-                old_file = os.path.join(_product_image_dir(), old_name)
-                if os.path.isfile(old_file):
-                    os.remove(old_file)
+    for old_name in os.listdir(_product_image_dir()):
+        if old_name.startswith(f"license_model_{model_id}.") and old_name != filename:
+            old_file = os.path.join(_product_image_dir(), old_name)
+            if os.path.isfile(old_file):
+                os.remove(old_file)
     return jsonify({"id": model_id, "image_path": image_path})
 
 @catalog_bp.get("/settings/license-catalog/model/<int:model_id>/image")
