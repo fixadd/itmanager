@@ -38,7 +38,27 @@ def _ids(entity_type, scope):
 
 def _type(x): return {"id":x.id,"name":x.name,"active":x.active}
 def _brand(x): return {"id":x.id,"name":x.name,"active":x.active,"product_type_ids":[t.id for t in x.product_types if t.active]}
-def _model(x): return {"id":x.id,"name":x.name,"active":x.active,"brand_id":x.brand_id,"product_type_id":x.product_type_id,"image_path":x.image_path}
+def _model_image_path(x):
+    if x.image_path:
+        return x.image_path
+    # Önceki bir kayıt sırasında image_path boş kalmış olsa bile diskteki
+    # mevcut model fotoğrafını bulup yeniden görünür yap.
+    directory = _product_image_dir()
+    prefix = f"product_model_{x.id}."
+    if any(name.startswith(prefix) and os.path.isfile(os.path.join(directory, name)) for name in os.listdir(directory)):
+        return _image_url(x.id)
+    return None
+
+def _license_model_image_path(model_id, image_path):
+    if image_path:
+        return image_path
+    directory = _product_image_dir()
+    prefix = f"license_model_{model_id}."
+    if any(name.startswith(prefix) and os.path.isfile(os.path.join(directory, name)) for name in os.listdir(directory)):
+        return _license_image_url(model_id)
+    return None
+
+def _model(x): return {"id":x.id,"name":x.name,"active":x.active,"brand_id":x.brand_id,"product_type_id":x.product_type_id,"image_path":_model_image_path(x)}
 
 def _scoped(entity_type, entity_id, scope):
     return db.session.execute(text("SELECT 1 FROM product_catalog_scopes WHERE entity_type=:t AND entity_id=:id AND scope=:scope"),
@@ -221,7 +241,7 @@ def upload_model_image(model_id):
 @login_required
 def get_model_image(model_id):
     obj = db.session.get(ProductModel, model_id)
-    if not obj or not obj.image_path:
+    if not obj:
         return jsonify({"error": "image_not_found"}), 404
     directory = _product_image_dir()
     prefix = f"product_model_{model_id}."
@@ -272,7 +292,7 @@ def list_license_catalog():
     items={}
     for r in rows:
         item=items.setdefault(r["license_name_id"],{"id":r["license_name_id"],"name":r["license_name"],"active":r["license_name_active"],"models":[]})
-        if r["model_id"] is not None:item["models"].append({"id":r["model_id"],"name":r["model_name"],"active":r["model_active"],"image_path":r["model_image_path"]})
+        if r["model_id"] is not None:item["models"].append({"id":r["model_id"],"name":r["model_name"],"active":r["model_active"],"image_path":_license_model_image_path(r["model_id"], r["model_image_path"])})
     return jsonify({"items":list(items.values())})
 
 @catalog_bp.post("/settings/license-catalog/name")
@@ -385,7 +405,7 @@ def upload_license_model_image(model_id):
 @login_required
 def get_license_model_image(model_id):
     row = db.session.execute(text("SELECT image_path FROM license_models WHERE id=:id"), {"id": model_id}).mappings().first()
-    if not row or not row["image_path"]:
+    if not row:
         return jsonify({"error": "image_not_found"}), 404
     directory = _product_image_dir()
     prefix = f"license_model_{model_id}."
