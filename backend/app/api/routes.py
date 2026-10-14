@@ -44,7 +44,7 @@ def dashboard_summary():
     stock_total = db.session.query(func.coalesce(func.sum(StockItem.quantity), 0)).scalar() or 0
     maintenance_status = dict(db.session.query(MaintenanceRecord.status, func.count(MaintenanceRecord.id)).group_by(MaintenanceRecord.status).all())
     request_status = dict(db.session.query(PurchaseRequest.status, func.count(PurchaseRequest.id)).group_by(PurchaseRequest.status).all())
-    monthly_rows = db.session.query(func.date_trunc("month", AuditLog.created_at), func.count(AuditLog.id)).group_by(func.date_trunc("month", AuditLog.created_at)).order_by(func.date_trunc("month", AuditLog.created_at).desc()).limit(4).all()
+    monthly_rows = db.session.query(func.date_trunc("month", AuditLog.created_at).label("month"), func.count(AuditLog.id)).group_by(text("1")).order_by(text("1 DESC")).limit(4).all()
     recent = AuditLog.query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(10).all()
     actor_ids = {x.actor_user_id for x in recent if x.actor_user_id}
     actors = {u.id: u for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
