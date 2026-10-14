@@ -15,6 +15,12 @@
     user_created:'Kullanıcı Oluşturuldu',user_updated:'Kullanıcı Güncellendi',user_status_changed:'Kullanıcı Durumu Değiştirildi',
     password_changed:'Şifre Değiştirildi',profile_updated:'Profil Güncellendi',role_created:'Rol Oluşturuldu',role_updated:'Rol Güncellendi',
     permission_updated:'Yetki Güncellendi',catalog_model_created:'Ürün Modeli Oluşturuldu',
+    viewed:'Görüntülendi',opened:'Açıldı',closed:'Kapatıldı',enabled:'Etkinleştirildi',disabled:'Devre Dışı Bırakıldı',
+    restored:'Geri Yüklendi',archived:'Arşivlendi',exported:'Dışa Aktarıldı',imported:'İçe Aktarıldı',uploaded:'Yüklendi',downloaded:'İndirildi',
+    assigned_to:'Atandı',unassigned_from:'Atama Kaldırıldı',created_by:'Oluşturan',updated_by:'Güncelleyen',
+    inventory_deleted:'Envanter Silindi',stock_deleted:'Stok Silindi',license_deleted:'Lisans Silindi',personnel_created:'Personel Oluşturuldu',
+    personnel_updated:'Personel Güncellendi',personnel_deleted:'Personel Silindi',maintenance_completed:'Bakım Tamamlandı',
+    request_updated:'Talep Güncellendi',request_deleted:'Talep Silindi',scrap_created:'Hurda Kaydı Oluşturuldu',scrap_deleted:'Hurda Kaydı Silindi',
     'assets transferred':'Varlıklar Aktarıldı','asset transferred':'Varlık Aktarıldı',assets_transferred:'Varlıklar Aktarıldı',asset_transferred:'Varlık Aktarıldı',
     'inventory.created':'Envanter Oluşturuldu','inventory.updated':'Envanter Güncellendi','inventory.assigned':'Envanter Zimmetlendi',
     'inventory.unassigned':'Envanter Zimmeti Kaldırıldı','inventory.sent_to_it':'Envanter Bilgi İşleme Gönderildi',
@@ -36,14 +42,19 @@
     name:'Ad',title:'Başlık',serial_number:'Seri Numarası',serial_no:'Seri Numarası',inventory_number:'Envanter Numarası',inventory_no:'Envanter Numarası',
     computer_name:'Bilgisayar Adı',personnel:'Personel',personnel_id:'Personel',factory:'Fabrika',factory_id:'Fabrika',department:'Departman',department_id:'Departman',
     brand:'Marka',brand_id:'Marka',model:'Model',model_id:'Model',product_type:'Donanım Tipi',product_type_id:'Donanım Tipi',quantity:'Miktar',unit:'Birim',
-    action:'İşlem',source_type:'Kaynak Tipi',entity_type:'Modül',entity_id:'Kayıt ID',barcode:'Barkod',machine_no:'Makine No',ifs_no:'IFS No',status_reason:'Durum Nedeni'};
+    action:'İşlem',source_type:'Kaynak Tipi',entity_type:'Modül',entity_id:'Kayıt ID',barcode:'Barkod',machine_no:'Makine No',ifs_no:'IFS No',status_reason:'Durum Nedeni',
+    created_at:'Oluşturulma Tarihi',updated_at:'Güncellenme Tarihi',deleted_at:'Silinme Tarihi',actor:'İşlemi Yapan',actor_id:'İşlemi Yapan Kullanıcı',
+    user_id:'Kullanıcı',username:'Kullanıcı Adı',email:'E-posta',role_id:'Rol',permission_id:'Yetki',old_value:'Eski Değer',new_value:'Yeni Değer',
+    from_status:'Önceki Durum',to_status:'Yeni Durum',assigned_to:'Atanan Kişi',assigned_from:'Atayan Kişi',ip_address:'IP Adresi',user_agent:'İstemci Bilgisi'};
+  const words={create:'Oluştur',created:'Oluşturuldu',update:'Güncelle',updated:'Güncellendi',delete:'Sil',deleted:'Silindi',remove:'Kaldır',removed:'Kaldırıldı',assign:'Ata',assigned:'Atandı',unassign:'Atamayı kaldır',unassigned:'Atama kaldırıldı',transfer:'Aktar',transferred:'Aktarıldı',scrap:'Hurdaya ayır',scrapped:'Hurdaya ayrıldı',faulty:'Arızalı',send:'Gönder',sent:'Gönderildi',return:'Geri al',returned:'Geri alındı',start:'Başlat',started:'Başlatıldı',complete:'Tamamla',completed:'Tamamlandı',change:'Değiştir',changed:'Değiştirildi',status:'Durum',login:'Giriş',logout:'Çıkış',user:'Kullanıcı',users:'Kullanıcılar',role:'Rol',roles:'Roller',permission:'Yetki',permissions:'Yetkiler',inventory:'Envanter',stock:'Stok',license:'Lisans',licenses:'Lisanslar',personnel:'Personel',maintenance:'Bakım',request:'Talep',requests:'Talepler',purchase:'Satın alma',scrap_record:'Hurda kaydı',knowledge:'Bilgi bankası',settings:'Ayarlar',factory:'Fabrika',department:'Departman',brand:'Marka',model:'Model',product:'Ürün',created_by:'Oluşturan',updated_by:'Güncelleyen'};
+  const humanizeIdentifier=v=>String(v).split('_').map(part=>words[part]||part).join(' ');
   const normalize=v=>String(v??'').trim();
   const label=v=>{
     const s=normalize(v); if(!s)return '—';
     if(permissions[s])return permissions[s]; if(actions[s])return actions[s]; if(entities[s])return entities[s]; if(values[s])return values[s];
     const parts=s.split('.');
-    if(parts.length>1){const scope=entities[parts[0]]||parts[0].replaceAll('_',' ');const verb=actions[parts.slice(1).join('.')]||actions[parts.at(-1)]||parts.slice(1).join('.').replaceAll('_',' ');return scope+' · '+verb;}
-    return s.replaceAll('_',' ');
+    if(parts.length>1){const scope=entities[parts[0]]||humanizeIdentifier(parts[0]);const verb=actions[parts.slice(1).join('.')]||actions[parts.at(-1)]||humanizeIdentifier(parts.slice(1).join('.'));return scope+' · '+verb;}
+    return s.includes('_')?humanizeIdentifier(s):s;
   };
   const permission=v=>permissions[normalize(v)]||label(v);
   const action=v=>actions[normalize(v)]||label(v);
