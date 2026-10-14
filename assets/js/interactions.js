@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // Generic navigation buttons and quick actions.
   document.addEventListener('click',e=>{
-    const b=e.target.closest('button');if(!b)return;
+    const b=e.target.closest('button');if(!b||b.closest('#pageContent'))return;
     const txt=b.textContent.trim();
     const routeWords=[['Envanter Ekle','inventory'],['Talep Oluştur','requests'],['Bakım Gir','maintenance'],['Barkod Ara','barcode'],['Stok Girişi','stock'],['Kullanıcı Ekle','admin'],['Personel Ekle','people'],['Yeni Envanter','inventory'],['Yeni Makale','knowledge'],['Hurdaya Ayır','scrap'],['Rapor Oluştur','reports']];
     const match=routeWords.find(x=>txt.includes(x[0]));if(match){route(match[1]);return}
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // Tabs: keep active state and provide contextual content for inventory detail / module tabs.
   document.addEventListener('click',e=>{
-    const tab=e.target.closest('.tabs-bar button,.detail-tabs button,.settings-menu button');if(!tab)return;
+    const tab=e.target.closest('.tabs-bar button,.detail-tabs button,.settings-menu button');if(!tab||tab.closest('#pageContent'))return;
     const group=tab.parentElement;$$('button',group).forEach(x=>x.classList.remove('active'));tab.classList.add('active');
     const label=tab.textContent.trim();
     if(group.classList.contains('detail-tabs')){const panel=tab.closest('.panel');const timeline=panel?.querySelector('.timeline');if(timeline){const data={"Genel":[["12.02.2026","Ahmet Yılmaz'a zimmetlendi"]],"Donanım":[["CPU","Intel Core i5 · RAM 16 GB · SSD 512 GB"],["Ağ","MAC 00:1B:44:11:3A:B7 · IP 172.35.10.24"]],"Zimmet Geçmişi":[["12.02.2026","Ahmet Yılmaz · Zimmet"],["04.01.2026","Bilgi İşlem Stoğu · Teslim"]],"Bakım":[["18.08.2026","Periyodik bakım tamamlandı"],["04.09.2026","Yeni kontrol planlandı"]],"Hareketler":[["04.09.2026","Durum kontrolü · Aktif"],["18.08.2026","Bakım tamamlandı"],["12.02.2026","Zimmet oluşturuldu"]]}[label]||[["04.09.2026","İlgili kayıtlar görüntüleniyor"]];timeline.innerHTML=data.map(x=>`<div><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}
@@ -60,17 +60,19 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 
   // Filter bars: live filter table rows by visible text.
-  document.addEventListener('input',e=>{if(!e.target.closest('.filter-bar input'))return;const q=e.target.value.toLocaleLowerCase('tr');const panel=e.target.closest('.content')||content;$$('.table tbody tr',panel).forEach(tr=>tr.style.display=tr.textContent.toLocaleLowerCase('tr').includes(q)?'':'none')});
+  document.addEventListener('input',e=>{if(e.target.closest('#pageContent')||!e.target.closest('.filter-bar input'))return;const q=e.target.value.toLocaleLowerCase('tr');const panel=e.target.closest('.content')||content;$$('.table tbody tr',panel).forEach(tr=>tr.style.display=tr.textContent.toLocaleLowerCase('tr').includes(q)?'':'none')});
 
   // Table row actions: eye opens record modal, dots opens action menu.
   document.addEventListener('click',e=>{
     const eye=e.target.closest('.table tbody .ti-eye');if(eye){
+      if(eye.closest('#pageContent'))return;
       const pageName=location.hash.replace(/^#\/?/,'').split('/')[0];
       if(pageName==='requests'||pageName==='knowledge') return;
 const tr=eye.closest('tr');const cells=$$('td',tr).slice(0,-1);const pairs=cells.map((c,i)=>[`Alan ${i+1}`,c.textContent.trim()]);const title=cells[1]?.textContent.trim()||cells[0]?.textContent.trim()||'Kayıt Detayı';let actions='<button class="btn btn-primary" data-modal-action="edit">Düzenle</button><button class="btn btn-outline-secondary" data-modal-action="assign">Zimmet / Devir</button>';if(location.hash.includes('request')||$('#crumb')?.textContent.includes('Talep'))actions+='<button class="btn btn-success" data-modal-action="enter">Cihazı Gir</button>';const m=modal(title,`<div class="it-modal-grid">${pairs.map(x=>`<div><span>${x[0]}</span><strong>${x[1]||'—'}</strong></div>`).join('')}</div>`,actions);m.addEventListener('click',ev=>{const a=ev.target.closest('[data-modal-action]');if(!a)return;if(a.dataset.modalAction==='enter'){m.remove();const rowType=tr.textContent.toLocaleLowerCase('tr');const dest=rowType.includes('lisans')?'licenses':rowType.includes('mouse')||rowType.includes('kablo')?'stock':'inventory';route(dest);toast(`Ürün girişi tamamlandı: ${dest==='inventory'?'Envanter':dest==='licenses'?'Lisans':'Stok'} modülüne yönlendirildi.`,'success')}else toast('İşlem prototip ekranında hazır.','success')});return}
-    const dots=e.target.closest('.table tbody .ti-dots');if(dots){modal('Kayıt İşlemleri','<p class="text-muted">Bu kayıt için hızlı işlem seçin.</p>','<button class="btn btn-primary">Düzenle</button><button class="btn btn-outline-secondary">Devir</button><button class="btn btn-outline-danger">Sil</button>');return}
+    const dots=e.target.closest('.table tbody .ti-dots');if(dots){
+      if(dots.closest('#pageContent'))return;modal('Kayıt İşlemleri','<p class="text-muted">Bu kayıt için hızlı işlem seçin.</p>','<button class="btn btn-primary">Düzenle</button><button class="btn btn-outline-secondary">Devir</button><button class="btn btn-outline-danger">Sil</button>');return}
   });
 
   // Request row / dashboard action flow helper.
-  document.addEventListener('click',e=>{const flow=e.target.closest('.flow span');if(flow){toast(`${flow.textContent.trim()} adımı seçildi.`)}});
+  document.addEventListener('click',e=>{const flow=e.target.closest('.flow span');if(flow&&!flow.closest('#pageContent')){toast(`${flow.textContent.trim()} adımı seçildi.`)}});
 });
