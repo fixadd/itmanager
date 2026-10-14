@@ -389,3 +389,46 @@ html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca
 #pageContent table:has(#adminUsersBody) .btn-outline-success:hover{
   background:#16a34a!important;border-color:#16a34a!important;color:#fff!important;
 }
+
+
+/* Shared detail screen standard: inventory, stock and licenses. */
+.inventory-detail-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.inventory-detail-actions .btn,.license-detail-page>.page-head .page-actions .btn,.stock-screen[data-rendered="detail"]>.page-head .page-actions .btn{min-height:36px;border-radius:9px;font-size:11px;white-space:nowrap}
+.inventory-overview-panel .inventory-overview-row{grid-template-columns:minmax(220px,280px) minmax(0,1fr)!important}
+.inventory-overview-panel .inventory-overview-row>[class*="col-"]:last-child{grid-column:auto!important}
+.inventory-overview-panel .inventory-overview-row>[class*="col-"]:first-child .panel{height:100%}
+.inventory-overview-panel .inventory-overview-row .detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
+.inventory-overview-panel .inventory-overview-row .detail-field{min-width:0}
+.inventory-overview-panel .inventory-overview-row .detail-field strong{overflow-wrap:anywhere}
+.inventory-overview-panel .inventory-history-body table{margin-bottom:0;font-size:12px}
+.inventory-overview-panel .inventory-history-body th,.inventory-overview-panel .inventory-history-body td{padding:10px 12px;vertical-align:middle;border-color:var(--border)}
+.stock-screen[data-rendered="detail"] .stock-detail-grid{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:18px;margin:0}
+.stock-screen[data-rendered="detail"] .stock-detail-grid>[class*="col-"]{width:auto;max-width:none;padding:0}
+.stock-screen[data-rendered="detail"] .stock-detail-image{grid-column:1;grid-row:1}
+.stock-screen[data-rendered="detail"] .stock-detail-image .mt-3{height:280px!important;margin:0!important}
+.stock-screen[data-rendered="detail"] .stock-detail-barcode{grid-column:1;grid-row:2;padding:12px 14px!important;border:1px solid var(--border);border-radius:10px;background:var(--panel2)}
+.stock-screen[data-rendered="detail"] .stock-detail-fields{grid-column:2;grid-row:1 / span 2}
+.stock-screen[data-rendered="detail"] .stock-detail-fields>.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin:0}
+.stock-screen[data-rendered="detail"] .stock-detail-fields>.row>[class*="col-"]{width:auto;max-width:none;padding:12px 14px;border-bottom:1px solid var(--border)}
+.license-detail-page>.panel>.row{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:18px;margin:0;padding:0 22px 22px}
+.license-detail-page>.panel>.row>[class*="col-"]{width:auto;max-width:none;padding:0}
+.license-detail-page>.panel>.row>.col-xl-4 .panel{height:100%}
+.license-detail-page>.panel>.row>.col-xl-8>.panel>.panel-head{display:none}
+.license-detail-page .detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.license-detail-page .license-history-panel{margin-top:16px}
+.license-history-panel .mt-4{margin:0!important;padding:18px 22px}
+.license-history-panel .license-assignment-history{overflow-x:auto}
+.license-history-panel .license-assignment-history table{margin-bottom:0}
+@media(max-width:900px){
+ .inventory-overview-panel .inventory-overview-row,.stock-screen[data-rendered="detail"] .stock-detail-grid,.license-detail-page>.panel>.row{grid-template-columns:minmax(0,1fr)!important}
+ .inventory-overview-panel .inventory-overview-row>[class*="col-"],.stock-screen[data-rendered="detail"] .stock-detail-grid>[class*="col-"],.license-detail-page>.panel>.row>[class*="col-"]{grid-column:1!important;grid-row:auto!important}
+ .stock-screen[data-rendered="detail"] .stock-detail-fields{grid-row:auto!important}
+}
+@media(max-width:650px){
+ .inventory-detail-actions{justify-content:flex-start}
+ .inventory-detail-actions .btn{flex:1 1 calc(50% - 8px)}
+ .inventory-overview-panel .inventory-overview-row .detail-grid,.stock-screen[data-rendered="detail"] .stock-detail-fields>.row,.license-detail-page .detail-grid{grid-template-columns:minmax(0,1fr)}
+ .license-detail-page>.page-head{align-items:flex-start}
+ .license-detail-page>.page-head .page-actions{display:flex;flex-wrap:wrap;gap:6px!important}
+ .license-detail-page>.page-head .page-actions .btn{flex:1 1 calc(50% - 6px)}
+}
