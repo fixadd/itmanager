@@ -110,25 +110,35 @@ async function transfer(id){
    const dd=await rr.json(); if(!rr.ok)throw Error(dd.error||'Talep bulunamadı'); x=dd;
   }
   const headers={Accept:'application/json'};
-  const [optRes,typesRes,brandsRes,modelsRes]=await Promise.all([
-   fetch('/api/requests/transfer-options',{headers}),
-   fetch('/api/settings/product-types',{headers}),
-   fetch('/api/settings/brands',{headers}),
-   fetch('/api/settings/models',{headers})
-  ]);
+  const optRes=await fetch('/api/requests/transfer-options',{headers});
   const options=await optRes.json();
-  if(!options||options.error)throw Error(options?.error||'Aktarım seçenekleri alınamadı');
-  // Envanter masterları product scope'tan boş dönerse global aktif master verilerini kullan.
-  const typesData=typesRes.ok?await typesRes.json():{items:[]};
-  const brandsData=brandsRes.ok?await brandsRes.json():{items:[]};
-  const modelsData=modelsRes.ok?await modelsRes.json():{items:[]};
-  // Katalog scope'u boşsa genel aktif master verilerini hem envanter hem stok için kullan.
-  if(!(options.inventory_hardware_types||[]).length)options.inventory_hardware_types=typesData.items||[];
-  if(!(options.inventory_brands||[]).length)options.inventory_brands=brandsData.items||[];
-  if(!(options.inventory_models||[]).length)options.inventory_models=modelsData.items||[];
-  if(!(options.stock_hardware_types||[]).length)options.stock_hardware_types=typesData.items||[];
-  if(!(options.stock_brands||[]).length)options.stock_brands=brandsData.items||[];
-  if(!(options.stock_models||[]).length)options.stock_models=modelsData.items||[];
+  if(!optRes.ok||!options||options.error)throw Error(options?.error||'Aktarım seçenekleri alınamadı');
+  // Normal durumda tek istek yeterli. Yalnızca katalog verileri eksikse yedek master uçlarını çağır.
+  const needInventory=!(options.inventory_hardware_types||[]).length||!(options.inventory_brands||[]).length||!(options.inventory_models||[]).length;
+  const needStock=!(options.stock_hardware_types||[]).length||!(options.stock_brands||[]).length||!(options.stock_models||[]).length;
+  if(needInventory||needStock){
+   const [typesRes,brandsRes,modelsRes]=await Promise.all([
+    fetch('/api/settings/product-types',{headers}),
+    fetch('/api/settings/brands',{headers}),
+    fetch('/api/settings/models',{headers})
+   ]);
+   const [typesData,brandsData,modelsData]=await Promise.all([
+    typesRes.ok?typesRes.json():Promise.resolve({items:[]}),
+    brandsRes.ok?brandsRes.json():Promise.resolve({items:[]}),
+    modelsRes.ok?modelsRes.json():Promise.resolve({items:[]})
+   ]);
+   const types=typesData.items||[],brands=brandsData.items||[],models=modelsData.items||[];
+   if(needInventory){
+    if(!(options.inventory_hardware_types||[]).length)options.inventory_hardware_types=types;
+    if(!(options.inventory_brands||[]).length)options.inventory_brands=brands;
+    if(!(options.inventory_models||[]).length)options.inventory_models=models;
+   }
+   if(needStock){
+    if(!(options.stock_hardware_types||[]).length)options.stock_hardware_types=types;
+    if(!(options.stock_brands||[]).length)options.stock_brands=brands;
+    if(!(options.stock_models||[]).length)options.stock_models=models;
+   }
+  }
   openTransferForm(x,options);
  }catch(e){notify(e.message)}
 }
