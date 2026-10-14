@@ -255,7 +255,11 @@ def _branding_setting():
 @login_required
 def get_branding():
     _, values = _branding_setting()
-    return jsonify(values)
+    response = jsonify(values)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @settings_bp.put("/settings/branding")
