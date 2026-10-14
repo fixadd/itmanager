@@ -183,7 +183,7 @@ def create_stock():
             incoming_barcode = vals.get("barcode")
             if incoming_barcode and incoming_barcode != x.barcode:
                 movement_note = f"{movement_note} | Girilen barkod: {incoming_barcode}" if movement_note else f"Girilen barkod: {incoming_barcode}"
-            db.session.add(StockMovement(stock_item_id=x.id, movement_type="in", quantity=quantity, unit=x.unit, note=movement_note)
+            db.session.add(StockMovement(stock_item_id=x.id, movement_type="in", quantity=quantity, unit=x.unit, note=movement_note))
             _audit("stock.created", x.id, {"quantity": float(quantity), "merged_into_existing": True})
             db.session.commit()
             return jsonify(_dict(x)), 200
