@@ -50,7 +50,7 @@ async function loadRequestMasterData(){
  ]);
  if(!g.ok||!inv.ok||!stock.ok||!transfer.ok)throw Error('Ana veriler alınamadı');
  const [gd,id,sd,td]=await Promise.all([g.json(),inv.json(),stock.json(),transfer.json()]);
- const personnel=[];
+ const personnel=Array.isArray(td.personnel)?td.personnel:[];
  const licenseNames=Array.isArray(td.license_names)?td.license_names:[];
  const licenseModels=Array.isArray(td.license_models)?td.license_models:[];
  requestMasterData={
@@ -284,6 +284,7 @@ async function openCreate(){
    }).catch(()=>{});
  }
 }
+document.addEventListener('click',e=>{const b=e.target.closest('#requestNew');if(!b||page()!=='requests')return;e.preventDefault();e.stopImmediatePropagation();openCreate().catch(err=>notify(err.message||'Yeni talep formu açılamadı.'));},true);
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-request-save]');if(!b)return;const f=document.querySelector('#itManagerModal #itDynamicForm[data-form-page="requests"]');if(!f)return;e.preventDefault();e.stopImmediatePropagation();if(b.dataset.busy==='1')return;b.dataset.busy='1';b.disabled=true;b.textContent='Kaydediliyor...';try{const saved=await save(f);if(!saved)return;notify('Satın alma talebi kaydedildi.');bootstrap.Modal.getOrCreateInstance(document.getElementById('itManagerModal')).hide();load()}catch(err){notify(err.message)}finally{b.disabled=false;b.textContent='Talebi Kaydet';delete b.dataset.busy}},true);
 document.addEventListener('shown.bs.modal',e=>{const f=e.target.querySelector?.('#itDynamicForm[data-form-page="requests"]');if(f)ensureRows(f)});
 window.addEventListener('hashchange',()=>setTimeout(load,150));document.addEventListener('DOMContentLoaded',()=>{if(location.hash==='#requests')setTimeout(load,300)});
