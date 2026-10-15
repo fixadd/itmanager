@@ -96,6 +96,17 @@ def _decrypt_secret(connection):
     return crypt().decrypt(connection.secret_encrypted.encode()).decode()
 
 
+def _disable_after_failed_test(connection, reason):
+    options = _safe_ad_options(connection.options)
+    options["last_test_ok"] = False
+    options["last_test_at"] = datetime.now(timezone.utc).isoformat()
+    options["enabled"] = False
+    connection.options = options
+    connection.active = False
+    audit("connection.test_failed", connection, {"kind": AD_KIND, "reason": reason})
+    db.session.commit()
+
+
 @connections_bp.get("/connections")
 @permission_required("settings.manage")
 def list_connections():
@@ -320,6 +331,7 @@ def test_connection(connection_id):
                 pass
     except (LDAPException, OSError, ssl.SSLError, InvalidToken, ValueError) as exc:
         current_app.logger.warning("AD connection test failed for connection id=%s (%s)", connection.id, type(exc).__name__)
+        _disable_after_failed_test(connection, type(exc).__name__)
         return jsonify({
             "ok": False,
             "error": "ad_connection_test_failed",
@@ -327,6 +339,7 @@ def test_connection(connection_id):
         }), 502
     except Exception as exc:
         current_app.logger.warning("Unexpected AD test error for connection id=%s (%s)", connection.id, type(exc).__name__)
+        _disable_after_failed_test(connection, type(exc).__name__)
         return jsonify({"ok": False, "error": "ad_connection_test_failed", "message": "Bağlantı testi tamamlanamadı."}), 502
 
     options["last_test_ok"] = True
