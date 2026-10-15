@@ -176,7 +176,7 @@ def create_connection():
         if smtp_port not in (465, 587):
             return jsonify({"error": "smtp_port_must_be_465_or_587"}), 400
         options = _safe_smtp_options(options)
-        if options["use_ssl"] and (smtp_port != 465 or options["starttls"]):
+        if (options["use_ssl"] and (smtp_port != 465 or options["starttls"])) or (smtp_port == 587 and (options["use_ssl"] or not options["starttls"])):
             return jsonify({"error": "smtp_tls_mode_invalid"}), 400
         if not options["use_ssl"] and smtp_port == 465:
             return jsonify({"error": "smtp_port_465_requires_ssl"}), 400
@@ -331,7 +331,7 @@ def update_connection(connection_id):
                 db.session.rollback()
                 return jsonify({"error": "smtp_port_must_be_465_or_587"}), 400
         smtp_options = _safe_smtp_options(connection.options)
-        if smtp_options["use_ssl"] and (int(connection.port or 587) != 465 or smtp_options["starttls"]):
+        if (smtp_options["use_ssl"] and (int(connection.port or 587) != 465 or smtp_options["starttls"])) or (int(connection.port or 587) == 587 and (smtp_options["use_ssl"] or not smtp_options["starttls"])):
             db.session.rollback()
             return jsonify({"error": "smtp_tls_mode_invalid"}), 400
         if "active" in data:
@@ -454,7 +454,7 @@ def _test_smtp_connection(connection):
         return jsonify({"ok": False, "error": "smtp_host_or_port_invalid"}), 400
     if not _valid_email(sender) or not _valid_email(recipient):
         return jsonify({"ok": False, "error": "smtp_sender_and_test_recipient_required", "message": "Gönderen ve test alıcısı için geçerli e-posta adresi girin."}), 400
-    if options["use_ssl"] and (port != 465 or options["starttls"]):
+    if (options["use_ssl"] and (port != 465 or options["starttls"])) or (port == 587 and (options["use_ssl"] or not options["starttls"])):
         return jsonify({"ok": False, "error": "smtp_tls_mode_invalid"}), 400
     if not options["use_ssl"] and port == 465:
         return jsonify({"ok": False, "error": "smtp_port_465_requires_ssl"}), 400
