@@ -291,3 +291,45 @@ def test_ad_base_dn_must_belong_to_baylan_domain(client, app):
     })
     assert response.status_code == 400
     assert response.get_json()["error"] == "ad_base_dn_must_be_within_baylan_domain"
+
+
+
+def test_backup_schedule_can_be_saved_and_invalid_values_are_rejected(client, app):
+    _login_settings_admin(client, app, username="backup_schedule_admin")
+    response = client.post("/api/connections/backup-settings", json={
+        "enabled": True, "frequency": "weekly", "hour": 3, "minute": 15, "weekday": 1,
+    })
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["enabled"] is True
+    assert payload["frequency"] == "weekly"
+    assert payload["hour"] == 3
+    assert payload["minute"] == 15
+    assert payload["weekday"] == 1
+    invalid = client.post("/api/connections/backup-settings", json={
+        "enabled": True, "frequency": "hourly", "hour": 30, "minute": 0, "weekday": 0,
+    })
+    assert invalid.status_code == 400
+
+
+def test_manual_backup_endpoint_records_success_without_exposing_database_credentials(client, app):
+    _login_settings_admin(client, app, username="backup_now_admin")
+    with patch("backend.app.api.connection_routes.create_backup", return_value={
+        "name": "itmanager-20261015-120000.dump", "size_bytes": 128, "created_at": "2026-10-15T12:00:00+00:00",
+    }) as backup_mock:
+        response = client.post("/api/connections/backup-now")
+    assert response.status_code == 200
+    assert response.get_json()["ok"] is True
+    assert response.get_json()["backup"]["name"].endswith(".dump")
+    backup_mock.assert_called_once()
+    with app.app_context():
+        setting = ConnectionSetting.query.filter_by(kind="backup_schedule").one()
+        assert setting.options["last_result"] == "success"
+        assert setting.options["last_backup"]["size_bytes"] == 128
+
+
+def test_auth_disabled_does_not_create_a_session_without_login(client, app, monkeypatch):
+    monkeypatch.setenv("AUTH_DISABLED", "true")
+    monkeypatch.setenv("ADMIN_USERNAME", "admin")
+    response = client.get("/api/auth/me")
+    assert response.status_code == 401
