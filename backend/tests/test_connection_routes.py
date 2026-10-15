@@ -1,7 +1,9 @@
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from werkzeug.security import generate_password_hash
 
+from backend.app.api.auth_routes import _ad_secret_cipher
 from backend.app.extensions import db
 from backend.app.models import ConnectionSetting, Permission, Role, User
 
@@ -136,3 +138,59 @@ def test_ad_connection_cannot_be_enabled_before_successful_test(client, app):
     )
     assert response.status_code == 400
     assert response.get_json()["error"] == "ad_connection_must_pass_test_before_enable"
+
+
+
+def test_ad_login_maps_only_to_an_existing_active_app_user(client, app):
+    with app.app_context():
+        user = User(username="jdoe", password_hash=generate_password_hash("unused-local-password"), active=True)
+        setting = ConnectionSetting(
+            name="Baylan Active Directory",
+            kind="active_directory",
+            host="dc01.baylan.local",
+            port=636,
+            username="svc-itmanager",
+            secret_encrypted=_ad_secret_cipher().encrypt(b"test-bind-password").decode(),
+            options={
+                "domain": "baylan.local",
+                "base_dn": "DC=baylan,DC=local",
+                "search_base": "",
+                "enabled": True,
+                "last_test_ok": True,
+                "tls_validate": True,
+            },
+            active=True,
+        )
+        db.session.add_all([user, setting])
+        db.session.commit()
+
+    service_connection = Mock()
+    service_connection.open.return_value = True
+    service_connection.bind.return_value = True
+    service_connection.search.return_value = True
+    service_connection.entries = [
+        SimpleNamespace(
+            entry_dn="CN=John Doe,OU=Users,DC=baylan,DC=local",
+            entry_attributes_as_dict={
+                "sAMAccountName": ["jdoe"],
+                "userPrincipalName": ["jdoe@baylan.local"],
+            },
+        )
+    ]
+    user_connection = Mock()
+    user_connection.open.return_value = True
+    user_connection.bind.return_value = True
+
+    with patch("backend.app.api.auth_routes.Server") as server_factory, patch(
+        "backend.app.api.auth_routes.Connection",
+        side_effect=[service_connection, user_connection],
+    ):
+        response = client.post(
+            "/api/auth/ad-login",
+            json={"username": "BAYLAN\\jdoe", "password": "valid-ad-password"},
+        )
+
+    assert response.status_code == 200
+    assert response.get_json()["user"]["username"] == "jdoe"
+    assert service_connection.search.call_args.kwargs["search_scope"] is not None
+    assert server_factory.call_args.kwargs["use_ssl"] is True
