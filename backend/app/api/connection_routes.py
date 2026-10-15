@@ -121,6 +121,12 @@ def create_connection():
     active = bool(data.get("active", True))
     if kind == AD_KIND:
         host = _validate_ad_host(host)
+        try:
+            requested_port = int(data.get("port") or 636)
+        except (TypeError, ValueError):
+            return jsonify({"error": "invalid_port"}), 400
+        if requested_port != 636:
+            return jsonify({"error": "ldaps_636_required"}), 400
         # New AD configurations are never enabled on creation.
         active = False
         options = _safe_ad_options(options)
@@ -193,6 +199,8 @@ def update_connection(connection_id):
             port = int(data["port"]) if data["port"] else None
         except (TypeError, ValueError):
             return jsonify({"error": "invalid_port"}), 400
+        if connection.kind == AD_KIND and port not in (None, 636):
+            return jsonify({"error": "ldaps_636_required"}), 400
         if port != connection.port:
             config_changed = True
         connection.port = port
