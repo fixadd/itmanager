@@ -20,12 +20,28 @@ from ..models import AuditLog, ConnectionSetting, Permission, Role, User, Person
 auth_bp = Blueprint("auth", __name__)
 
 
+def _role_session_snapshot(user):
+    role = user.role
+    return {
+        "id": role.id if role else None,
+        "name": role.name if role else None,
+        "active": bool(role and role.active),
+        "permissions": sorted(p.key for p in role.permissions) if role and role.active else [],
+    }
+
+
 def current_user():
     user_id = session.get("user_id")
     if not user_id:
         return None
     user = db.session.get(User, user_id)
     if not user or not user.active:
+        session.clear()
+        return None
+    # Invalidate sessions whenever the assigned role, role status, or role
+    # permissions change. Existing sessions without a snapshot must log in again.
+    saved_role = session.get("auth_role_snapshot")
+    if saved_role is None or saved_role != _role_session_snapshot(user):
         session.clear()
         return None
     return user
@@ -209,6 +225,7 @@ def ad_login():
         user.last_login_at = datetime.now(timezone.utc)
         session.clear()
         session["user_id"] = user.id
+        session["auth_role_snapshot"] = _role_session_snapshot(user)
         audit("login_ad", "user", user.id, {"provider": "active_directory"})
         db.session.commit()
         return jsonify({"user": user_json(user)})
@@ -238,6 +255,7 @@ def login():
     user.last_login_at = datetime.now(timezone.utc)
     session.clear()
     session["user_id"] = user.id
+    session["auth_role_snapshot"] = _role_session_snapshot(user)
     audit("login", "user", user.id)
     db.session.commit()
     return jsonify({"user": user_json(user)})
