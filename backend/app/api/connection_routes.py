@@ -3,8 +3,10 @@ import hashlib
 import ssl
 
 from cryptography.fernet import Fernet, InvalidToken
+from datetime import datetime, timezone
+
 from flask import Blueprint, current_app, jsonify, request
-from ldap3 import Connection, NONE, Server, Tls
+from ldap3 import BASE, Connection, NONE, Server, Tls
 from ldap3.core.exceptions import LDAPException
 
 from ..extensions import db
@@ -26,8 +28,24 @@ def crypt():
     return Fernet(key)
 
 
+def _safe_ad_options(value):
+    value = value if isinstance(value, dict) else {}
+    # Explicit allow-list: arbitrary client options must never be able to echo secrets.
+    return {
+        "domain": AD_DOMAIN,
+        "base_dn": str(value.get("base_dn") or DEFAULT_BASE_DN).strip(),
+        "search_base": str(value.get("search_base") or "").strip(),
+        "tls_validate": True,
+        "enabled": bool(value.get("enabled", False)),
+        "last_test_ok": bool(value.get("last_test_ok", False)),
+        "last_test_at": value.get("last_test_at"),
+    }
+
+
 def item(connection):
     options = connection.options if isinstance(connection.options, dict) else {}
+    if connection.kind == AD_KIND:
+        options = _safe_ad_options(options)
     # Never return secret_encrypted or decrypted secret to the browser.
     return {
         "id": connection.id,
@@ -103,15 +121,12 @@ def create_connection():
     active = bool(data.get("active", True))
     if kind == AD_KIND:
         host = _validate_ad_host(host)
-        # AD must remain disabled until the real DC and the login flow are verified.
+        # New AD configurations are never enabled on creation.
         active = False
-        options.update({
-            "domain": AD_DOMAIN,
-            "base_dn": str(options.get("base_dn") or DEFAULT_BASE_DN).strip(),
-            "search_base": str(options.get("search_base") or "").strip(),
-            "tls_validate": True,
-            "enabled": False,
-        })
+        options = _safe_ad_options(options)
+        options["enabled"] = False
+        options["last_test_ok"] = False
+        options["last_test_at"] = None
         if data.get("host") and not host:
             return jsonify({"error": "ad_host_must_be_in_baylan_domain"}), 400
 
@@ -163,24 +178,28 @@ def update_connection(connection_id):
         connection.port = data["port"] or None
     if "username" in data:
         connection.username = str(data.get("username") or "").strip() or None
+    ad_config_changed = any(key in data for key in ("host", "port", "username", "options", "secret", "kind"))
     if "options" in data:
         options = _clean_options(data["options"])
         if connection.kind == AD_KIND:
-            options.update({
-                "domain": AD_DOMAIN,
-                "base_dn": str(options.get("base_dn") or DEFAULT_BASE_DN).strip(),
-                "search_base": str(options.get("search_base") or "").strip(),
-                "tls_validate": True,
-                "enabled": False,
-            })
+            options = _safe_ad_options(options)
         connection.options = options
     if data.get("secret"):
         connection.secret_encrypted = crypt().encrypt(str(data["secret"]).encode()).decode()
-    # The AD login flow is not enabled by configuration alone.
     if connection.kind == AD_KIND:
-        connection.active = False
-        options = _clean_options(connection.options)
-        options["enabled"] = False
+        options = _safe_ad_options(connection.options)
+        if ad_config_changed:
+            options["last_test_ok"] = False
+            options["last_test_at"] = None
+        requested_active = bool(data.get("active", connection.active))
+        if requested_active and not options.get("last_test_ok"):
+            db.session.rollback()
+            return jsonify({"error": "ad_connection_must_pass_test_before_enable"}), 400
+        if requested_active and (not connection.host or not connection.username or not connection.secret_encrypted):
+            db.session.rollback()
+            return jsonify({"error": "ad_bind_credentials_required_before_enable"}), 400
+        connection.active = requested_active
+        options["enabled"] = requested_active
         options["tls_validate"] = True
         connection.options = options
     elif "active" in data:
@@ -203,7 +222,13 @@ def test_connection(connection_id):
     if int(connection.port or 636) != 636:
         return jsonify({"ok": False, "error": "ldaps_636_required"}), 400
 
-    options = _clean_options(connection.options)
+    options = _safe_ad_options(connection.options)
+    if not connection.username or not connection.secret_encrypted:
+        return jsonify({
+            "ok": False,
+            "error": "ad_bind_credentials_required",
+            "message": "Bağlantı testi için Bind kullanıcı hesabı ve parolası gereklidir.",
+        }), 400
     try:
         tls = Tls(validate=ssl.CERT_REQUIRED, version=ssl.PROTOCOL_TLS_CLIENT)
         server = Server(
@@ -227,16 +252,16 @@ def test_connection(connection_id):
         try:
             if not ldap_connection.open():
                 raise LDAPException("LDAPS connection could not be opened")
-            if bind_user and bind_password:
-                if not ldap_connection.bind():
-                    raise LDAPException("LDAP bind failed")
-            else:
-                return jsonify({
-                    "ok": True,
-                    "tls": "verified",
-                    "credentials_checked": False,
-                    "message": "LDAPS bağlantısı ve sertifika doğrulaması başarılı; bind hesabı/parolası tanımlanmadığı için kimlik doğrulaması test edilmedi.",
-                })
+            if not ldap_connection.bind():
+                raise LDAPException("LDAP bind failed")
+            base_dn = options.get("base_dn") or DEFAULT_BASE_DN
+            if not ldap_connection.search(
+                search_base=base_dn,
+                search_filter="(objectClass=*)",
+                search_scope=BASE,
+                attributes=["distinguishedName"],
+            ) or not ldap_connection.entries:
+                raise LDAPException("Configured Base DN could not be searched")
         finally:
             try:
                 ldap_connection.unbind()
@@ -253,9 +278,16 @@ def test_connection(connection_id):
         current_app.logger.warning("Unexpected AD test error for connection id=%s (%s)", connection.id, type(exc).__name__)
         return jsonify({"ok": False, "error": "ad_connection_test_failed", "message": "Bağlantı testi tamamlanamadı."}), 502
 
+    options["last_test_ok"] = True
+    options["last_test_at"] = datetime.now(timezone.utc).isoformat()
+    options["enabled"] = False
+    connection.options = options
+    connection.active = False
+    audit("connection.test_succeeded", connection, {"kind": AD_KIND, "tls": "verified", "credentials_checked": True})
+    db.session.commit()
     return jsonify({
         "ok": True,
         "tls": "verified",
         "credentials_checked": True,
-        "message": "LDAPS sertifikası ve bağlantı hesabı doğrulandı. Kurumsal giriş, ayrıca uygulama tarafında etkinleştirilmelidir.",
+        "message": "LDAPS, sertifika, Bind hesabı ve Base DN doğrulandı. AD girişi otomatik açılmadı; etkinleştirme için ayrıca onay gerekir.",
     })
