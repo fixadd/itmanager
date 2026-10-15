@@ -328,4 +328,5 @@ def test_connection(connection_id):
         "tls": "verified",
         "credentials_checked": True,
         "message": "LDAPS, sertifika, Bind hesabı ve Base DN doğrulandı. AD girişi otomatik açılmadı; etkinleştirme için ayrıca onay gerekir.",
+        "connection": item(connection),
     })
