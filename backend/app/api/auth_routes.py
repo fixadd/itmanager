@@ -1,4 +1,12 @@
+import base64
+import hashlib
+import ssl
 from datetime import datetime, timezone
+
+from cryptography.fernet import Fernet, InvalidToken
+from ldap3 import SUBTREE, Connection, NONE, Server, Tls
+from ldap3.core.exceptions import LDAPException
+from ldap3.utils.conv import escape_filter_chars
 from functools import wraps
 
 from flask import Blueprint, jsonify, request, session
@@ -6,7 +14,7 @@ from sqlalchemy import or_
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
-from ..models import AuditLog, Permission, Role, User, Personnel
+from ..models import AuditLog, ConnectionSetting, Permission, Role, User, Personnel
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -63,6 +71,131 @@ def audit(action, entity_type=None, entity_id=None, details=None):
     actor = current_user()
     db.session.add(AuditLog(action=action, entity_type=entity_type, entity_id=entity_id,
                             actor_user_id=actor.id if actor else None, details=details or {}))
+
+
+
+def _ad_secret_cipher():
+    secret_key = current_app.config.get("SECRET_KEY")
+    if not secret_key or len(str(secret_key)) < 32:
+        raise RuntimeError("A valid SECRET_KEY is required for AD secrets")
+    key = base64.urlsafe_b64encode(hashlib.sha256(str(secret_key).encode()).digest())
+    return Fernet(key)
+
+
+def _ad_login_failure():
+    return jsonify({"error": "invalid_credentials"}), 401
+
+
+@auth_bp.post("/auth/ad-login")
+def ad_login():
+    data = request.get_json(silent=True) or {}
+    identifier = str(data.get("username") or "").strip()
+    password = str(data.get("password") or "")
+    if not identifier or not password:
+        return jsonify({"error": "username_and_password_required"}), 400
+
+    connection_setting = ConnectionSetting.query.filter_by(
+        kind="active_directory", active=True
+    ).first()
+    options = connection_setting.options if connection_setting and isinstance(connection_setting.options, dict) else {}
+    if (
+        not connection_setting
+        or not options.get("enabled")
+        or not options.get("last_test_ok")
+        or not connection_setting.host
+        or int(connection_setting.port or 636) != 636
+        or not connection_setting.username
+        or not connection_setting.secret_encrypted
+    ):
+        return jsonify({"error": "ad_login_unavailable"}), 503
+
+    try:
+        service_password = _ad_secret_cipher().decrypt(
+            connection_setting.secret_encrypted.encode()
+        ).decode()
+        server = Server(
+            connection_setting.host,
+            port=636,
+            use_ssl=True,
+            tls=Tls(validate=ssl.CERT_REQUIRED, version=ssl.PROTOCOL_TLS_CLIENT),
+            connect_timeout=5,
+            get_info=NONE,
+        )
+        search_base = str(options.get("search_base") or options.get("base_dn") or "DC=baylan,DC=local").strip()
+        raw_identifier = identifier.split("\\\\", 1)[-1]
+        escaped_identifier = escape_filter_chars(raw_identifier)
+        ldap_filter = (
+            "(&(objectCategory=person)(objectClass=user)"
+            f"(|(sAMAccountName={escaped_identifier})(userPrincipalName={escaped_identifier})))"
+        )
+        service_connection = Connection(
+            server,
+            user=connection_setting.username,
+            password=service_password,
+            receive_timeout=5,
+            auto_bind=False,
+            raise_exceptions=True,
+        )
+        try:
+            if not service_connection.open() or not service_connection.bind():
+                return _ad_login_failure()
+            if not service_connection.search(
+                search_base=search_base,
+                search_filter=ldap_filter,
+                search_scope=SUBTREE,
+                attributes=["distinguishedName", "sAMAccountName", "userPrincipalName", "mail"],
+                size_limit=2,
+            ) or len(service_connection.entries) != 1:
+                return _ad_login_failure()
+            entry = service_connection.entries[0]
+            user_dn = str(entry.entry_dn)
+            ad_username = str(entry.sAMAccountName.value or "").strip()
+            ad_upn = str(entry.userPrincipalName.value or "").strip()
+            ad_email = str(entry.mail.value or "").strip()
+        finally:
+            try:
+                service_connection.unbind()
+            except Exception:
+                pass
+
+        user_connection = Connection(
+            server,
+            user=user_dn,
+            password=password,
+            receive_timeout=5,
+            auto_bind=False,
+            raise_exceptions=True,
+        )
+        try:
+            if not user_connection.open() or not user_connection.bind():
+                return _ad_login_failure()
+        finally:
+            try:
+                user_connection.unbind()
+            except Exception:
+                pass
+
+        # Only map to an existing active application user; never auto-provision or grant roles.
+        candidates = [value.lower() for value in (ad_username, identifier, ad_upn, ad_email) if value]
+        user = User.query.filter(
+            db.func.lower(User.username).in_(candidates)
+            | db.func.lower(User.email).in_(candidates)
+        ).first()
+        if not user or not user.active:
+            return _ad_login_failure()
+
+        user.last_login_at = datetime.now(timezone.utc)
+        session.clear()
+        session["user_id"] = user.id
+        audit("login_ad", "user", user.id, {"provider": "active_directory"})
+        db.session.commit()
+        return jsonify({"user": user_json(user)})
+    except (LDAPException, OSError, ssl.SSLError, InvalidToken, ValueError, TypeError) as exc:
+        current_app.logger.warning("AD login failed (%s)", type(exc).__name__)
+        return _ad_login_failure()
+    except Exception as exc:
+        current_app.logger.warning("Unexpected AD login failure (%s)", type(exc).__name__)
+        return _ad_login_failure()
 
 
 @auth_bp.post("/auth/login")
