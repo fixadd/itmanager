@@ -83,7 +83,7 @@ def _validate_ad_host(host):
     if host != AD_DOMAIN and not host.endswith("." + AD_DOMAIN):
         return None
     labels = host.split(".")
-    if len(labels) < 2 or labels[-2:] != ["baylan", "local"]:
+    if len(labels) < 3 or labels[-2:] != ["baylan", "local"]:
         return None
     if any(not label or len(label) > 63 or not label[0].isalnum() or not label[-1].isalnum() or any(not (ch.isalnum() or ch == "-") for ch in label) for label in labels):
         return None
@@ -301,13 +301,18 @@ def test_connection(connection_id):
             if not ldap_connection.bind():
                 raise LDAPException("LDAP bind failed")
             base_dn = options.get("base_dn") or DEFAULT_BASE_DN
-            if not ldap_connection.search(
-                search_base=base_dn,
-                search_filter="(objectClass=*)",
-                search_scope=BASE,
-                attributes=["distinguishedName"],
-            ) or not ldap_connection.entries:
-                raise LDAPException("Configured Base DN could not be searched")
+            search_bases = [base_dn]
+            configured_search_base = options.get("search_base")
+            if configured_search_base and configured_search_base.casefold() != base_dn.casefold():
+                search_bases.append(configured_search_base)
+            for search_base in search_bases:
+                if not ldap_connection.search(
+                    search_base=search_base,
+                    search_filter="(objectClass=*)",
+                    search_scope=BASE,
+                    attributes=["distinguishedName"],
+                ) or not ldap_connection.entries:
+                    raise LDAPException("Configured search base could not be searched")
         finally:
             try:
                 ldap_connection.unbind()
