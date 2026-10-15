@@ -217,7 +217,12 @@ def login():
     password = str(data.get("password") or "")
     if not username or not password:
         return jsonify({"error": "username_and_password_required"}), 400
-    user = User.query.filter(db.func.lower(User.username) == username.lower()).first()
+    user = User.query.filter(
+        or_(
+            db.func.lower(User.username) == username.lower(),
+            db.func.lower(User.email) == username.lower(),
+        )
+    ).first()
     if not user or not user.active or not check_password_hash(user.password_hash, password):
         return jsonify({"error": "invalid_credentials"}), 401
     user.last_login_at = datetime.now(timezone.utc)
