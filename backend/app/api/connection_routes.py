@@ -1,6 +1,12 @@
 import base64
 import hashlib
 import ssl
+import os
+import smtplib
+import re
+from email.message import EmailMessage
+from email.utils import parseaddr
+from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 from datetime import datetime, timezone
@@ -18,6 +24,8 @@ AD_KIND = "active_directory"
 AD_NAME = "Baylan Active Directory"
 AD_DOMAIN = "baylan.local"
 DEFAULT_BASE_DN = "DC=baylan,DC=local"
+SMTP_KIND = "smtp"
+BACKUP_EXTENSIONS = (".dump", ".sql", ".sql.gz", ".tar.gz", ".zip", ".backup", ".pgdump")
 
 
 def crypt():
@@ -42,10 +50,29 @@ def _safe_ad_options(value):
     }
 
 
+def _safe_smtp_options(value):
+    value = value if isinstance(value, dict) else {}
+    return {
+        "use_ssl": bool(value.get("use_ssl", False)),
+        "starttls": bool(value.get("starttls", True)),
+        "from_email": str(value.get("from_email") or "").strip()[:254],
+        "test_recipient": str(value.get("test_recipient") or "").strip()[:254],
+        "last_test_ok": bool(value.get("last_test_ok", False)),
+        "last_test_at": value.get("last_test_at"),
+    }
+
+
+def _valid_email(value):
+    value = str(value or "").strip()
+    return bool(value and len(value) <= 254 and parseaddr(value)[1] == value and re.fullmatch(r"[^\\s@]+@[^\\s@]+\\.[^\\s@]+", value))
+
+
 def item(connection):
     options = connection.options if isinstance(connection.options, dict) else {}
     if connection.kind == AD_KIND:
         options = _safe_ad_options(options)
+    elif connection.kind == SMTP_KIND:
+        options = _safe_smtp_options(options)
     # Never return secret_encrypted or decrypted secret to the browser.
     return {
         "id": connection.id,
@@ -129,6 +156,21 @@ def create_connection():
 
     options = _clean_options(data.get("options"))
     host = data.get("host")
+    if kind == SMTP_KIND:
+        host = str(host or "").strip().lower()
+        try:
+            smtp_port = int(data.get("port") or 587)
+        except (TypeError, ValueError):
+            return jsonify({"error": "invalid_port"}), 400
+        if not host or len(host) > 253 or "://" in host or "/" in host or ":" in host or any(not part or len(part) > 63 for part in host.rstrip(".").split(".")):
+            return jsonify({"error": "smtp_host_required"}), 400
+        if smtp_port not in (465, 587):
+            return jsonify({"error": "smtp_port_must_be_465_or_587"}), 400
+        options = _safe_smtp_options(options)
+        if options["use_ssl"] and (smtp_port != 465 or options["starttls"]):
+            return jsonify({"error": "smtp_tls_mode_invalid"}), 400
+        if not options["use_ssl"] and smtp_port == 465:
+            return jsonify({"error": "smtp_port_465_requires_ssl"}), 400
     active = bool(data.get("active", True))
     if kind == AD_KIND:
         host = _validate_ad_host(host)
@@ -151,7 +193,7 @@ def create_connection():
         name=name,
         kind=kind,
         host=host,
-        port=data.get("port") or (636 if kind == AD_KIND else None),
+        port=data.get("port") or (636 if kind == AD_KIND else (587 if kind == SMTP_KIND else None)),
         username=str(data.get("username") or "").strip() or None,
         options=options,
         active=active,
@@ -173,6 +215,7 @@ def update_connection(connection_id):
     was_ad = connection.kind == AD_KIND
     old_host, old_port, old_username, old_secret = connection.host, connection.port, connection.username, connection.secret_encrypted
     old_options = _safe_ad_options(connection.options) if was_ad else {}
+    was_smtp = connection.kind == SMTP_KIND
     config_changed = False
 
     if "name" in data:
@@ -233,6 +276,11 @@ def update_connection(connection_id):
                 or incoming_options.get("search_base") != old_ad_options.get("search_base")
             ):
                 config_changed = True
+        elif connection.kind == SMTP_KIND:
+            incoming_options = _safe_smtp_options(incoming_options)
+            old_smtp_options = _safe_smtp_options(connection.options) if was_smtp else {}
+            if any(incoming_options.get(k) != old_smtp_options.get(k) for k in ("use_ssl", "starttls", "from_email", "test_recipient")):
+                config_changed = True
         connection.options = incoming_options
 
     if data.get("secret"):
@@ -259,6 +307,26 @@ def update_connection(connection_id):
         options["enabled"] = requested_active
         options["tls_validate"] = True
         connection.options = options
+    elif connection.kind == SMTP_KIND:
+        if "host" in data or "port" in data:
+            host_value = str(connection.host or "").strip()
+            if not host_value or "://" in host_value or "/" in host_value or ":" in host_value:
+                db.session.rollback()
+                return jsonify({"error": "smtp_host_required"}), 400
+            if connection.port not in (465, 587):
+                db.session.rollback()
+                return jsonify({"error": "smtp_port_must_be_465_or_587"}), 400
+        smtp_options = _safe_smtp_options(connection.options)
+        if smtp_options["use_ssl"] and (int(connection.port or 587) != 465 or smtp_options["starttls"]):
+            db.session.rollback()
+            return jsonify({"error": "smtp_tls_mode_invalid"}), 400
+        if "active" in data:
+            connection.active = bool(data["active"])
+        connection.options = smtp_options
+        if config_changed:
+            smtp_options["last_test_ok"] = False
+            smtp_options["last_test_at"] = None
+            connection.options = smtp_options
     elif "active" in data:
         connection.active = bool(data["active"])
 
@@ -271,6 +339,8 @@ def update_connection(connection_id):
 @permission_required("settings.manage")
 def test_connection(connection_id):
     connection = db.get_or_404(ConnectionSetting, connection_id)
+    if connection.kind == SMTP_KIND:
+        return _test_smtp_connection(connection)
     if connection.kind != AD_KIND:
         return jsonify({"error": "unsupported_connection_test"}), 400
     host = _validate_ad_host(connection.host)
@@ -356,3 +426,85 @@ def test_connection(connection_id):
         "message": "LDAPS, sertifika, Bind hesabı ve Base DN doğrulandı. AD girişi otomatik açılmadı; etkinleştirme için ayrıca onay gerekir.",
         "connection": item(connection),
     })
+
+
+def _test_smtp_connection(connection):
+    options = _safe_smtp_options(connection.options)
+    host = str(connection.host or "").strip()
+    port = int(connection.port or 587)
+    recipient = options["test_recipient"]
+    sender = options["from_email"]
+    if not host or port not in (465, 587):
+        return jsonify({"ok": False, "error": "smtp_host_or_port_invalid"}), 400
+    if not _valid_email(sender) or not _valid_email(recipient):
+        return jsonify({"ok": False, "error": "smtp_sender_and_test_recipient_required", "message": "Gönderen ve test alıcısı için geçerli e-posta adresi girin."}), 400
+    if options["use_ssl"] and (port != 465 or options["starttls"]):
+        return jsonify({"ok": False, "error": "smtp_tls_mode_invalid"}), 400
+    if not options["use_ssl"] and port == 465:
+        return jsonify({"ok": False, "error": "smtp_port_465_requires_ssl"}), 400
+    try:
+        password = _decrypt_secret(connection) if connection.secret_encrypted else ""
+        timeout = 8
+        if options["use_ssl"]:
+            server = smtplib.SMTP_SSL(host, port, timeout=timeout, context=ssl.create_default_context())
+        else:
+            server = smtplib.SMTP(host, port, timeout=timeout)
+        with server:
+            server.ehlo()
+            if options["starttls"] and not options["use_ssl"]:
+                server.starttls(context=ssl.create_default_context())
+                server.ehlo()
+            if connection.username:
+                if not password:
+                    return jsonify({"ok": False, "error": "smtp_password_required", "message": "Kullanıcı adı tanımlı; SMTP parolası kaydedilmelidir."}), 400
+                server.login(connection.username, password)
+            message = EmailMessage()
+            message["Subject"] = "Baylan IT Manager - SMTP bağlantı testi"
+            message["From"] = sender
+            message["To"] = recipient
+            message.set_content("Bu ileti, Baylan IT Manager SMTP bağlantı testinin başarılı olduğunu doğrulamak için gönderilmiştir.")
+            server.send_message(message)
+    except (OSError, smtplib.SMTPException, ssl.SSLError, ValueError) as exc:
+        current_app.logger.warning("SMTP connection test failed for connection id=%s (%s)", connection.id, type(exc).__name__)
+        options["last_test_ok"] = False
+        options["last_test_at"] = datetime.now(timezone.utc).isoformat()
+        connection.options = options
+        audit("connection.test_failed", connection, {"kind": SMTP_KIND, "reason": type(exc).__name__})
+        db.session.commit()
+        return jsonify({"ok": False, "error": "smtp_connection_test_failed", "message": "SMTP bağlantısı veya test e-postası başarısız. Sunucu, TLS ve hesap ayarlarını kontrol edin."}), 502
+    options["last_test_ok"] = True
+    options["last_test_at"] = datetime.now(timezone.utc).isoformat()
+    connection.options = options
+    audit("connection.test_succeeded", connection, {"kind": SMTP_KIND, "tls": "verified", "test_email_sent": True})
+    db.session.commit()
+    return jsonify({"ok": True, "message": "SMTP bağlantısı doğrulandı ve test e-postası gönderildi.", "connection": item(connection)})
+
+
+@connections_bp.get("/connections/backup-status")
+@permission_required("settings.manage")
+def backup_status():
+    configured_path = str(current_app.config.get("BACKUP_DIR") or os.environ.get("BACKUP_DIR") or "/backups")
+    directory = Path(configured_path)
+    if not directory.is_dir():
+        return jsonify({"status": "not_configured", "directory": configured_path, "latest_backup": None,
+                        "message": "Yedek klasörü erişilebilir değil. BACKUP_DIR ayarını ve salt okunur volume bağlantısını kontrol edin."})
+    try:
+        files = [p for p in directory.iterdir() if p.is_file() and p.name.lower().endswith(BACKUP_EXTENSIONS)]
+        files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        if not files:
+            return jsonify({"status": "missing", "directory": configured_path, "latest_backup": None,
+                            "message": "Klasörde tanınan bir yedek dosyası bulunamadı."})
+        latest = files[0]
+        stat = latest.stat()
+        age_seconds = max(0, int(datetime.now(timezone.utc).timestamp() - stat.st_mtime))
+        status = "ok" if age_seconds <= 24 * 60 * 60 else "stale"
+        return jsonify({"status": status, "directory": configured_path,
+                        "latest_backup": {"name": latest.name, "size_bytes": stat.st_size,
+                                          "modified_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+                                          "age_seconds": age_seconds},
+                        "recognized_files": len(files),
+                        "message": "Son 24 saat içinde yedek dosyası bulundu." if status == "ok" else "En son yedek 24 saatten eski; yedekleme görevini kontrol edin."})
+    except OSError as exc:
+        current_app.logger.warning("Backup status check failed (%s)", type(exc).__name__)
+        return jsonify({"status": "error", "directory": configured_path, "latest_backup": None,
+                        "message": "Yedek klasörü okunamadı."}), 503
