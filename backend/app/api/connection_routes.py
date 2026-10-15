@@ -64,7 +64,10 @@ def _safe_smtp_options(value):
 
 def _valid_email(value):
     value = str(value or "").strip()
-    return bool(value and len(value) <= 254 and parseaddr(value)[1] == value and re.fullmatch(r"[^\\s@]+@[^\\s@]+\\.[^\\s@]+", value))
+    if not value or len(value) > 254 or parseaddr(value)[1] != value or value.count("@") != 1:
+        return False
+    local, domain = value.rsplit("@", 1)
+    return bool(local and "." in domain and not any(ch.isspace() for ch in value))
 
 
 def item(connection):
