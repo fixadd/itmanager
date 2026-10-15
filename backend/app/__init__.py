@@ -52,5 +52,6 @@ def create_app(config_class=Config):
  def db_health():
   from sqlalchemy import text
   try:db.session.execute(text('SELECT 1'));return jsonify({'status':'ok','database':'postgresql'})
-  except Exception as exc:db.session.rollback();return jsonify({'status':'error','database':'postgresql','detail':str(exc)}),503
+  except Exception as exc:
+   db.session.rollback();app.logger.warning('Database health check failed (%s)',type(exc).__name__);return jsonify({'status':'error','database':'postgresql','message':'Database health check failed'}),503
  return app
