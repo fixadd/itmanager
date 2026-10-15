@@ -274,7 +274,8 @@ def test_backup_status_does_not_claim_success_when_directory_missing(client, app
     assert response.get_json()["status"] == "not_configured"
 
 
-def test_api_health_endpoint_is_real_and_returns_ok(client):
+def test_api_health_endpoint_requires_login_and_reports_backend_ok(client, app):
+    _login_settings_admin(client, app, username="health_admin")
     response = client.get("/api/health")
-    assert response.status_code == 401
-    assert response.get_json()["error"] == "authentication_required"
+    assert response.status_code == 200
+    assert response.get_json()["status"] == "ok"
