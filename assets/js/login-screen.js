@@ -1,10 +1,11 @@
 (function () {
   const shell = () => document.querySelector('.app-shell');
   const api = () => window.IT_AUTH;
+  const defaults = {company_name:'BAYLAN',subtitle:'IT MANAGER',logo_data:'',login_title:'Güvenli giriş',login_subtitle:'IT varlık ve stok yönetim sistemine devam etmek için giriş yapın.',username_label:'Kullanıcı adı veya e-posta',password_label:'Parola',local_login_label:'Kullanıcı adı ile giriş',ad_login_label:'Active Directory ile giriş',login_background_color:'#101923',login_background_image:''};
   const style = document.createElement('style');
   style.textContent = `
     .app-shell { visibility: hidden; }
-    #itLoginOverlay { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 24px; background: radial-gradient(ellipse at top left, rgba(35,115,145,.25), transparent 48%), var(--bs-body-bg, #101923); color: var(--bs-body-color, #f2f5f8); }
+    #itLoginOverlay { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 24px; background-color: var(--it-login-bg, #101923); background-image: var(--it-login-image, radial-gradient(ellipse at top left, rgba(35,115,145,.25), transparent 48%)); background-size: cover; background-position: center; color: #f2f5f8; }
     #itLoginOverlay .login-card { width: min(100%, 440px); padding: clamp(24px, 5vw, 38px); border: 1px solid var(--bs-border-color, #394552); border-radius: 18px; background: var(--bs-tertiary-bg, #17222d); box-shadow: 0 24px 70px rgba(0,0,0,.24); }
     #itLoginOverlay .login-brand { display:flex; align-items:center; gap:12px; margin-bottom:28px; }
     #itLoginOverlay .login-brand-mark { width:48px;height:48px;border-radius:13px;display:grid;place-items:center;background:#126b83;color:white;font-weight:800;font-size:24px; }
@@ -45,10 +46,10 @@
           <div><strong>BAYLAN</strong><small>IT MANAGER</small></div>
         </div>
         <h1 id="itLoginTitle" class="h3 mb-2">Güvenli giriş</h1>
-        <p class="text-secondary mb-4">IT varlık ve stok yönetim sistemine devam etmek için giriş yapın.</p>
+        <p class="text-secondary mb-4" data-login-description>IT varlık ve stok yönetim sistemine devam etmek için giriş yapın.</p>
         <form id="itLoginForm" autocomplete="on">
-          <div class="mb-3"><label for="itLoginUsername" class="form-label">Kullanıcı adı veya e-posta</label><input id="itLoginUsername" name="username" class="form-control" autocomplete="username" required autofocus></div>
-          <div class="mb-3"><label for="itLoginPassword" class="form-label">Parola</label><input id="itLoginPassword" name="password" type="password" class="form-control" autocomplete="current-password" required></div>
+          <div class="mb-3"><label for="itLoginUsername" class="form-label" data-login-username-label>Kullanıcı adı veya e-posta</label><input id="itLoginUsername" name="username" class="form-control" autocomplete="username" required autofocus></div>
+          <div class="mb-3"><label for="itLoginPassword" class="form-label" data-login-password-label>Parola</label><input id="itLoginPassword" name="password" type="password" class="form-control" autocomplete="current-password" required></div>
           <div id="itLoginError" class="alert alert-danger login-error" role="alert"></div>
           <button type="submit" id="itLocalLogin" class="btn btn-primary w-100">Kullanıcı adı ile giriş</button>
           <div class="d-flex align-items-center gap-3 my-3"><div class="border-top flex-grow-1"></div><span class="small text-secondary">veya</span><div class="border-top flex-grow-1"></div></div>
@@ -64,6 +65,21 @@
     const adStatus = overlay.querySelector('#itAdStatus');
     const username = overlay.querySelector('#itLoginUsername');
     const password = overlay.querySelector('#itLoginPassword');
+    const applyAppearance = value => {
+      const config = {...defaults, ...(value || {})};
+      overlay.querySelector('.login-brand > div:last-child strong').textContent=config.company_name;
+      overlay.querySelector('.login-brand > div:last-child small').textContent=config.subtitle;
+      overlay.querySelector('#itLoginTitle').textContent=config.login_title;
+      overlay.querySelector('[data-login-description]').textContent=config.login_subtitle;
+      overlay.querySelector('[data-login-username-label]').textContent=config.username_label;
+      overlay.querySelector('[data-login-password-label]').textContent=config.password_label;
+      localButton.textContent=config.local_login_label;adButton.textContent=config.ad_login_label;
+      const mark=overlay.querySelector('.login-brand-mark');
+      if(config.logo_data){mark.textContent='';const img=document.createElement('img');img.src=config.logo_data;img.alt='';img.style.cssText='width:100%;height:100%;object-fit:contain;border-radius:inherit';mark.appendChild(img);}else{mark.textContent=(config.company_name||'B').trim().charAt(0).toUpperCase()||'B';}
+      overlay.style.setProperty('--it-login-bg',config.login_background_color||defaults.login_background_color);
+      overlay.style.setProperty('--it-login-image',config.login_background_image ? 'linear-gradient(rgba(8,15,22,.45),rgba(8,15,22,.45)), url("'+config.login_background_image+'")' : 'radial-gradient(ellipse at top left, rgba(35,115,145,.25), transparent 48%)');
+    };
+    fetch('/api/settings/branding',{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}}).then(r=>r.ok?r.json():defaults).then(applyAppearance).catch(()=>applyAppearance(defaults));
 
     const showError = message => {
       errorBox.textContent = message;
@@ -88,7 +104,7 @@
         showError(translateError(err.message));
       } finally {
         localButton.disabled = false;
-        localButton.textContent = 'Kullanıcı adı ile giriş';
+        fetch('/api/settings/branding',{credentials:'same-origin',cache:'no-store'}).then(r=>r.ok?r.json():defaults).then(applyAppearance).catch(()=>{});
         try {
           const status = await api().request('/auth/ad-status');
           adButton.disabled = !status.available;
