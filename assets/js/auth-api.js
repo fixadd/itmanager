@@ -8,5 +8,8 @@
   async function logout(){try{await request('/auth/logout',{method:'POST'})}catch(_){}me=null;window.IT_AUTH_USER=null;window.location.replace(window.location.pathname+window.location.search+'#login');window.location.reload()}
   document.addEventListener('click',e=>{const item=e.target.closest('[data-user-menu]');if(!item)return;if(item.dataset.userMenu==='logout')logout();if(item.dataset.userMenu==='profile'||item.dataset.userMenu==='password')window.location.hash='#profile'});
   async function login(username,password,provider='local'){const endpoint=provider==='ad'?'/auth/ad-login':'/auth/login';const result=await request(endpoint,{method:'POST',body:JSON.stringify({username,password})});syncUser(result.user);return result.user}
+  async function validateSession(){if(!me)return;try{const d=await request('/auth/me');if(d.user)syncUser(d.user)}catch(_){me=null;window.IT_AUTH_USER=null;window.location.reload()}}
+  window.addEventListener('focus',validateSession);
+  window.setInterval(validateSession,30000);
   window.IT_AUTH={request,login,logout,getUser:()=>me,init};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
