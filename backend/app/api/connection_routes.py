@@ -102,6 +102,12 @@ def _clean_options(value):
     return value if isinstance(value, dict) else {}
 
 
+def _validate_ad_dn(value):
+    value = str(value or "").strip()
+    normalized = re.sub(r"\\s+", "", value).casefold()
+    return bool(value and len(value) <= 512 and "\\n" not in value and "\\r" not in value and normalized.endswith("dc=baylan,dc=local"))
+
+
 def _validate_ad_host(host):
     host = str(host or "").strip().rstrip(".").lower()
     if not host or "://" in host or "/" in host or ":" in host:
@@ -183,6 +189,8 @@ def create_connection():
         # New AD configurations are never enabled on creation.
         active = False
         options = _safe_ad_options(options)
+        if not _validate_ad_dn(options.get("base_dn")) or (options.get("search_base") and not _validate_ad_dn(options.get("search_base"))):
+            return jsonify({"error": "ad_base_dn_must_be_within_baylan_domain"}), 400
         options["enabled"] = False
         options["last_test_ok"] = False
         options["last_test_at"] = None
@@ -270,6 +278,9 @@ def update_connection(connection_id):
         incoming_options = _clean_options(data["options"])
         if connection.kind == AD_KIND:
             incoming_options = _safe_ad_options(incoming_options)
+            if not _validate_ad_dn(incoming_options.get("base_dn")) or (incoming_options.get("search_base") and not _validate_ad_dn(incoming_options.get("search_base"))):
+                db.session.rollback()
+                return jsonify({"error": "ad_base_dn_must_be_within_baylan_domain"}), 400
             old_ad_options = _safe_ad_options(connection.options) if was_ad else {}
             if (
                 incoming_options.get("base_dn") != old_ad_options.get("base_dn")
@@ -350,6 +361,8 @@ def test_connection(connection_id):
         return jsonify({"ok": False, "error": "ldaps_636_required"}), 400
 
     options = _safe_ad_options(connection.options)
+    if not _validate_ad_dn(options.get("base_dn")) or (options.get("search_base") and not _validate_ad_dn(options.get("search_base"))):
+        return jsonify({"ok": False, "error": "ad_base_dn_must_be_within_baylan_domain"}), 400
     if not connection.username or not connection.secret_encrypted:
         return jsonify({
             "ok": False,
