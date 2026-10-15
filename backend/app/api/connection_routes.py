@@ -1,6 +1,5 @@
 import base64
 import hashlib
-import re
 import ssl
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -65,7 +64,10 @@ def _validate_ad_host(host):
     # Keep the test target within Baylan's declared AD DNS domain.
     if host != AD_DOMAIN and not host.endswith("." + AD_DOMAIN):
         return None
-    if not re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)*baylan\\.local", host):
+    labels = host.split(".")
+    if len(labels) < 2 or labels[-2:] != ["baylan", "local"]:
+        return None
+    if any(not label or len(label) > 63 or not label[0].isalnum() or not label[-1].isalnum() or any(not (ch.isalnum() or ch == "-") for ch in label) for label in labels):
         return None
     return host
 
