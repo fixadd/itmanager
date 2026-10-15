@@ -1,16 +1,19 @@
 from unittest.mock import patch
 
-from backend.app.models import ConnectionSetting
-from backend.tests.test_auth import seed_user
+from werkzeug.security import generate_password_hash
+
+from backend.app.extensions import db
+from backend.app.models import ConnectionSetting, Permission, Role, User
 
 
 def _login_settings_admin(client, app, username="ad_admin"):
     with app.app_context():
-        user, password = seed_user(
-            "AD Settings Admin",
-            ["settings.manage"],
-            username=username,
-        )
+        permission = Permission(key="settings.manage", name="Ayarları Yönet")
+        role = Role(name="AD Settings Admin", active=True, permissions=[permission])
+        password = "TestPassword123!"
+        user = User(username=username, password_hash=generate_password_hash(password), role=role, active=True)
+        db.session.add_all([permission, role, user])
+        db.session.commit()
     response = client.post(
         "/api/auth/login",
         json={"username": user.username, "password": password},
