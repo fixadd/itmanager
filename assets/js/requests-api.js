@@ -289,8 +289,6 @@ async function openCreate(){
  const setRequester=people=>{
    if(!requester)return;
    requester.innerHTML='<option value="">Giriş yapan kullanıcı</option>'+(people||[]).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');
-   const current=window.IT_CURRENT_USER?.personnel_id||window.IT_CURRENT_USER?.personnel?.id;
-   if(current)requester.value=String(current);
  };
  setRequester(d.personnel);
  if(requester&&!d.personnel?.length){
@@ -301,6 +299,30 @@ async function openCreate(){
      window.IT_REQUEST_MASTER_DATA=requestMasterData;
      setRequester(people);
    }).catch(()=>{});
+ }
+ // Talep sahibi, formu açan oturum kullanıcısının bağlı personel kaydından belirlenir.
+ if(requester){
+   try{
+     const meRes=await fetch('/api/auth/me',{headers:{Accept:'application/json'}});
+     const meData=await meRes.json();
+     if(!meRes.ok)throw Error(meData.error||'Oturum kullanıcısı alınamadı');
+     const user=meData.user||{};
+     const person=user.personnel;
+     if(person?.id){
+       if(![...requester.options].some(o=>o.value===String(person.id))){
+         requester.add(new Option(person.name, String(person.id)));
+       }
+       requester.value=String(person.id);
+       requester.disabled=true;
+       requester.title='Talep sahibi açık oturum kullanıcısından otomatik alınır.';
+     }else{
+       requester.disabled=false;
+       notify('Açık kullanıcı ('+(user.username||'')+') için personel eşlemesi yok. Talep sahibinin otomatik atanması için kullanıcıyı ilgili personel kaydına bağlayın.');
+     }
+   }catch(err){
+     console.error('Talep sahibi oturum bilgisi alınamadı:',err);
+     notify('Oturum kullanıcısı alınamadı; talep sahibi otomatik seçilemedi.');
+   }
  }
 }
 document.addEventListener('click',e=>{const b=e.target.closest('#requestNew');if(!b||page()!=='requests')return;e.preventDefault();e.stopImmediatePropagation();openCreate().catch(err=>notify(err.message||'Yeni talep formu açılamadı.'));},true);
