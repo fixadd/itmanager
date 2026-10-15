@@ -115,6 +115,7 @@ def ad_login():
         or not options.get("enabled")
         or not options.get("last_test_ok")
         or not connection_setting.host
+        or not str(connection_setting.host).lower().endswith(".baylan.local")
         or int(connection_setting.port or 636) != 636
         or not connection_setting.username
         or not connection_setting.secret_encrypted
@@ -134,6 +135,9 @@ def ad_login():
             get_info=NONE,
         )
         search_base = str(options.get("search_base") or options.get("base_dn") or "DC=baylan,DC=local").strip()
+        normalized_search_base = "".join(search_base.split()).casefold()
+        if not normalized_search_base.endswith("dc=baylan,dc=local") or len(search_base) > 512:
+            return _ad_login_failure()
         raw_identifier = identifier.split("\\", 1)[-1]
         escaped_identifier = escape_filter_chars(raw_identifier)
         ldap_filter = (
