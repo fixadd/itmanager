@@ -165,7 +165,7 @@ function openTransferForm(x,d){
   return html;
  }).join('');
  const body='<form id="requestTransferForm"><div class="alert alert-info">Gelen ürünleri işaretleyin ve gelen miktarı girin. Sadece işaretlediğiniz kalemler sisteme kaydedilir. Envanter cihazlarında her cihazın bilgisi ayrı ayrı istenir.</div>'+rows+'</form>';
- if(window.ITUI)ITUI.modal('Gelen Talepleri Envantere / Stoka / Lisansa Gir',body,{size:'modal-xl',footer:'<button class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button class="btn btn-primary" data-transfer-save>Seçilenleri Kaydet</button>'});
+ if(window.ITUI)ITUI.modal('Gelen Talepleri Envantere / Stoka / Lisansa Gir',body,{size:'modal-xl',footer:'<button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button type="button" class="btn btn-primary" data-transfer-save>Seçilenleri Kaydet</button>'});
  const form=document.querySelector('#requestTransferForm');if(!form)return;
  const refreshModels=row=>{const p=String(row.dataset.productType||'').trim();const catalog=p.toLowerCase()==='envanter'?{types:d.inventory_hardware_types||[],brands:d.inventory_brands||[],models:d.inventory_models||[]}:{types:d.stock_hardware_types||[],brands:d.stock_brands||[],models:d.stock_models||[]};const brand=row.querySelector('.tr-brand')?.value,type=row.querySelector('.tr-device')?.value,model=row.querySelector('.tr-model');if(!model)return;const b=catalog.brands.find(v=>String(v.id)===String(brand)),t=catalog.types.find(v=>String(v.id)===String(type));const ms=catalog.models.filter(v=>String(v.brand_id)===String(b?.id)&&(!t||!v.product_type_id||String(v.product_type_id)===String(t.id)));model.innerHTML='<option value="">Seçiniz</option>'+ms.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');};
  const buildRecords=row=>{
@@ -289,8 +289,6 @@ async function openCreate(){
  const setRequester=people=>{
    if(!requester)return;
    requester.innerHTML='<option value="">Giriş yapan kullanıcı</option>'+(people||[]).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');
-   const current=window.IT_CURRENT_USER?.personnel_id||window.IT_CURRENT_USER?.personnel?.id;
-   if(current)requester.value=String(current);
  };
  setRequester(d.personnel);
  if(requester&&!d.personnel?.length){
@@ -301,6 +299,30 @@ async function openCreate(){
      window.IT_REQUEST_MASTER_DATA=requestMasterData;
      setRequester(people);
    }).catch(()=>{});
+ }
+ // Talep sahibi, formu açan oturum kullanıcısının bağlı personel kaydından belirlenir.
+ if(requester){
+   try{
+     const meRes=await fetch('/api/auth/me',{headers:{Accept:'application/json'}});
+     const meData=await meRes.json();
+     if(!meRes.ok)throw Error(meData.error||'Oturum kullanıcısı alınamadı');
+     const user=meData.user||{};
+     const person=user.personnel;
+     if(person?.id){
+       if(![...requester.options].some(o=>o.value===String(person.id))){
+         requester.add(new Option(person.name, String(person.id)));
+       }
+       requester.value=String(person.id);
+       requester.disabled=true;
+       requester.title='Talep sahibi açık oturum kullanıcısından otomatik alınır.';
+     }else{
+       requester.disabled=false;
+       notify('Açık kullanıcı ('+(user.username||'')+') için personel eşlemesi yok. Talep sahibinin otomatik atanması için kullanıcıyı ilgili personel kaydına bağlayın.');
+     }
+   }catch(err){
+     console.error('Talep sahibi oturum bilgisi alınamadı:',err);
+     notify('Oturum kullanıcısı alınamadı; talep sahibi otomatik seçilemedi.');
+   }
  }
 }
 document.addEventListener('click',e=>{const b=e.target.closest('#requestNew');if(!b||page()!=='requests')return;e.preventDefault();e.stopImmediatePropagation();openCreate().catch(err=>notify(err.message||'Yeni talep formu açılamadı.'));},true);

@@ -240,7 +240,7 @@ def connections():
 
 
 BRANDING_KEY = "system_branding"
-DEFAULT_BRANDING = {"system_name": "Baylan IT Manager", "company_name": "BAYLAN", "subtitle": "IT MANAGER", "logo_data": ""}
+DEFAULT_BRANDING = {"system_name": "Baylan IT Manager", "company_name": "BAYLAN", "subtitle": "IT MANAGER", "logo_data": "", "login_title": "Güvenli giriş", "login_subtitle": "IT varlık ve stok yönetim sistemine devam etmek için giriş yapın.", "username_label": "Kullanıcı adı veya e-posta", "password_label": "Parola", "local_login_label": "Kullanıcı adı ile giriş", "ad_login_label": "Active Directory ile giriş", "login_background_color": "#101923", "login_background_image": ""}
 
 
 def _branding_setting():
@@ -252,7 +252,6 @@ def _branding_setting():
 
 
 @settings_bp.get("/settings/branding")
-@login_required
 def get_branding():
     _, values = _branding_setting()
     response = jsonify(values)
@@ -280,6 +279,25 @@ def update_branding():
         if len(logo) > 1400000:
             return jsonify({"error": "Logo dosyası en fazla 1 MB olabilir."}), 400
         values["logo_data"] = logo
+    for key, limit in (("login_title", 100), ("login_subtitle", 240), ("username_label", 80), ("password_label", 80), ("local_login_label", 80), ("ad_login_label", 80)):
+        if key in data:
+            value = str(data.get(key) or "").strip()
+            if not value:
+                return jsonify({"error": "Bu alan boş bırakılamaz.", "field": key}), 400
+            values[key] = value[:limit]
+    if "login_background_color" in data:
+        import re
+        color = str(data.get("login_background_color") or "").strip()
+        if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+            return jsonify({"error": "Arka plan rengi #RRGGBB biçiminde olmalıdır."}), 400
+        values["login_background_color"] = color
+    if "login_background_image" in data:
+        image = str(data.get("login_background_image") or "")
+        if image and not image.startswith(("data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,")):
+            return jsonify({"error": "Arka plan PNG, JPG veya WebP biçiminde olmalıdır."}), 400
+        if len(image) > 1400000:
+            return jsonify({"error": "Arka plan görseli en fazla 1 MB olabilir."}), 400
+        values["login_background_image"] = image
     if row is None:
         row = ConnectionSetting(name=BRANDING_KEY, kind="branding", active=True, options=values)
         db.session.add(row)
