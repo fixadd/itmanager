@@ -108,7 +108,7 @@ def _clean_options(value):
 def _validate_ad_dn(value):
     value = str(value or "").strip()
     normalized = re.sub(r"\s+", "", value).casefold()
-    return bool(value and len(value) <= 512 and "\n" not in value and "\r" not in value and normalized.endswith("dc=baylan,dc=local"))
+    return bool(value and len(value) <= 512 and "\n" not in value and "\r" not in value and (normalized == "dc=baylan,dc=local" or normalized.endswith(",dc=baylan,dc=local")))
 
 
 def _validate_ad_host(host):
@@ -171,7 +171,7 @@ def create_connection():
             smtp_port = int(data.get("port") or 587)
         except (TypeError, ValueError):
             return jsonify({"error": "invalid_port"}), 400
-        if not host or len(host) > 253 or "://" in host or "/" in host or ":" in host or any(not part or len(part) > 63 for part in host.rstrip(".").split(".")):
+        if not host or len(host) > 253 or "://" in host or "/" in host or ":" in host or any(not part or len(part) > 63 or not part[0].isalnum() or not part[-1].isalnum() or any(not (ch.isalnum() or ch == "-") for ch in part) for part in host.rstrip(".").split(".")):
             return jsonify({"error": "smtp_host_required"}), 400
         if smtp_port not in (465, 587):
             return jsonify({"error": "smtp_port_must_be_465_or_587"}), 400
