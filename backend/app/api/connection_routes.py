@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import re
 import ssl
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -63,6 +64,8 @@ def _validate_ad_host(host):
         return None
     # Keep the test target within Baylan's declared AD DNS domain.
     if host != AD_DOMAIN and not host.endswith("." + AD_DOMAIN):
+        return None
+    if not re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)*baylan\\.local", host):
         return None
     return host
 
@@ -151,6 +154,7 @@ def update_connection(connection_id):
         if connection.kind == AD_KIND and host:
             host = _validate_ad_host(host)
             if not host:
+                db.session.rollback()
                 return jsonify({"error": "ad_host_must_be_in_baylan_domain"}), 400
         connection.host = host or None
     if "port" in data:
