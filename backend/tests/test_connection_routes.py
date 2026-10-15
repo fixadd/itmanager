@@ -225,7 +225,7 @@ def test_smtp_connection_hides_secret_and_sends_test_email(client, app):
     connection_id = payload["id"]
 
     with patch("backend.app.api.connection_routes.smtplib.SMTP") as smtp_factory:
-        smtp = smtp_factory.return_value.__enter__.return_value
+        smtp = smtp_factory.return_value
         response = client.post(f"/api/connections/{connection_id}/test")
 
     assert response.status_code == 200
