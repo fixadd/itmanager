@@ -9,7 +9,7 @@ from ldap3.core.exceptions import LDAPException
 from ldap3.utils.conv import escape_filter_chars
 from functools import wraps
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, current_app, jsonify, request, session
 from sqlalchemy import or_
 from werkzeug.security import check_password_hash, generate_password_hash
 
