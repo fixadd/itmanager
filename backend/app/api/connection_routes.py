@@ -18,6 +18,7 @@ from ldap3.core.exceptions import LDAPException
 from ..extensions import db
 from ..models import AuditLog, ConnectionSetting
 from .auth_routes import current_user, permission_required
+from ..backup_service import create_backup, get_backup_settings, update_backup_schedule
 
 connections_bp = Blueprint("connections", __name__)
 AD_KIND = "active_directory"
@@ -494,6 +495,76 @@ def _test_smtp_connection(connection):
     audit("connection.test_succeeded", connection, {"kind": SMTP_KIND, "tls": "verified", "test_email_sent": True})
     db.session.commit()
     return jsonify({"ok": True, "message": "SMTP bağlantısı doğrulandı ve test e-postası gönderildi.", "connection": item(connection)})
+
+
+@connections_bp.get("/connections/backup-settings")
+@permission_required("settings.manage")
+def backup_settings():
+    return jsonify(get_backup_settings())
+
+
+@connections_bp.post("/connections/backup-settings")
+@permission_required("settings.manage")
+def save_backup_settings():
+    data = request.get_json(silent=True) or {}
+    frequency = str(data.get("frequency") or "daily").lower()
+    try:
+        hour = int(data.get("hour", 2))
+        minute = int(data.get("minute", 0))
+        weekday = int(data.get("weekday", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "backup_schedule_values_invalid"}), 400
+    if frequency not in {"daily", "weekly"} or not 0 <= hour <= 23 or not 0 <= minute <= 59 or not 0 <= weekday <= 6:
+        return jsonify({"error": "backup_schedule_values_invalid"}), 400
+    setting = ConnectionSetting.query.filter_by(kind="backup_schedule").first()
+    if not setting:
+        setting = ConnectionSetting(name="IT Manager Database Backup Schedule", kind="backup_schedule", active=True, options={})
+        db.session.add(setting)
+    old = setting.options if isinstance(setting.options, dict) else {}
+    setting.options = {
+        "enabled": bool(data.get("enabled", False)), "frequency": frequency, "hour": hour,
+        "minute": minute, "weekday": weekday, "last_run_at": old.get("last_run_at"),
+        "last_result": old.get("last_result", "never"), "last_error": old.get("last_error"),
+        "last_backup": old.get("last_backup"),
+    }
+    setting.active = bool(data.get("enabled", False))
+    audit("backup.schedule_updated", setting, {"enabled": setting.options["enabled"],
+          "frequency": frequency, "hour": hour, "minute": minute, "weekday": weekday})
+    db.session.commit()
+    update_backup_schedule(current_app._get_current_object(), get_backup_settings())
+    return jsonify(get_backup_settings())
+
+
+@connections_bp.post("/connections/backup-now")
+@permission_required("settings.manage")
+def backup_now():
+    setting = ConnectionSetting.query.filter_by(kind="backup_schedule").first()
+    if not setting:
+        setting = ConnectionSetting(name="IT Manager Database Backup Schedule", kind="backup_schedule",
+                                    active=False, options={"enabled": False, "frequency": "daily", "hour": 2,
+                                                           "minute": 0, "weekday": 0})
+        db.session.add(setting)
+        db.session.flush()
+    options = dict(setting.options) if isinstance(setting.options, dict) else {}
+    options["last_run_at"] = datetime.now(timezone.utc).isoformat()
+    try:
+        result = create_backup(current_app._get_current_object())
+        options["last_result"] = "success"
+        options["last_error"] = None
+        options["last_backup"] = result
+        setting.options = options
+        audit("backup.manual_succeeded", setting, {"file": result["name"], "size_bytes": result["size_bytes"]})
+        db.session.commit()
+        return jsonify({"ok": True, "message": "Veritabanı yedeği başarıyla oluşturuldu.",
+                        "backup": result, "schedule": get_backup_settings()})
+    except Exception as exc:
+        current_app.logger.warning("Manual database backup failed (%s)", type(exc).__name__)
+        options["last_result"] = "failed"
+        options["last_error"] = "Yedek oluşturulamadı. Sunucu loglarını kontrol edin."
+        setting.options = options
+        audit("backup.manual_failed", setting, {"reason": type(exc).__name__})
+        db.session.commit()
+        return jsonify({"ok": False, "error": "backup_failed", "message": options["last_error"]}), 502
 
 
 @connections_bp.get("/connections/backup-status")
