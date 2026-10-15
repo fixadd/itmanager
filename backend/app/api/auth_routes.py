@@ -122,7 +122,7 @@ def ad_login():
             get_info=NONE,
         )
         search_base = str(options.get("search_base") or options.get("base_dn") or "DC=baylan,DC=local").strip()
-        raw_identifier = identifier.split("\\\\", 1)[-1]
+        raw_identifier = identifier.split("\\", 1)[-1]
         escaped_identifier = escape_filter_chars(raw_identifier)
         ldap_filter = (
             "(&(objectCategory=person)(objectClass=user)"
