@@ -25,7 +25,7 @@ def create_app(config_class=Config):
  for bp in (api_bp,stock_bp,auth_bp,maintenance_bp,requests_bp,personnel_bp,knowledge_bp,attachments_bp,scrap_bp,reports_bp,settings_bp,logs_bp,license_owner_bp,data_bp,connections_bp,product_bp,catalog_bp,license_catalog_record_bp):app.register_blueprint(bp,url_prefix="/api")
  @app.before_request
  def require_api_authentication():
-  if not request.path.startswith('/api/') or request.path in {'/api/auth/login','/api/auth/ad-login','/api/health/db'} or request.method=='OPTIONS':return None
+  if not request.path.startswith('/api/') or request.path in {'/api/auth/login','/api/auth/ad-login','/api/auth/ad-status','/api/health/db'} or request.method=='OPTIONS':return None
   user=current_user()
   if user is None and os.getenv('AUTH_DISABLED','false').lower()=='true':
    user=User.query.filter_by(username=os.getenv('ADMIN_USERNAME','admin'),active=True).first()
