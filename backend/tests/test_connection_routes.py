@@ -16,7 +16,7 @@ def _login_settings_admin(client, app, username="ad_admin"):
         db.session.commit()
     response = client.post(
         "/api/auth/login",
-        json={"username": user.username, "password": password},
+        json={"username": username, "password": password},
     )
     assert response.status_code == 200
 
