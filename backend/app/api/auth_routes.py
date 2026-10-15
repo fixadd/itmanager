@@ -161,9 +161,15 @@ def ad_login():
                 return _ad_login_failure()
             entry = service_connection.entries[0]
             user_dn = str(entry.entry_dn)
-            ad_username = str(entry.sAMAccountName.value or "").strip()
-            ad_upn = str(entry.userPrincipalName.value or "").strip()
-            ad_email = str(entry.mail.value or "").strip()
+            attributes = entry.entry_attributes_as_dict
+            def attribute_value(name):
+                values = attributes.get(name) or []
+                if not isinstance(values, (list, tuple)):
+                    values = [values]
+                return str(values[0] or "").strip() if values else ""
+            ad_username = attribute_value("sAMAccountName")
+            ad_upn = attribute_value("userPrincipalName")
+            ad_email = attribute_value("mail")
         finally:
             try:
                 service_connection.unbind()
