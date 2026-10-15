@@ -48,6 +48,8 @@ def create_app(config_class=Config):
   if permission and not user.has_permission(permission):return jsonify({'error':'forbidden','permission':permission}),403
  @app.get('/health')
  def health():return jsonify({'status':'ok','service':'itmanager-api'})
+ @app.get('/api/health')
+ def api_health():return jsonify({'status':'ok','service':'itmanager-api'})
  @app.get('/api/health/db')
  def db_health():
   from sqlalchemy import text
