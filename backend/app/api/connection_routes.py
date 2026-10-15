@@ -104,8 +104,8 @@ def _clean_options(value):
 
 def _validate_ad_dn(value):
     value = str(value or "").strip()
-    normalized = re.sub(r"\\s+", "", value).casefold()
-    return bool(value and len(value) <= 512 and "\\n" not in value and "\\r" not in value and normalized.endswith("dc=baylan,dc=local"))
+    normalized = re.sub(r"\s+", "", value).casefold()
+    return bool(value and len(value) <= 512 and "\n" not in value and "\r" not in value and normalized.endswith("dc=baylan,dc=local"))
 
 
 def _validate_ad_host(host):
