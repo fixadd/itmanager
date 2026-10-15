@@ -86,6 +86,18 @@ def _ad_login_failure():
     return jsonify({"error": "invalid_credentials"}), 401
 
 
+@auth_bp.get("/auth/ad-status")
+def ad_status():
+    setting = ConnectionSetting.query.filter_by(kind="active_directory", active=True).first()
+    options = setting.options if setting and isinstance(setting.options, dict) else {}
+    available = bool(
+        setting and options.get("enabled") and options.get("last_test_ok")
+        and setting.host and setting.username and setting.secret_encrypted
+        and int(setting.port or 636) == 636
+    )
+    return jsonify({"available": available})
+
+
 @auth_bp.post("/auth/ad-login")
 def ad_login():
     data = request.get_json(silent=True) or {}
