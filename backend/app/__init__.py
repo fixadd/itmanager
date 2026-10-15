@@ -1,8 +1,6 @@
-import os
 from flask import Flask,jsonify,request,session
 from .config import Config
 from .extensions import db,migrate
-from .models import User
 from .api import api_bp,stock_bp
 from .api.auth_routes import auth_bp,current_user
 from .api.maintenance_routes import maintenance_bp
@@ -27,9 +25,6 @@ def create_app(config_class=Config):
  def require_api_authentication():
   if not request.path.startswith('/api/') or request.path in {'/api/auth/login','/api/auth/ad-login','/api/auth/ad-status','/api/health/db','/api/settings/branding'} or request.method=='OPTIONS':return None
   user=current_user()
-  if user is None and os.getenv('AUTH_DISABLED','false').lower()=='true':
-   user=User.query.filter_by(username=os.getenv('ADMIN_USERNAME','admin'),active=True).first()
-   if user:session['user_id']=user.id
   if user is None:return jsonify({'error':'authentication_required'}),401
   method=request.method.upper();path=request.path;permission=None
   if path.startswith('/api/inventory') and method in {'POST','PUT','PATCH','DELETE'}:permission='inventory.manage'
@@ -56,4 +51,6 @@ def create_app(config_class=Config):
   try:db.session.execute(text('SELECT 1'));return jsonify({'status':'ok','database':'postgresql'})
   except Exception as exc:
    db.session.rollback();app.logger.warning('Database health check failed (%s)',type(exc).__name__);return jsonify({'status':'error','database':'postgresql','message':'Database health check failed'}),503
+ from .backup_service import start_backup_scheduler
+ start_backup_scheduler(app)
  return app
