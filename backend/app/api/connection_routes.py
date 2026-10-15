@@ -153,6 +153,11 @@ def create_connection():
 def update_connection(connection_id):
     connection = db.get_or_404(ConnectionSetting, connection_id)
     data = request.get_json(silent=True) or {}
+    was_ad = connection.kind == AD_KIND
+    old_host, old_port, old_username, old_secret = connection.host, connection.port, connection.username, connection.secret_encrypted
+    old_options = _safe_ad_options(connection.options) if was_ad else {}
+    config_changed = False
+
     if "name" in data:
         name = str(data.get("name") or "").strip()
         if not name:
@@ -164,8 +169,13 @@ def update_connection(connection_id):
         if duplicate:
             return jsonify({"error": "connection_exists"}), 409
         connection.name = name
+
     if "kind" in data:
-        connection.kind = str(data.get("kind") or "").strip().lower()
+        new_kind = str(data.get("kind") or "").strip().lower()
+        if new_kind != connection.kind:
+            config_changed = True
+        connection.kind = new_kind
+
     if "host" in data:
         host = data.get("host")
         if connection.kind == AD_KIND and host:
@@ -173,22 +183,50 @@ def update_connection(connection_id):
             if not host:
                 db.session.rollback()
                 return jsonify({"error": "ad_host_must_be_in_baylan_domain"}), 400
-        connection.host = host or None
+        normalized_host = host or None
+        if normalized_host != connection.host:
+            config_changed = True
+        connection.host = normalized_host
+
     if "port" in data:
-        connection.port = data["port"] or None
+        try:
+            port = int(data["port"]) if data["port"] else None
+        except (TypeError, ValueError):
+            return jsonify({"error": "invalid_port"}), 400
+        if port != connection.port:
+            config_changed = True
+        connection.port = port
+
     if "username" in data:
-        connection.username = str(data.get("username") or "").strip() or None
-    ad_config_changed = any(key in data for key in ("host", "port", "username", "options", "secret", "kind"))
+        username = str(data.get("username") or "").strip() or None
+        if username != connection.username:
+            config_changed = True
+        connection.username = username
+
+    incoming_options = None
     if "options" in data:
-        options = _clean_options(data["options"])
+        incoming_options = _clean_options(data["options"])
         if connection.kind == AD_KIND:
-            options = _safe_ad_options(options)
-        connection.options = options
+            incoming_options = _safe_ad_options(incoming_options)
+            old_ad_options = _safe_ad_options(connection.options) if was_ad else {}
+            if (
+                incoming_options.get("base_dn") != old_ad_options.get("base_dn")
+                or incoming_options.get("search_base") != old_ad_options.get("search_base")
+            ):
+                config_changed = True
+        connection.options = incoming_options
+
     if data.get("secret"):
         connection.secret_encrypted = crypt().encrypt(str(data["secret"]).encode()).decode()
+        if connection.secret_encrypted != old_secret:
+            config_changed = True
+
     if connection.kind == AD_KIND:
         options = _safe_ad_options(connection.options)
-        if ad_config_changed:
+        if not config_changed and was_ad:
+            options["last_test_ok"] = old_options.get("last_test_ok", False)
+            options["last_test_at"] = old_options.get("last_test_at")
+        else:
             options["last_test_ok"] = False
             options["last_test_at"] = None
         requested_active = bool(data.get("active", connection.active))
