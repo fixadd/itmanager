@@ -34,7 +34,7 @@ services:
         condition: service_healthy
     volumes:
       - itmanager_uploads:/app/instance
-      - ${BACKUP_HOST_DIR:-./backups}:/backups:ro
+      - ${BACKUP_HOST_DIR:-./backups}:/backups:rw
     ports:
       - "5000:5000"
     restart: unless-stopped
