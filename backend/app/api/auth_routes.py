@@ -51,6 +51,9 @@ def user_json(user):
     return {
         "id": user.id,
         "username": user.username,
+        "first_name": user.first_name or "",
+        "last_name": user.last_name or "",
+        "full_name": user.full_name,
         "email": user.email,
         "active": user.active,
         "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
@@ -294,14 +297,16 @@ def create_user():
     data = request.get_json(silent=True) or {}
     username = str(data.get("username") or "").strip()
     password = str(data.get("password") or "")
-    if not username or len(password) < 8:
-        return jsonify({"error": "username_and_password_required", "detail": "Password must be at least 8 characters."}), 400
+    first_name = str(data.get("first_name") or "").strip()
+    last_name = str(data.get("last_name") or "").strip()
+    if not username or not first_name or not last_name or len(password) < 8:
+        return jsonify({"error": "required_fields_missing", "detail": "Kullanıcı adı, ad, soyad ve en az 8 karakterli şifre zorunludur."}), 400
     if User.query.filter(db.func.lower(User.username) == username.lower()).first():
         return jsonify({"error": "username_exists"}), 409
     email = str(data.get("email") or "").strip() or None
     if email and User.query.filter(db.func.lower(User.email) == email.lower()).first():
         return jsonify({"error": "email_exists"}), 409
-    user = User(username=username, email=email,
+    user = User(username=username, first_name=first_name, last_name=last_name, email=email,
                 password_hash=generate_password_hash(password), active=bool(data.get("active", True)))
     if data.get("role_id"):
         role = db.session.get(Role, int(data["role_id"]))
@@ -315,7 +320,7 @@ def create_user():
         user.personnel = personnel
     db.session.add(user)
     db.session.flush()
-    audit("user_created", "user", user.id, {"username": user.username})
+    audit("user_created", "user", user.id, {"username": user.username, "full_name": user.full_name})
     db.session.commit()
     return jsonify({"user": user_json(user)}), 201
 
@@ -335,6 +340,16 @@ def update_user(user_id):
         if conflict:
             return jsonify({"error": "username_exists"}), 409
         user.username = username
+    if "first_name" in data:
+        first_name = str(data["first_name"] or "").strip()
+        if not first_name:
+            return jsonify({"error": "first_name_required"}), 400
+        user.first_name = first_name
+    if "last_name" in data:
+        last_name = str(data["last_name"] or "").strip()
+        if not last_name:
+            return jsonify({"error": "last_name_required"}), 400
+        user.last_name = last_name
     if "email" in data:
         email = str(data["email"] or "").strip() or None
         if email and User.query.filter(db.func.lower(User.email) == email.lower(), User.id != user.id).first():
@@ -360,7 +375,7 @@ def update_user(user_id):
         if len(password) < 8:
             return jsonify({"error": "password_too_short"}), 400
         user.password_hash = generate_password_hash(password)
-    audit("user_updated", "user", user.id, {"username": user.username})
+    audit("user_updated", "user", user.id, {"username": user.username, "full_name": user.full_name})
     if password_changed:
         audit("password_changed", "user", user.id)
     db.session.commit()
