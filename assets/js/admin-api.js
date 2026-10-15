@@ -212,7 +212,7 @@
     ['host','base_dn','search_base','username','secret'].forEach(name=>form.elements[name]?.addEventListener('input',markAdConfigChanged));
     const saveAd=async()=>{
       const host=form.elements.host.value.trim();
-      if(host&&!/^(?:[a-z0-9-]+\.)*baylan\.local$/i.test(host)){showResult('Sunucu adı baylan.local etki alanı içinde bir FQDN olmalıdır.',false);throw new Error('Sunucu FQDN bilgisini kontrol edin.');}
+      if(host&&!/^(?:[a-z0-9-]+\.)+baylan\.local$/i.test(host)){showResult('Sunucu adı baylan.local etki alanı içinde bir FQDN olmalıdır.',false);throw new Error('Sunucu FQDN bilgisini kontrol edin.');}
       const enabled=Boolean(root.querySelector('#adEnableLogin')?.checked);const payload={name:'Baylan Active Directory',kind:'active_directory',host:host||null,port:636,username:form.elements.username.value.trim(),active:enabled,options:{domain:'baylan.local',base_dn:form.elements.base_dn.value.trim(),search_base:form.elements.search_base.value.trim(),tls_validate:true,enabled}};
       if(form.elements.secret.value)payload.secret=form.elements.secret.value;
       savedAd=await req(savedAd?'/connections/'+savedAd.id:'/connections',{method:savedAd?'PATCH':'POST',body:JSON.stringify(payload)});
