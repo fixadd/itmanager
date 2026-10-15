@@ -105,6 +105,13 @@ def test_ad_ldaps_test_uses_certificate_validation(client, app):
     assert server_kwargs["use_ssl"] is True
     assert server_kwargs["port"] == 636
     assert server_kwargs["tls"].validate == __import__("ssl").CERT_REQUIRED
+    activation = client.patch(
+        f"/api/connections/{connection_id}",
+        json={"active": True},
+    )
+    assert activation.status_code == 200
+    assert activation.get_json()["active"] is True
+    assert activation.get_json()["options"]["enabled"] is True
 
 
 
