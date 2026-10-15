@@ -204,7 +204,8 @@
         if(!form.elements.host.value.trim()){showResult('Önce gerçek etki alanı denetleyicisi FQDN bilgisini girin.',false);return;}
         const target=await saveAd();
         const result=await req('/connections/'+target.id+'/test',{method:'POST'});
-        const enable=root.querySelector('#adEnableLogin');if(enable){enable.disabled=!(result.ok&&target.has_secret&&target.host&&target.username);enable.checked=false;}
+        if(result.connection)savedAd=result.connection;
+        const enable=root.querySelector('#adEnableLogin');if(enable){enable.disabled=!(result.ok&&savedAd?.has_secret&&savedAd?.host&&savedAd?.username&&savedAd?.options?.last_test_ok);enable.checked=false;}
         showResult(result.message||'LDAPS bağlantı testi başarılı.',true);
       }catch(err){showResult(err.message||'Bağlantı testi başarısız.',false);}
     };
