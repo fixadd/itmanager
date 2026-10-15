@@ -279,3 +279,15 @@ def test_api_health_endpoint_requires_login_and_reports_backend_ok(client, app):
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.get_json()["status"] == "ok"
+
+
+def test_ad_base_dn_must_belong_to_baylan_domain(client, app):
+    _login_settings_admin(client, app, username="ad_admin_dn_check")
+    response = client.post("/api/connections", json={
+        "name": "Invalid AD DN", "kind": "active_directory",
+        "host": "dc01.baylan.local", "port": 636,
+        "username": "svc-itmanager", "secret": "test-password",
+        "options": {"base_dn": "DC=example,DC=com"},
+    })
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "ad_base_dn_must_be_within_baylan_domain"
