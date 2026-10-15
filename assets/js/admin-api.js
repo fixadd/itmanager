@@ -186,6 +186,8 @@
     let savedAd=ad;
     const form=root.querySelector('#adConnectionForm');
     const showResult=(message,ok)=>{const target=root.querySelector('#adTestResult');if(target)target.innerHTML='<div class="alert '+(ok?'alert-success':'alert-warning')+' mb-0">'+esc(message)+'</div>';};
+    const markAdConfigChanged=()=>{const enable=root.querySelector('#adEnableLogin');if(enable){enable.checked=false;enable.disabled=true;}if(savedAd?.options?.last_test_ok)showResult('Bağlantı ayarları değişti. Active Directory girişini açmadan önce bağlantıyı yeniden test edin.',false);};
+    ['host','base_dn','search_base','username','secret'].forEach(name=>form.elements[name]?.addEventListener('input',markAdConfigChanged));
     const saveAd=async()=>{
       const host=form.elements.host.value.trim();
       if(host&&!/^(?:[a-z0-9-]+\.)*baylan\.local$/i.test(host)){showResult('Sunucu adı baylan.local etki alanı içinde bir FQDN olmalıdır.',false);throw new Error('Sunucu FQDN bilgisini kontrol edin.');}
