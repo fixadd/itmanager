@@ -201,3 +201,80 @@ def test_ad_login_maps_only_to_an_existing_active_app_user(client, app):
     assert response.get_json()["user"]["username"] == "jdoe"
     assert service_connection.search.call_args.kwargs["search_scope"] is not None
     assert server_factory.call_args.kwargs["use_ssl"] is True
+
+
+def test_smtp_connection_hides_secret_and_sends_test_email(client, app):
+    _login_settings_admin(client, app, username="smtp_admin")
+    created = client.post(
+        "/api/connections",
+        json={
+            "name": "Baylan SMTP",
+            "kind": "smtp",
+            "host": "smtp.example.com",
+            "port": 587,
+            "username": "mailer@example.com",
+            "secret": "smtp-secret-not-for-response",
+            "options": {"starttls": True, "use_ssl": False, "from_email": "it@example.com", "test_recipient": "admin@example.com", "private_option": "must-not-leak"},
+        },
+    )
+    assert created.status_code == 201
+    payload = created.get_json()
+    assert payload["has_secret"] is True
+    assert "smtp-secret-not-for-response" not in created.get_data(as_text=True)
+    assert "private_option" not in created.get_data(as_text=True)
+    connection_id = payload["id"]
+
+    with patch("backend.app.api.connection_routes.smtplib.SMTP") as smtp_factory:
+        smtp = smtp_factory.return_value.__enter__.return_value
+        response = client.post(f"/api/connections/{connection_id}/test")
+
+    assert response.status_code == 200
+    assert response.get_json()["ok"] is True
+    smtp.starttls.assert_called_once()
+    smtp.login.assert_called_once_with("mailer@example.com", "smtp-secret-not-for-response")
+    smtp.send_message.assert_called_once()
+    assert "smtp-secret-not-for-response" not in response.get_data(as_text=True)
+
+
+def test_smtp_rejects_unsafe_tls_configuration(client, app):
+    _login_settings_admin(client, app, username="smtp_admin_tls")
+    response = client.post(
+        "/api/connections",
+        json={
+            "name": "Invalid SMTP TLS",
+            "kind": "smtp",
+            "host": "smtp.example.com",
+            "port": 587,
+            "options": {"use_ssl": True, "starttls": True},
+        },
+    )
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "smtp_tls_mode_invalid"
+
+
+def test_backup_status_reports_latest_backup_without_changing_files(client, app, tmp_path, monkeypatch):
+    _login_settings_admin(client, app, username="backup_admin")
+    monkeypatch.setenv("BACKUP_DIR", str(tmp_path))
+    backup_file = tmp_path / "itmanager-2026-10-15.sql.gz"
+    backup_file.write_bytes(b"backup-data")
+    response = client.get("/api/connections/backup-status")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["status"] == "ok"
+    assert payload["latest_backup"]["name"] == backup_file.name
+    assert payload["latest_backup"]["size_bytes"] == len(b"backup-data")
+    assert backup_file.read_bytes() == b"backup-data"
+
+
+def test_backup_status_does_not_claim_success_when_directory_missing(client, app, monkeypatch, tmp_path):
+    _login_settings_admin(client, app, username="backup_admin_missing")
+    monkeypatch.setenv("BACKUP_DIR", str(tmp_path / "not-mounted"))
+    response = client.get("/api/connections/backup-status")
+    assert response.status_code == 200
+    assert response.get_json()["status"] == "not_configured"
+
+
+def test_api_health_endpoint_is_real_and_returns_ok(client):
+    response = client.get("/api/health")
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "authentication_required"
