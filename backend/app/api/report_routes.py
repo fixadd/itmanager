@@ -317,7 +317,13 @@ def report_export():
     sheets["Hurda Kayıtları"] = scrap_rows
 
     request_rows = []
-    request_query = PurchaseRequest.query\n    if status:\n        request_query = request_query.filter(PurchaseRequest.status == status)\n    if search:\n        term = f"%{search}%"\n        request_query = request_query.outerjoin(PurchaseRequest.requester).filter(or_(PurchaseRequest.request_no.ilike(term), Personnel.name.ilike(term)))\n    for x in request_query.order_by(PurchaseRequest.requested_at.asc(), PurchaseRequest.id.asc()).all():
+    request_query = PurchaseRequest.query
+    if status:
+        request_query = request_query.filter(PurchaseRequest.status == status)
+    if search:
+        term = f"%{search}%"
+        request_query = request_query.outerjoin(PurchaseRequest.requester).filter(or_(PurchaseRequest.request_no.ilike(term), Personnel.name.ilike(term)))
+    for x in request_query.order_by(PurchaseRequest.requested_at.asc(), PurchaseRequest.id.asc()).all():
         creator_audits = AuditLog.query.filter(
             AuditLog.entity_type == "purchase_request", AuditLog.entity_id == x.id
         ).order_by(AuditLog.created_at.asc()).all()
