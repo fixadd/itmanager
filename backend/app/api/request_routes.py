@@ -4,7 +4,7 @@ from flask import Blueprint,jsonify,request
 from sqlalchemy import or_,text
 from sqlalchemy.orm import joinedload, selectinload
 from ..extensions import db
-from ..models import AuditLog,Brand,Department,Factory,Inventory,License,LicenseModel,LicenseName,Personnel,ProductModel,ProductType,PurchaseRequest,PurchaseRequestItem,StockItem,StockMovement
+from ..models import AuditLog,Brand,Department,Factory,Inventory,License,LicenseModel,LicenseName,Personnel,ProductModel,ProductType,PurchaseRequest,PurchaseRequestItem,StockItem,StockMovement,User
 from .auth_routes import current_user,login_required
 requests_bp=Blueprint("requests",__name__)
 STATUSES={"draft","pending","approved","rejected","ordered","completed","cancelled"};PRIORITIES={"low","normal","high","urgent"}
@@ -14,7 +14,14 @@ def _dt(v):
  try:return datetime.fromisoformat(str(v).replace("Z","+00:00"))
  except ValueError:raise ValueError("Geçersiz tarih formatı")
 def _item_dict(x):return {"id":x.id,"product_type":x.product_type,"device_type":x.device_type,"brand":x.brand,"model":x.model,"quantity":float(x.quantity) if x.quantity is not None else 0,"received_quantity":float(x.received_quantity or 0),"unit":x.unit,"estimated_unit_price":float(x.estimated_unit_price) if x.estimated_unit_price is not None else None,"description":x.description}
-def _dict(x):return {"id":x.id,"request_no":x.request_no,"requester":{"id":x.requester_id,"name":x.requester.name} if x.requester else None,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"status":x.status,"priority":x.priority,"requested_at":x.requested_at.isoformat() if x.requested_at else None,"approved_at":x.approved_at.isoformat() if x.approved_at else None,"approved_by":x.approved_by,"completed_at":x.completed_at.isoformat() if x.completed_at else None,"note":x.note,"items":[_item_dict(i) for i in x.items],"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+def _creator(x):
+ log=AuditLog.query.filter_by(entity_type="purchase_request",entity_id=x.id).filter(AuditLog.action.in_(("request.created","request.updated"))).order_by(AuditLog.created_at.asc(),AuditLog.id.asc()).first()
+ user=db.session.get(User,log.actor_user_id) if log and log.actor_user_id else None
+ return {"id":user.id,"name":user.full_name,"username":user.username} if user else None
+def _dict(x):
+ creator=_creator(x)
+ requester={"id":x.requester_id,"name":x.requester.name} if x.requester else creator
+ return {"id":x.id,"request_no":x.request_no,"requester":requester,"created_by":creator,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"status":x.status,"priority":x.priority,"requested_at":x.requested_at.isoformat() if x.requested_at else None,"approved_at":x.approved_at.isoformat() if x.approved_at else None,"approved_by":x.approved_by,"completed_at":x.completed_at.isoformat() if x.completed_at else None,"note":x.note,"items":[_item_dict(i) for i in x.items],"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 def _resolve(model,value,label):
  if value in (None,""):return None
  obj=db.session.get(model,int(value)) if str(value).isdigit() else model.query.filter(db.func.lower(model.name)==str(value).strip().lower()).first()
