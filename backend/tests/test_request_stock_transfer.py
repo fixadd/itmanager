@@ -74,6 +74,8 @@ def test_purchase_request_transfer_adds_fractional_stock(client, app):
         db.session.commit()
         request_id = request_record.id
         item_id = request_record.items[0].id
+        product_type_id = product_type.id
+        brand_id = brand.id
         user_name = user.username
 
     login = client.post(
@@ -102,8 +104,8 @@ def test_purchase_request_transfer_adds_fractional_stock(client, app):
 
     with app.app_context():
         stock = StockItem.query.filter_by(
-            product_type_id=product_type.id,
-            brand_id=brand.id,
+            product_type_id=product_type_id,
+            brand_id=brand_id,
             unit="Metre",
         ).one()
         assert stock.quantity == Decimal("0.50")
