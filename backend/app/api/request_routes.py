@@ -171,7 +171,7 @@ def transfer_request(request_id):
  if not selected:return jsonify({"error":"En az bir gelen talep kalemi seçmelisiniz","requires_input":True,"items":missing}),400
  if any(v["missing"] for v in selected):return jsonify({"error":"Aktarım için eksik bilgiler var","requires_input":True,"items":missing}),409
  by_id={str(v.get("item_id")):v for v in (data.get("items") or [])}; created=[]
- actor=current_user(); creator=_creator(x); requester_name=(x.requester.name if x.requester else (creator or {}).get("name")); provenance={"request_id":x.id,"request_no":x.request_no,"requester_name":requester_name,"received_by_user_id":actor.id if actor else None,"received_by_name":actor.full_name if actor else None}
+ actor=current_user(); creator=_creator(x); requester_name=(x.requester.name if x.requester else None); provenance={"request_id":x.id,"request_no":x.request_no,"requester_name":requester_name,"request_creator_name":(creator or {}).get("name"),"received_by_user_id":actor.id if actor else None,"received_by_name":actor.full_name if actor else None}
  seen_inventory_nos=set()
  try:
   for item in x.items:
