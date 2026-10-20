@@ -153,7 +153,7 @@ def inventory_history(inventory_id):
     actor_ids={r.actor_user_id for r in audits if r.actor_user_id}
     actor_map={u.id:u for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
     labels={
-        "inventory.created":"Envanter oluşturuldu",
+        "inventory.created":"Envanter oluşturuldu","inventory.received_from_request":"Satın alma talebinden envanter girişi",
         "inventory.updated":"Envanter güncellendi",
         "inventory.assigned":"Envanter ataması güncellendi",
         "inventory.mark_faulty":"Arızalı işaretlendi",
@@ -458,7 +458,7 @@ def license_history(license_id):
     actor_ids={r.actor_user_id for r in rows if r.actor_user_id}
     actors={u.id:u for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
     labels={"license.created":"Lisans oluşturuldu","license.updated":"Lisans güncellendi","license.assigned":"Lisans atandı","license.owner_changed":"Lisans sorumlusu değiştirildi","license.owner_cleared":"Lisans sorumlusu kaldırıldı","license.inventory_assigned":"Envantere bağlandı","license.sent_to_it":"Bilgi İşleme gönderildi","license.scrapped":"Lisans hurdaya ayrıldı","license.received_from_request":"Satın alma talebinden lisans girişi"}
-    return jsonify({"items":[{"id":r.id,"action":r.action,"action_label":labels.get(r.action,r.action),"actor":{"id":actors[r.actor_user_id].id,"name":actors[r.actor_user_id].full_name} if r.actor_user_id in actors else None,"details":r.details or {},"request_no":(r.details or {}).get("request_no"),"requester_name":(r.details or {}).get("requester_name"),"created_at":r.created_at.isoformat() if r.created_at else None} for r in rows]})
+    return jsonify({"items":[{"id":r.id,"action":r.action,"action_label":labels.get(r.action,r.action),"actor":{"id":actors[r.actor_user_id].id,"name":actors[r.actor_user_id].full_name} if r.actor_user_id in actors else None,"details":r.details or {},"request_no":(r.details or {}).get("request_no"),"requester_name":(r.details or {}).get("requester_name"),"request_creator_name":(r.details or {}).get("request_creator_name"),"created_at":r.created_at.isoformat() if r.created_at else None} for r in rows]})
 
 @api_bp.post("/licenses")
 @login_required
