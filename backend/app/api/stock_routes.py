@@ -53,7 +53,8 @@ def _dict(x):
     }
 
 
-def _movement_dict(m):
+def _movement_dict(m, provenance=None, actor=None):
+    provenance = provenance or {}
     return {
         "id": m.id,
         "type": m.movement_type,
@@ -62,6 +63,9 @@ def _movement_dict(m):
         "personnel": {"id": m.personnel_id, "name": m.personnel.name} if m.personnel else None,
         "inventory": {"id": m.inventory_id, "inventory_no": m.inventory.inventory_no} if m.inventory else None,
         "note": m.note,
+        "request_no": provenance.get("request_no"),
+        "requester_name": provenance.get("requester_name"),
+        "entered_by": actor.full_name if actor else provenance.get("received_by_name"),
         "created_at": m.created_at.isoformat() if m.created_at else None,
     }
 
@@ -155,7 +159,14 @@ def stock_movements(stock_id):
     if not x:
         return jsonify({"error": "Stok kaydı bulunamadı"}), 404
     rows = StockMovement.query.options(joinedload(StockMovement.personnel), joinedload(StockMovement.inventory)).filter_by(stock_item_id=stock_id).order_by(StockMovement.id.desc()).all()
-    return jsonify({"items": [_movement_dict(m) for m in rows]})
+    audits = AuditLog.query.filter_by(entity_type="stock", entity_id=stock_id).filter(AuditLog.action == "stock.received_from_request").order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).all()
+    actors = {u.id: u for u in __import__("app.models", fromlist=["User"]).User.query.filter(__import__("app.models", fromlist=["User"]).User.id.in_({a.actor_user_id for a in audits if a.actor_user_id})).all()} if any(a.actor_user_id for a in audits) else {}
+    enriched=[]
+    for movement in rows:
+        matching = next((a for a in audits if a.details and a.details.get("request_no") and a.details.get("unit", movement.unit) == movement.unit and abs(float(a.details.get("quantity", 0))-float(movement.quantity)) < 0.0001 and a.created_at and movement.created_at and abs((a.created_at-movement.created_at).total_seconds()) < 10), None)
+        details = matching.details or {} if matching else {}
+        enriched.append(_movement_dict(movement, details, actors.get(matching.actor_user_id) if matching and matching.actor_user_id else None))
+    return jsonify({"items": enriched})
 
 
 @stock_bp.post("/stock")
