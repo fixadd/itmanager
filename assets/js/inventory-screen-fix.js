@@ -97,14 +97,15 @@ async function loadRelated(x){
       const d=await inventoryScreenApi('/api/inventory/'+x.id+'/history?page='+page+'&per_page=10');
       const items=d.items||[], p=d.pagination||{};
       historyPage=Number(p.page||page);
-      historyHost.innerHTML=items.length?'<div class="table-responsive"><table class="table align-middle"><thead><tr><th>TARİH</th><th>İŞLEM</th><th>KİŞİ</th><th>AÇIKLAMA</th></tr></thead><tbody>'+items.map(v=>{
+      historyHost.innerHTML=items.length?'<div class="table-responsive"><table class="table align-middle"><thead><tr><th>TARİH</th><th>İŞLEM</th><th>İŞLEMİ YAPAN / PERSONEL</th><th>TALEP / AÇIKLAMA</th></tr></thead><tbody>'+items.map(v=>{
         const person=v.personnel?.name;
         let title=v.action_label||v.action||'İşlem';
         if(v.assignment_action==='assign')title=person?'Kime atandı: '+person:'Atama yapıldı';
         else if(v.assignment_action==='unassign')title=person?'Ataması kaldırıldı: '+person:'Atama kaldırıldı';
         else if(v.action==='inventory.assigned')title=person?'Kime atandı: '+person:'Atama güncellendi';
-        const note=v.note||v.details?.note;
-        return '<tr><td>'+esc(v.created_at?new Date(v.created_at).toLocaleString('tr-TR'):'—')+'</td><td>'+esc(title)+'</td><td>'+esc(person||'—')+'</td><td>'+esc(note||'—')+'</td></tr>';
+        const actor=v.actor?.name||'—';
+        const note=[v.request_no?'Talep No: '+v.request_no:'',v.request_creator_name?'Talebi açan: '+v.request_creator_name:'',v.requester_name?'Talep sahibi: '+v.requester_name:'',v.note||v.details?.note||''].filter(Boolean).join(' · ');
+        return '<tr><td>'+esc(v.created_at?new Date(v.created_at).toLocaleString('tr-TR'):'—')+'</td><td>'+esc(title)+'</td><td>'+esc(actor+(person?' · Personel: '+person:''))+'</td><td>'+esc(note||'—')+'</td></tr>';
       }).join('')+'</tbody></table></div>':'<p class="text-muted mb-0">Henüz işlem / zimmet geçmişi yok.</p>';
       const pages=Math.max(1,Number(p.pages||1)),total=Number(p.total||0);
       if(total>10)historyHost.insertAdjacentHTML('beforeend','<div class="inventory-history-pagination"><button type="button" class="btn btn-sm btn-outline-secondary" data-history-prev '+(historyPage<=1?'disabled':'')+'><i class="ti ti-chevron-left"></i> Önceki</button><span class="small text-muted">'+historyPage+' / '+pages+' · '+total+' kayıt</span><button type="button" class="btn btn-sm btn-outline-secondary" data-history-next '+(historyPage>=pages?'disabled':'')+'>Sonraki <i class="ti ti-chevron-right"></i></button></div>');
