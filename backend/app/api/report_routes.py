@@ -177,6 +177,24 @@ def _export_value(value):
     return str(value)
 
 
+def _safe_audit_details(details):
+    if not isinstance(details, dict):
+        return {}
+    blocked = ("password", "secret", "token", "license_key", "licence_key", "credential", "connection_string")
+    safe = {}
+    for key, value in details.items():
+        normalized = str(key).lower()
+        if any(part in normalized for part in blocked):
+            continue
+        if isinstance(value, dict):
+            safe[key] = _safe_audit_details(value)
+        elif isinstance(value, list):
+            safe[key] = [_safe_audit_details(item) if isinstance(item, dict) else _export_value(item) for item in value]
+        else:
+            safe[key] = _export_value(value)
+    return safe
+
+
 def _export_cell(value):
     value = _export_value(value)
     if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
@@ -274,6 +292,30 @@ def report_export():
         })
     sheets["Stok Hareketleri"] = movement_rows
 
+    people_rows = [{
+        "Personel No": x.employee_no, "Ad Soyad": x.name, "E-posta": x.email,
+        "Departman": x.department.name if x.department else "", "Durum": "Aktif" if x.active else "Pasif",
+        "Oluşturulma": x.created_at, "Güncellenme": x.updated_at,
+    } for x in Personnel.query.order_by(Personnel.name.asc()).all()]
+    sheets["Personeller"] = people_rows
+
+    maintenance_rows = []
+    for x in MaintenanceRecord.query.order_by(MaintenanceRecord.created_at.asc(), MaintenanceRecord.id.asc()).all():
+        maintenance_rows.append({
+            "Envanter No": x.inventory.inventory_no if x.inventory else "",
+            "Arıza": x.fault, "Açıklama": x.description, "Servis": x.service, "Teknisyen": x.technician,
+            "Durum": x.status, "Başlangıç": x.started_at, "Tamamlanma": x.completed_at,
+            "Maliyet": x.cost, "Kaydı Açan Personel": x.created_by_personnel.name if x.created_by_personnel else "",
+            "Not": x.note, "Oluşturulma": x.created_at,
+        })
+    sheets["Bakım Servis"] = maintenance_rows
+
+    scrap_rows = [{
+        "Kaynak Türü": x.source_type, "Kaynak Kayıt ID": x.source_id, "Hurda Nedeni": x.reason,
+        "Not": x.note, "Hurdaya Ayrılma Tarihi": x.scrapped_at, "Kayıt Tarihi": x.created_at,
+    } for x in ScrapRecord.query.order_by(ScrapRecord.scrapped_at.asc(), ScrapRecord.id.asc()).all()]
+    sheets["Hurda Kayıtları"] = scrap_rows
+
     request_rows = []
     request_query = PurchaseRequest.query\n    if status:\n        request_query = request_query.filter(PurchaseRequest.status == status)\n    if search:\n        term = f"%{search}%"\n        request_query = request_query.outerjoin(PurchaseRequest.requester).filter(or_(PurchaseRequest.request_no.ilike(term), Personnel.name.ilike(term)))\n    for x in request_query.order_by(PurchaseRequest.requested_at.asc(), PurchaseRequest.id.asc()).all():
         creator_audits = AuditLog.query.filter(
@@ -303,14 +345,14 @@ def report_export():
     actor_ids = {a.actor_user_id for a in audits if a.actor_user_id}
     actors = {u.id: u.full_name for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
     for a in audits:
-        details = a.details if isinstance(a.details, dict) else {}
+        details = _safe_audit_details(a.details)
         history_rows.append({
             "Tarih": a.created_at, "İşlemi Yapan": actors.get(a.actor_user_id, "Sistem"),
             "İşlem": a.action, "Kayıt Türü": a.entity_type, "Kayıt ID": a.entity_id,
             "Talep No": details.get("request_no") or details.get("request_number") or "",
             "Talep Sahibi": details.get("requester_name") or "",
             "Talebi Açan Kullanıcı": details.get("request_creator_name") or "",
-            "Detay": str(details),
+            "Detay": __import__("json").dumps(details, ensure_ascii=False, default=str),
         })
     sheets["İşlem Geçmişi"] = history_rows
 
