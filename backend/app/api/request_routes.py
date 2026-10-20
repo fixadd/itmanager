@@ -1,4 +1,5 @@
 from datetime import datetime,timezone
+from decimal import Decimal
 from uuid import uuid4
 from flask import Blueprint,jsonify,request
 from sqlalchemy import or_,text
@@ -215,12 +216,12 @@ def transfer_request(request_id):
      model=_resolve(ProductModel,v.get("model") or item.model,"model")
      if not model.active: raise ValueError("Aktarımda pasif model kullanılamaz")
      if model.brand_id!=brand.id or (model.product_type_id and model.product_type_id!=ptype.id):raise ValueError("Stok model, marka/donanım tipiyle eşleşmiyor")
-    q=received
+    q=Decimal(str(received))
     unit=v.get("unit") or item.unit or "Adet"
     obj=StockItem.query.filter_by(product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,unit=unit).filter(StockItem.status!="scrapped").order_by(StockItem.id.asc()).first()
     merged_into_existing=bool(obj)
     if obj:
-     obj.quantity=(obj.quantity or 0)+q
+     obj.quantity=(obj.quantity or Decimal("0"))+q
      if v.get("note") or item.description: obj.note=v.get("note") or item.description
      db.session.add(StockMovement(stock_item_id=obj.id,movement_type="in",quantity=q,unit=obj.unit,note=f"Satın alma talebi {x.request_no}"))
     else:
@@ -231,7 +232,7 @@ def transfer_request(request_id):
    v=by_id.get(str(item.id),{})
    if v.get("selected"):
     received=float(v.get("received_quantity",0) or 0)
-    item.received_quantity=(item.received_quantity or 0)+received
+    item.received_quantity=(item.received_quantity or Decimal("0"))+Decimal(str(received))
   # Tüm talep kalemleri tamamen teslim alındıysa talebi otomatik tamamla.
   all_received=all(float(item.received_quantity or 0) >= float(item.quantity or 0) - 1e-9 for item in x.items)
   if all_received and x.status not in {"completed","cancelled","rejected"}:
