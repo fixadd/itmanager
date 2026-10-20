@@ -88,5 +88,14 @@ document.addEventListener('DOMContentLoaded',()=>{
       else window.IT_NAV_GO('profile');
       return;
     }
+
+    const logout=e.target.closest('[data-user-menu="logout"]');
+    if(logout){
+      e.preventDefault();e.stopImmediatePropagation();
+      document.getElementById('topUserMenu')?.setAttribute('hidden','');
+      if(window.IT_AUTH?.logout) window.IT_AUTH.logout();
+      else { window.location.replace(window.location.pathname+window.location.search+'#login'); window.location.reload(); }
+      return;
+    }
   },true);
 });
