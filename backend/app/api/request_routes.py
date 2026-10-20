@@ -144,6 +144,7 @@ def _transfer_missing(x,data):
     for key,label in (("inventory_no","Envanter No"),("factory","Fabrika"),("department","Departman"),("device_type","Donanım Tipi"),("brand","Marka")):
      if not isinstance(rec,dict) or rec.get(key) in (None,""): missing.append({"key":f"records[{idx}].{key}","label":f"{idx+1}. cihaz {label}"})
   elif item.product_type=="Lisans":
+   if received > 0 and not received.is_integer(): missing.append({"key":"received_quantity","label":"Lisans miktarı tam sayı olmalıdır"})
    for key,label in (("license_name","Lisans Adı"),("license_model_id","Lisans Modeli")):
     if v.get(key) in (None,""): missing.append({"key":key,"label":label})
   else:
