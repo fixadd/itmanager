@@ -65,6 +65,7 @@ def _movement_dict(m, provenance=None, actor=None):
         "note": m.note,
         "request_no": provenance.get("request_no"),
         "requester_name": provenance.get("requester_name"),
+        "request_creator_name": provenance.get("request_creator_name"),
         "entered_by": actor.full_name if actor else provenance.get("received_by_name"),
         "created_at": m.created_at.isoformat() if m.created_at else None,
     }
