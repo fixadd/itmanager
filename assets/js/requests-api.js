@@ -222,9 +222,12 @@ function openTransferForm(x,d){
  });
  document.addEventListener('change',e=>{const cb=e.target.closest?.('.transfer-item .tr-selected');if(!cb)return;const row=cb.closest('.transfer-item'),fields=row?.querySelector('.transfer-fields'),qty=row?.querySelector('.tr-received');if(!row||!fields)return;const amount=Math.max(0,Number(qty?.value||0));fields.style.setProperty('display',cb.checked&&amount>0?'block':'none','important');if(cb.checked&&amount>0&&String(row.dataset.productType||'').trim().toLowerCase()==='envanter')buildRecords(row);if(!cb.checked){const box=row.querySelector('.tr-records');if(box)box.innerHTML='';}},true);
  document.addEventListener('input',e=>{if(!e.target.matches('.transfer-item .tr-received'))return;const row=e.target.closest('.transfer-item'),cb=row?.querySelector('.tr-selected'),fields=row?.querySelector('.transfer-fields');if(!row||!cb||!fields||!cb.checked)return;const amount=Math.max(0,Number(e.target.value||0));fields.style.setProperty('display',amount>0?'block':'none','important');if(amount>0&&String(row.dataset.productType||'').trim().toLowerCase()==='envanter')buildRecords(row);},true);
- document.querySelector('[data-transfer-save]')?.addEventListener('click',async e=>{
+ document.addEventListener('click',async e=>{
+  const saveButton=e.target.closest('#itManagerModal [data-transfer-save]');
+  if(!saveButton||!form.isConnected)return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
   if(transferSaving)return;
-  const saveButton=e.target.closest('[data-transfer-save]');
   const selected=[...form.querySelectorAll('.transfer-item')].filter(r=>r.querySelector('.tr-selected')?.checked);
   if(!selected.length){notify('En az bir gelen kalemi seçin.');return}
   const items=[];
@@ -259,7 +262,7 @@ function openTransferForm(x,d){
     transferSaving=false;
     if(saveButton){saveButton.disabled=false;saveButton.innerHTML='Seçilenleri Kaydet';}
   }
- });
+ },true);
 }
 async function detail(id){
  let x=current.find(q=>q.id===id);if(!x){try{const rr=await fetch('/api/requests/'+id,{headers:{Accept:'application/json'}});const dd=await rr.json();if(!rr.ok)throw Error(dd.error||'Talep detayı alınamadı');x=dd}catch(e){notify(e.message);return}}
