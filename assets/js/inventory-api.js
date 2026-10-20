@@ -32,7 +32,7 @@ const person=v.personnel?.name;
 if(v.assignment_action==='assign')title=person?'Kime atandı: '+person:'Atama yapıldı';
 if(v.assignment_action==='unassign')title=person?'Atama kaldırıldı: '+person:'Atama kaldırıldı';
 const actor=v.actor?.name||'—';
-const detail=[v.request_no?'Talep No: '+v.request_no:'',v.requester_name?'Talebi açan: '+v.requester_name:'',v.note||v.details?.note||''].filter(Boolean).join(' · ');
+const detail=[v.request_no?'Talep No: '+v.request_no:'',v.request_creator_name?'Talebi açan: '+v.request_creator_name:'',v.requester_name?'Talep sahibi: '+v.requester_name:'',v.note||v.details?.note||''].filter(Boolean).join(' · ');
 return '<tr><td>'+esc(date(v.created_at))+'</td><td>'+esc(title)+'</td><td>'+esc(actor+(person?' · Personel: '+person:''))+'</td><td>'+esc(detail||'—')+'</td></tr>';
 }).join(''):'<tr><td colspan="4" class="text-muted">Henüz işlem veya zimmet geçmişi yok.</td></tr>';
 const pages=Number(d.pagination?.pages||1);
