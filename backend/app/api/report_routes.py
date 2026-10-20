@@ -3,7 +3,7 @@ import io
 from datetime import date, datetime
 from decimal import Decimal
 from flask import Blueprint, jsonify, request, Response, send_file
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from ..extensions import db
 from ..models import Inventory, License, LicenseName, LicenseModel, StockItem, StockMovement, MaintenanceRecord, PurchaseRequest, PurchaseRequestItem, Personnel, ScrapRecord, ProductType, AuditLog, User, Factory, Department
@@ -201,7 +201,7 @@ def report_export():
     if search:
         term = f"%{search}%"
         inventory_q = inventory_q.join(Inventory.product_type).join(Inventory.brand).filter(
-            db.or_(Inventory.inventory_no.ilike(term), Inventory.serial_no.ilike(term),
+            or_(Inventory.inventory_no.ilike(term), Inventory.serial_no.ilike(term),
                    Inventory.computer_name.ilike(term), ProductType.name.ilike(term))
         )
     if status:
@@ -275,7 +275,7 @@ def report_export():
     sheets["Stok Hareketleri"] = movement_rows
 
     request_rows = []
-    for x in PurchaseRequest.query.order_by(PurchaseRequest.requested_at.asc(), PurchaseRequest.id.asc()).all():
+    request_query = PurchaseRequest.query\n    if status:\n        request_query = request_query.filter(PurchaseRequest.status == status)\n    if search:\n        term = f"%{search}%"\n        request_query = request_query.outerjoin(PurchaseRequest.requester).filter(or_(PurchaseRequest.request_no.ilike(term), Personnel.name.ilike(term)))\n    for x in request_query.order_by(PurchaseRequest.requested_at.asc(), PurchaseRequest.id.asc()).all():
         creator_audits = AuditLog.query.filter(
             AuditLog.entity_type == "purchase_request", AuditLog.entity_id == x.id
         ).order_by(AuditLog.created_at.asc()).all()
@@ -317,13 +317,14 @@ def report_export():
     if export_format == "csv":
         output = io.StringIO(newline="")
         writer = csv.writer(output, delimiter=";", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(["Modül"] + list(next((rows[0].keys() for rows in sheets.values() if rows), ["Kayıt"])))
+        writer.writerow(["Modül", "Kayıt Verisi (JSON)"])
         for sheet_name, rows in sheets.items():
             if not rows:
-                writer.writerow([sheet_name, "Kayıt bulunamadı"])
+                writer.writerow([sheet_name, '{"bilgi":"Kayıt bulunamadı"}'])
                 continue
             for row in rows:
-                writer.writerow([sheet_name] + [_export_cell(v) for v in row.values()])
+                safe_row = {key: _export_cell(value) for key, value in row.items()}
+                writer.writerow([sheet_name, __import__("json").dumps(safe_row, ensure_ascii=False, default=str)])
         data = "\ufeff" + output.getvalue()
         return Response(data, mimetype="text/csv; charset=utf-8",
                         headers={"Content-Disposition": 'attachment; filename="itmanager-rapor.csv"'})
