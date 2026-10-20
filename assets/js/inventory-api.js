@@ -31,14 +31,15 @@ let title=v.action_label||'İşlem';
 const person=v.personnel?.name;
 if(v.assignment_action==='assign')title=person?'Kime atandı: '+person:'Atama yapıldı';
 if(v.assignment_action==='unassign')title=person?'Atama kaldırıldı: '+person:'Atama kaldırıldı';
-const meta=[date(v.created_at),v.note||v.details?.note].filter(Boolean).join(' · ');
-return '<tr><td>'+esc(date(v.created_at))+'</td><td>'+esc(title)+'</td><td>'+esc(person||'—')+'</td><td>'+esc(v.note||v.details?.note||'—')+'</td></tr>';
+const actor=v.actor?.name||'—';
+const detail=[v.request_no?'Talep No: '+v.request_no:'',v.requester_name?'Talebi açan: '+v.requester_name:'',v.note||v.details?.note||''].filter(Boolean).join(' · ');
+return '<tr><td>'+esc(date(v.created_at))+'</td><td>'+esc(title)+'</td><td>'+esc(actor+(person?' · Personel: '+person:''))+'</td><td>'+esc(detail||'—')+'</td></tr>';
 }).join(''):'<tr><td colspan="4" class="text-muted">Henüz işlem veya zimmet geçmişi yok.</td></tr>';
 const pages=Number(d.pagination?.pages||1);
 const pager=pages>1?'<div class="inventory-history-pagination"><button type="button" class="btn btn-sm btn-light" data-history-page="'+(page-1)+'" '+(page<=1?'disabled':'')+'>Önceki</button><span>'+page+' / '+pages+'</span><button type="button" class="btn btn-sm btn-light" data-history-page="'+(page+1)+'" '+(page>=pages?'disabled':'')+'>Sonraki</button></div>':'';
 hist.querySelector('.text-muted')?.remove();
 hist.querySelector('.inventory-history-body')?.remove();
-hist.insertAdjacentHTML('beforeend','<div class="inventory-history-body"><div class="table-responsive"><table class="table align-middle"><thead><tr><th>TARİH</th><th>İŞLEM</th><th>KİŞİ</th><th>AÇIKLAMA</th></tr></thead><tbody>'+body+'</tbody></table></div>'+pager+'</div>');
+hist.insertAdjacentHTML('beforeend','<div class="inventory-history-body"><div class="table-responsive"><table class="table align-middle"><thead><tr><th>TARİH</th><th>İŞLEM</th><th>İŞLEMİ YAPAN / PERSONEL</th><th>TALEP / AÇIKLAMA</th></tr></thead><tbody>'+body+'</tbody></table></div>'+pager+'</div>');
 hist.querySelectorAll('[data-history-page]').forEach(btn=>btn.addEventListener('click',()=>renderInventoryHistory(inventoryId,Number(btn.dataset.historyPage))));
 }catch(e){const n=hist.querySelector('.text-muted');if(n)n.textContent='İşlem geçmişi alınamadı.'}
 }
