@@ -245,6 +245,34 @@ def transfer_request(request_id):
  except ValueError as e:db.session.rollback();return jsonify({"error":str(e)}),400
  except Exception as e:db.session.rollback();return jsonify({"error":"Talep aktarımı başarısız","detail":str(e)}),409
 
+
+@requests_bp.get("/requests/<int:request_id>/history")
+@login_required
+def request_history(request_id):
+ x=db.session.get(PurchaseRequest,request_id)
+ if not x:return jsonify({"error":"Talep bulunamadı"}),404
+ rows=AuditLog.query.filter_by(entity_type="purchase_request",entity_id=request_id).order_by(AuditLog.created_at.asc(),AuditLog.id.asc()).all()
+ targets=[]
+ for row in rows:
+  if row.action=="request.transferred" and isinstance(row.details,dict):
+   targets.extend((str(t.get("type","")).lower(),t.get("id")) for t in row.details.get("targets",[]) if isinstance(t,dict) and t.get("id") is not None)
+ type_map={"envanter":"inventory","lisans":"license","stok":"stock"}
+ for kind,entity_id in targets:
+  entity_type=type_map.get(kind,kind)
+  found=AuditLog.query.filter_by(entity_type=entity_type,entity_id=entity_id).order_by(AuditLog.created_at.asc(),AuditLog.id.asc()).all()
+  rows.extend(r for r in found if isinstance(r.details,dict) and r.details.get("request_id")==request_id and r not in rows)
+ rows.sort(key=lambda r:(r.created_at or datetime.min.replace(tzinfo=timezone.utc),r.id))
+ actor_ids={r.actor_user_id for r in rows if r.actor_user_id}
+ actors={u.id:u for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
+ safe_keys={"request_no","from_status","to_status","reason","item_count","quantity","unit","inventory_no","license_name","license_model","requester_name","request_creator_name","received_by_name","targets","status"}
+ history=[]
+ for row in rows:
+  details=row.details if isinstance(row.details,dict) else {}
+  safe={k:details[k] for k in safe_keys if k in details}
+  actor=actors.get(row.actor_user_id)
+  history.append({"action":row.action,"actor":actor.full_name if actor else None,"created_at":row.created_at.isoformat() if row.created_at else None,"entity_type":row.entity_type,"entity_id":row.entity_id,"details":safe})
+ return jsonify({"items":history})
+
 @requests_bp.post("/requests/<int:request_id>/approve")
 @login_required
 def approve(request_id):return _set_status(request_id,"approved")

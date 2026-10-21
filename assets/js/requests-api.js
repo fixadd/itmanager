@@ -24,7 +24,7 @@ function render(items){
  const table=tables.find(t=>/TALEP|DURUM|ÖNCELİK/.test(t.querySelector('thead')?.textContent||''));
  if(!table)return;
  const body=table.querySelector('tbody'); if(!body)return;
- body.innerHTML=items.length?items.map(x=>`<tr data-request-id="${x.id}"><td><strong>${esc(x.request_no)}</strong></td><td>${esc(x.requester?.name||'—')}</td><td>${esc(x.items?.map(i=>`${i.product_type}${i.model?' · '+i.model:''} × ${i.quantity} (Gelen: ${Number(i.received_quantity||0)}, Kalan: ${Math.max(0,Number(i.quantity||0)-Number(i.received_quantity||0))})` ).join(', ')||'—')}</td><td>${badge(x.status)}</td><td>${x.requested_at?new Date(x.requested_at).toLocaleDateString('tr-TR'):'—'}</td><td><div class="btn-group btn-group-sm"><button class="btn btn-light request-detail" data-id="${x.id}"><i class="ti ti-eye"></i></button><button class="btn btn-outline-primary request-enter" data-id="${x.id}" title="Talep Gir">Talep Gir</button></div></td></tr>`).join(''):`<tr><td colspan="7" class="text-center text-muted py-4">Henüz satın alma talebi bulunmuyor.</td></tr>`;
+ body.innerHTML=items.length?items.map(x=>`<tr data-request-id="${x.id}"><td><strong>${esc(x.request_no)}</strong></td><td><div><strong>${esc(x.requester?.name||'—')}</strong><small class="d-block text-muted">Talep sahibi</small><span class="d-block mt-1">${esc(x.created_by?.name||'—')}</span><small class="d-block text-muted">Talep giren</small></div></td><td>${esc(x.items?.map(i=>`${i.product_type}${i.model?' · '+i.model:''} × ${i.quantity} (Gelen: ${Number(i.received_quantity||0)}, Kalan: ${Math.max(0,Number(i.quantity||0)-Number(i.received_quantity||0))})` ).join(', ')||'—')}</td><td>${badge(x.status)}</td><td>${x.requested_at?new Date(x.requested_at).toLocaleDateString('tr-TR'):'—'}</td><td><div class="btn-group btn-group-sm"><button class="btn btn-light request-detail" data-id="${x.id}"><i class="ti ti-eye"></i></button><button class="btn btn-outline-primary request-enter" data-id="${x.id}" title="Talep Gir">Talep Gir</button></div></td></tr>`).join(''):`<tr><td colspan="7" class="text-center text-muted py-4">Henüz satın alma talebi bulunmuyor.</td></tr>`;
 }
 let requestMasterData=null;
 async function loadAllRequestPersonnel(headers){
@@ -264,10 +264,23 @@ function openTransferForm(x,d){
   }
  },true);
 }
+
+async function loadRequestHistory(id){
+ const target=document.querySelector('#itManagerModal #requestHistoryBody');if(!target)return;
+ try{
+  const r=await fetch('/api/requests/'+id+'/history',{headers:{Accept:'application/json'}});
+  const data=await r.json();if(!r.ok)throw Error(data.error||'Geçmiş alınamadı');
+  const items=data.items||[];
+  target.innerHTML=items.length?'<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Tarih</th><th>İşlem</th><th>İşlemi yapan</th><th>Detay</th></tr></thead><tbody>'+items.map(v=>{
+   const d=v.details||{};const extra=[d.request_no,d.inventory_no,d.license_name,d.license_model,d.quantity!=null?('Miktar: '+d.quantity+' '+(d.unit||'')):null,d.from_status?('Durum: '+d.from_status):null,d.reason].filter(Boolean).join(' · ');
+   return '<tr><td>'+esc(v.created_at?new Date(v.created_at).toLocaleString('tr-TR'):'—')+'</td><td>'+esc(v.action)+'</td><td>'+esc(v.actor||d.received_by_name||'—')+'</td><td>'+esc(extra||'—')+'</td></tr>';
+  }).join('')+'</tbody></table></div>':'Bu talep için henüz işlem geçmişi yok.';
+ }catch(err){target.textContent=err.message||'Geçmiş yüklenemedi';}
+}
 async function detail(id){
  let x=current.find(q=>q.id===id);if(!x){try{const rr=await fetch('/api/requests/'+id,{headers:{Accept:'application/json'}});const dd=await rr.json();if(!rr.ok)throw Error(dd.error||'Talep detayı alınamadı');x=dd}catch(e){notify(e.message);return}}
- const body='<div class="detail-grid"><div><span>Talep No</span><strong>'+esc(x.request_no)+'</strong></div><div><span>Talep Sahibi</span><strong>'+esc(x.requester?.name||'—')+'</strong></div><div><span>Talep Giren</span><strong>'+esc(x.created_by?.name||'—')+'</strong></div><div><span>Departman</span><strong>'+esc(x.department?.name||'—')+'</strong></div><div><span>Fabrika</span><strong>'+esc(x.factory?.name||'—')+'</strong></div><div><span>Öncelik</span><strong>'+esc(x.priority)+'</strong></div><div><span>Durum</span><strong>'+esc(labels[x.status]||x.status)+'</strong></div></div><hr><h6>Talep Kalemleri</h6><div class="table-responsive"><table class="table"><thead><tr><th>Tip</th><th>Ürün</th><th>Marka</th><th>Model</th><th>Miktar</th><th>Açıklama</th></tr></thead><tbody>'+x.items.map(i=>'<tr><td>'+esc(i.product_type)+'</td><td>'+esc(i.device_type||'—')+'</td><td>'+esc(i.brand||'—')+'</td><td>'+esc(i.model||'—')+'</td><td>'+esc(i.quantity)+' '+esc(i.unit)+'</td><td>'+esc(i.description||'—')+'</td></tr>').join('')+'</tbody></table></div>' +(x.note?'<div class="mt-3"><strong>Not:</strong> '+esc(x.note)+'</div>':'');
- if(window.ITUI)ITUI.modal('Satın Alma Talebi Detayı',body,{footer:'<button class="btn btn-light" data-bs-dismiss="modal">Kapat</button>'});else notify(x.request_no);
+ const body='<div class="detail-grid"><div><span>Talep No</span><strong>'+esc(x.request_no)+'</strong></div><div><span>Talep Sahibi</span><strong>'+esc(x.requester?.name||'—')+'</strong></div><div><span>Talep Giren</span><strong>'+esc(x.created_by?.name||'—')+'</strong></div><div><span>Departman</span><strong>'+esc(x.department?.name||'—')+'</strong></div><div><span>Fabrika</span><strong>'+esc(x.factory?.name||'—')+'</strong></div><div><span>Öncelik</span><strong>'+esc(x.priority)+'</strong></div><div><span>Durum</span><strong>'+esc(labels[x.status]||x.status)+'</strong></div></div><hr><h6>Talep Kalemleri</h6><div class="table-responsive"><table class="table"><thead><tr><th>Tip</th><th>Ürün</th><th>Marka</th><th>Model</th><th>Miktar</th><th>Açıklama</th></tr></thead><tbody>'+x.items.map(i=>'<tr><td>'+esc(i.product_type)+'</td><td>'+esc(i.device_type||'—')+'</td><td>'+esc(i.brand||'—')+'</td><td>'+esc(i.model||'—')+'</td><td>'+esc(i.quantity)+' '+esc(i.unit)+'</td><td>'+esc(i.description||'—')+'</td></tr>').join('')+'</tbody></table></div>' +(x.note?'<div class="mt-3"><strong>Not:</strong> '+esc(x.note)+'</div>':'')+'<hr><h6>Talep / İşlem Geçmişi</h6><div id="requestHistoryBody" class="small text-muted py-2">Geçmiş yükleniyor...</div>';
+ if(window.ITUI){ITUI.modal('Satın Alma Talebi Detayı',body,{footer:'<button class="btn btn-light" data-bs-dismiss="modal">Kapat</button>'});loadRequestHistory(id);}else notify(x.request_no);
 }
 document.addEventListener('click',async e=>{
  const add=e.target.closest('#addRequestRow');if(add){e.preventDefault();try{await loadRequestMasterData();document.querySelector('#requestRows')?.insertAdjacentHTML('beforeend',itemRow());bindRequestRow(document.querySelector('#requestRows')?.lastElementChild);}catch(err){notify(err.message)}return}
