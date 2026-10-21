@@ -18,3 +18,21 @@ def test_export_value_converts_decimal_and_dates():
 
     assert _export_value(Decimal("2.50")) == 2.5
     assert _export_value(date(2026, 10, 20)) == "2026-10-20"
+
+
+def test_safe_audit_details_removes_normalized_secret_fields():
+    from backend.app.api.report_routes import _safe_audit_details
+
+    details = {
+        "licenseKey": "do-not-export",
+        "api_key": "do-not-export",
+        "Password": "do-not-export",
+        "request_no": "SAT-2026-001",
+        "nested": {"private_key": "do-not-export", "status": "approved"},
+    }
+    safe = _safe_audit_details(details)
+    assert "licenseKey" not in safe
+    assert "api_key" not in safe
+    assert "Password" not in safe
+    assert safe["request_no"] == "SAT-2026-001"
+    assert safe["nested"] == {"status": "approved"}

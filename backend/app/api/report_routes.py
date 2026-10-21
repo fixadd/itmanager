@@ -180,10 +180,10 @@ def _export_value(value):
 def _safe_audit_details(details):
     if not isinstance(details, dict):
         return {}
-    blocked = ("password", "secret", "token", "license_key", "licence_key", "credential", "connection_string")
+    blocked = ("password", "secret", "token", "licensekey", "licencekey", "credential", "connectionstring", "apikey", "privatekey")
     safe = {}
     for key, value in details.items():
-        normalized = str(key).lower()
+        normalized = "".join(ch for ch in str(key).lower() if ch.isalnum())
         if any(part in normalized for part in blocked):
             continue
         if isinstance(value, dict):
@@ -216,14 +216,6 @@ def report_export():
     sheets = {}
 
     inventory_q = Inventory.query
-    if search:
-        term = f"%{search}%"
-        inventory_q = inventory_q.join(Inventory.product_type).join(Inventory.brand).filter(
-            or_(Inventory.inventory_no.ilike(term), Inventory.serial_no.ilike(term),
-                   Inventory.computer_name.ilike(term), ProductType.name.ilike(term))
-        )
-    if status:
-        inventory_q = inventory_q.filter(Inventory.status == status)
     if factory_id:
         inventory_q = inventory_q.filter(Inventory.factory_id == factory_id)
     if department_id:
@@ -231,7 +223,7 @@ def report_export():
     inventory_rows = []
     for x in inventory_q.order_by(Inventory.id.asc()).all():
         inventory_rows.append({
-            "Envanter No": x.inventory_no, "Barkod": x.barcode, "Seri No": x.serial_no,
+            "Kayıt ID": x.id, "Envanter No": x.inventory_no, "Barkod": x.barcode, "Seri No": x.serial_no,
             "Bilgisayar Adı": x.computer_name, "Makine No": x.machine_no, "IFS No": x.ifs_no,
             "Donanım Tipi": x.product_type.name if x.product_type else "",
             "Marka": x.brand.name if x.brand else "", "Model": x.model.name if x.model else "",
@@ -242,17 +234,10 @@ def report_export():
     sheets["Envanter"] = inventory_rows
 
     stock_q = StockItem.query
-    if search:
-        term = f"%{search}%"
-        stock_q = stock_q.join(StockItem.product_type).join(StockItem.brand).filter(
-            db.or_(ProductType.name.ilike(term), StockItem.barcode.ilike(term), StockItem.note.ilike(term))
-        )
-    if status:
-        stock_q = stock_q.filter(StockItem.status == status)
     stock_rows = []
     for x in stock_q.order_by(StockItem.id.asc()).all():
         stock_rows.append({
-            "Barkod": x.barcode, "Donanım Tipi": x.product_type.name if x.product_type else "",
+            "Kayıt ID": x.id, "Barkod": x.barcode, "Donanım Tipi": x.product_type.name if x.product_type else "",
             "Marka": x.brand.name if x.brand else "", "Model": x.model.name if x.model else "",
             "Miktar": x.quantity, "Birim": x.unit, "Durum": x.status, "Not": x.note,
             "Oluşturulma": x.created_at, "Güncellenme": x.updated_at,
@@ -260,18 +245,10 @@ def report_export():
     sheets["Stok"] = stock_rows
 
     license_q = License.query
-    if search:
-        term = f"%{search}%"
-        license_q = license_q.join(License.license_name).filter(
-            db.or_(LicenseName.name.ilike(term), License.barcode.ilike(term),
-                   License.email.ilike(term), License.note.ilike(term))
-        )
-    if status:
-        license_q = license_q.filter(License.status == status)
     license_rows = []
     for x in license_q.order_by(License.id.asc()).all():
         license_rows.append({
-            "Barkod": x.barcode, "Lisans Adı": x.license_name.name if x.license_name else "",
+            "Kayıt ID": x.id, "Barkod": x.barcode, "Lisans Adı": x.license_name.name if x.license_name else "",
             "Lisans Modeli": x.license_model.name if x.license_model else "",
             "Lisans Türü": x.license_type, "Durum": x.status,
             "Atanan Personel": x.personnel.name if x.personnel else "",
@@ -285,7 +262,7 @@ def report_export():
     movement_rows = []
     for x in StockMovement.query.order_by(StockMovement.created_at.asc(), StockMovement.id.asc()).all():
         movement_rows.append({
-            "Tarih": x.created_at, "Stok Barkodu": x.stock_item.barcode if x.stock_item else "",
+            "Hareket ID": x.id, "Tarih": x.created_at, "Stok Barkodu": x.stock_item.barcode if x.stock_item else "",
             "Hareket": x.movement_type, "Miktar": x.quantity, "Birim": x.unit,
             "Personel": x.personnel.name if x.personnel else "",
             "Envanter No": x.inventory.inventory_no if x.inventory else "", "Not": x.note,
@@ -302,7 +279,7 @@ def report_export():
     maintenance_rows = []
     for x in MaintenanceRecord.query.order_by(MaintenanceRecord.created_at.asc(), MaintenanceRecord.id.asc()).all():
         maintenance_rows.append({
-            "Envanter No": x.inventory.inventory_no if x.inventory else "",
+            "Bakım Kayıt ID": x.id, "Envanter No": x.inventory.inventory_no if x.inventory else "",
             "Arıza": x.fault, "Açıklama": x.description, "Servis": x.service, "Teknisyen": x.technician,
             "Durum": x.status, "Başlangıç": x.started_at, "Tamamlanma": x.completed_at,
             "Maliyet": x.cost, "Kaydı Açan Personel": x.created_by_personnel.name if x.created_by_personnel else "",
@@ -311,18 +288,13 @@ def report_export():
     sheets["Bakım Servis"] = maintenance_rows
 
     scrap_rows = [{
-        "Kaynak Türü": x.source_type, "Kaynak Kayıt ID": x.source_id, "Hurda Nedeni": x.reason,
+        "Hurda Kayıt ID": x.id, "Kaynak Türü": x.source_type, "Kaynak Kayıt ID": x.source_id, "Hurda Nedeni": x.reason,
         "Not": x.note, "Hurdaya Ayrılma Tarihi": x.scrapped_at, "Kayıt Tarihi": x.created_at,
     } for x in ScrapRecord.query.order_by(ScrapRecord.scrapped_at.asc(), ScrapRecord.id.asc()).all()]
     sheets["Hurda Kayıtları"] = scrap_rows
 
     request_rows = []
     request_query = PurchaseRequest.query
-    if status:
-        request_query = request_query.filter(PurchaseRequest.status == status)
-    if search:
-        term = f"%{search}%"
-        request_query = request_query.outerjoin(PurchaseRequest.requester).filter(or_(PurchaseRequest.request_no.ilike(term), Personnel.name.ilike(term)))
     for x in request_query.order_by(PurchaseRequest.requested_at.asc(), PurchaseRequest.id.asc()).all():
         creator_audits = AuditLog.query.filter(
             AuditLog.entity_type == "purchase_request", AuditLog.entity_id == x.id
@@ -335,7 +307,7 @@ def report_export():
                     creator_names.append(actor.full_name)
         for item in x.items:
             request_rows.append({
-                "Talep No": x.request_no, "Talep Sahibi": x.requester.name if x.requester else "",
+                "Talep Kayıt ID": x.id, "Talep Satır ID": item.id, "Talep No": x.request_no, "Talep Sahibi": x.requester.name if x.requester else "",
                 "Talebi Açan Kullanıcı": creator_names[0] if creator_names else "",
                 "Fabrika": x.factory.name if x.factory else "", "Departman": x.department.name if x.department else "",
                 "Durum": x.status, "Talep Tarihi": x.requested_at, "Onay Tarihi": x.approved_at,
@@ -353,7 +325,7 @@ def report_export():
     for a in audits:
         details = _safe_audit_details(a.details)
         history_rows.append({
-            "Tarih": a.created_at, "İşlemi Yapan": actors.get(a.actor_user_id, "Sistem"),
+            "İşlem Kayıt ID": a.id, "Tarih": a.created_at, "İşlemi Yapan": actors.get(a.actor_user_id, "Sistem"),
             "İşlem": a.action, "Kayıt Türü": a.entity_type, "Kayıt ID": a.entity_id,
             "Talep No": details.get("request_no") or details.get("request_number") or "",
             "Talep Sahibi": details.get("requester_name") or "",
@@ -361,6 +333,25 @@ def report_export():
             "Detay": __import__("json").dumps(details, ensure_ascii=False, default=str),
         })
     sheets["İşlem Geçmişi"] = history_rows
+
+    # Apply the same free-text/status filters to every export module, including
+    # maintenance, personnel, stock movements, scrap and audit history.
+    # Filtering happens on the export projection so each module searches the
+    # fields that are actually visible to the recipient.
+    if search or status:
+        needle = search.casefold()
+        for module_name, rows in sheets.items():
+            filtered_rows = []
+            for row in rows:
+                if needle and not any(
+                    needle in str(_export_value(value)).casefold()
+                    for value in row.values()
+                ):
+                    continue
+                if status and "Durum" in row and str(row.get("Durum") or "") != status:
+                    continue
+                filtered_rows.append(row)
+            sheets[module_name] = filtered_rows
 
     if export_format == "csv":
         output = io.StringIO(newline="")
