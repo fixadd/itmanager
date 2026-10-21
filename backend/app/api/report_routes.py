@@ -350,20 +350,30 @@ def report_export():
                     continue
                 if status and "Durum" in row and str(row.get("Durum") or "") != status:
                     continue
+                if status and module_name == "İşlem Geçmişi" and status.casefold() not in " ".join(
+                    str(_export_value(value)) for value in row.values()
+                ).casefold():
+                    continue
                 filtered_rows.append(row)
             sheets[module_name] = filtered_rows
 
     if export_format == "csv":
         output = io.StringIO(newline="")
         writer = csv.writer(output, delimiter=";", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(["Modül", "Kayıt Verisi (JSON)"])
+        # CSV cannot contain multiple worksheets, so flatten all modules into
+        # one table with a module discriminator and the union of safe columns.
+        headers = list(dict.fromkeys(
+            key for rows in sheets.values() for row in rows for key in row.keys()
+        ))
+        writer.writerow(["Modül", *headers])
         for sheet_name, rows in sheets.items():
             if not rows:
-                writer.writerow([sheet_name, '{"bilgi":"Kayıt bulunamadı"}'])
+                writer.writerow([sheet_name, *(["Kayıt bulunamadı"] + [""] * max(0, len(headers) - 1))])
                 continue
             for row in rows:
-                safe_row = {key: _export_cell(value) for key, value in row.items()}
-                writer.writerow([sheet_name, __import__("json").dumps(safe_row, ensure_ascii=False, default=str)])
+                writer.writerow([sheet_name, *[
+                    _export_cell(row.get(header, "")) for header in headers
+                ]])
         data = "\ufeff" + output.getvalue()
         return Response(data, mimetype="text/csv; charset=utf-8",
                         headers={"Content-Disposition": 'attachment; filename="itmanager-rapor.csv"'})
