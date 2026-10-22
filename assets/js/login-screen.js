@@ -10,8 +10,17 @@
     #itLoginOverlay .login-brand { display:flex; align-items:center; gap:12px; margin-bottom:28px; }
     #itLoginOverlay .login-brand-mark { width:48px;height:48px;border-radius:13px;display:grid;place-items:center;background:#126b83;color:white;font-weight:800;font-size:24px; }
     #itLoginOverlay .login-brand small { display:block; letter-spacing:.16em; opacity:.7; font-size:11px; }
-    #itLoginOverlay .form-control { min-height:46px; }
+    #itLoginOverlay .login-card { color:#f8fafc; background:#17222d; border-color:#465569; }
+    #itLoginOverlay h1,#itLoginOverlay .login-brand strong,#itLoginOverlay .login-brand small { color:#f8fafc!important; }
+    #itLoginOverlay .form-label { color:#e2e8f0!important; font-weight:600; }
+    #itLoginOverlay .text-secondary,#itLoginOverlay .small.text-secondary { color:#cbd5e1!important; opacity:1; }
+    #itLoginOverlay .form-control { min-height:46px; background:#f8fafc!important; color:#111827!important; border:1px solid #94a3b8!important; opacity:1; }
+    #itLoginOverlay .form-control::placeholder { color:#64748b!important; opacity:1; }
+    #itLoginOverlay .form-control:focus { border-color:#38bdf8!important; box-shadow:0 0 0 .2rem rgba(56,189,248,.22)!important; }
     #itLoginOverlay .btn { min-height:44px; }
+    #itLoginOverlay .btn-outline-info { color:#7dd3fc!important; border-color:#38bdf8!important; }
+    #itLoginOverlay .btn-outline-info:hover:not(:disabled) { color:#082f49!important; background:#7dd3fc!important; }
+    #itLoginOverlay .btn:disabled { color:#cbd5e1!important; opacity:.7; }
     #itLoginOverlay .login-error { display:none; }
     #itLoginOverlay .login-error.show { display:block; }
     #itLoginOverlay .login-ad { width:100%; }
