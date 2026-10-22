@@ -177,6 +177,27 @@ def _export_value(value):
     return str(value)
 
 
+
+def _normalize_status(value):
+    normalized = str(value or "").strip().casefold()
+    aliases = {
+        "aktif": "active", "pasif": "inactive",
+        "mevcut": "available", "mevcut değil": "unavailable", "mevcut degil": "unavailable",
+        "atanmış": "assigned", "atanmis": "assigned",
+        "arızalı": "faulty", "arizalı": "faulty", "arizali": "faulty", "broken": "faulty",
+        "bakımda": "maintenance", "bakimda": "maintenance",
+        "hurda": "scrapped", "bekliyor": "pending",
+        "işlemde": "in_progress", "islemde": "in_progress",
+        "tamamlandı": "completed", "tamamlandi": "completed",
+        "iptal": "cancelled", "taslak": "draft",
+        "onaylandı": "approved", "onaylandi": "approved",
+        "sipariş verildi": "ordered", "siparis verildi": "ordered",
+        "reddedildi": "rejected", "süresi doldu": "expired",
+        "süresi yaklaşıyor": "expiring", "serviste": "service",
+    }
+    return aliases.get(normalized, normalized)
+
+
 def _safe_audit_details(details):
     if not isinstance(details, dict):
         return {}
@@ -348,12 +369,13 @@ def report_export():
                     for value in row.values()
                 ):
                     continue
-                if status and "Durum" in row and str(row.get("Durum") or "") != status:
+                if status and "Durum" in row and _normalize_status(row.get("Durum")) != _normalize_status(status):
                     continue
-                if status and module_name == "İşlem Geçmişi" and status.casefold() not in " ".join(
-                    str(_export_value(value)) for value in row.values()
-                ).casefold():
-                    continue
+                if status and module_name == "İşlem Geçmişi":
+                    history_text = " ".join(str(_export_value(value)) for value in row.values()).casefold()
+                    status_aliases = {str(status).casefold(), _normalize_status(status)}
+                    if not any(alias and alias in history_text for alias in status_aliases):
+                        continue
                 filtered_rows.append(row)
             sheets[module_name] = filtered_rows
 
