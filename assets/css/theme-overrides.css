@@ -432,3 +432,10 @@ html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca
  .license-detail-page>.page-head .page-actions{display:flex;flex-wrap:wrap;gap:6px!important}
  .license-detail-page>.page-head .page-actions .btn{flex:1 1 calc(50% - 6px)}
 }
+
+
+/* Ana sayfa > Cihaz Türleri: sıralama sonrası 5'erli sayfalama kontrolleri. */
+#dashTypes .dashboard-type-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);color:var(--muted);font-size:11px}
+#dashTypes .dashboard-type-pagination>div{display:flex;align-items:center;gap:8px}
+#dashTypes .dashboard-type-pagination .btn{min-width:32px;padding:3px 8px;color:var(--text);border-color:var(--border)}
+#dashTypes .dashboard-type-pagination .btn:disabled{opacity:.35}
