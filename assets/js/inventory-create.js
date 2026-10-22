@@ -23,7 +23,7 @@ async function openAdd(){
       api('/api/settings/product-hierarchy').catch(()=>({})),
       inventoryCatalog().catch(()=>({}))
     ]);
-    const d={factories:h.factories?.length?h.factories:(c.factories?.length?c.factories:(cached.factories||[])),departments:h.departments?.length?h.departments:(c.departments?.length?c.departments:(cached.inventoryTypes||[])),inventoryTypes:h.hardware_types?.length?h.hardware_types:(c.hardware_types?.length?c.hardware_types:(cached.inventoryTypes||[])),brands:h.brands?.length?h.brands:(c.brands?.length?c.brands:(cached.brands||[])),models:h.models?.length?h.models:(c.models?.length?c.models:(cached.models||[]))};
+    const d={factories:h.factories?.length?h.factories:(c.factories?.length?c.factories:(cached.factories||[])),departments:h.departments?.length?h.departments:(c.departments?.length?c.departments:(cached.departments||[])),inventoryTypes:c.hardware_types?.length?c.hardware_types:(h.hardware_types?.length?h.hardware_types:(cached.inventoryTypes||[])),brands:c.brands?.length?c.brands:(h.brands?.length?h.brands:(cached.brands||[])),models:c.models?.length?c.models:(h.models?.length?h.models:(cached.models||[]))};
     d.departments=h.departments?.length?h.departments:(c.departments?.length?c.departments:(cached.departments||[]));
     window.IT_MASTER_DATA=d;
     window.IT_PEOPLE=[];
