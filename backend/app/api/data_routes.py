@@ -176,19 +176,25 @@ def restore():
             check=True, env=env, timeout=60,
         ).stdout
         has_public_schema = any("SCHEMA - public" in line for line in listing.splitlines())
+        if not has_public_schema:
+            return jsonify({"error": "Yedek dosyasında public şeması bulunamadı; veritabanı değiştirilmedi"}), 400
+
+        # Restore every object in one PostgreSQL transaction. If pg_restore fails,
+        # PostgreSQL rolls back the schema/object drops as well as the partial restore.
+        # Never DROP SCHEMA separately before validating the complete restore.
         db.session.remove()
-        with db.engine.begin() as connection:
-            connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
-            if not has_public_schema:
-                connection.execute(text("CREATE SCHEMA public AUTHORIZATION CURRENT_USER"))
-                connection.execute(text("GRANT ALL ON SCHEMA public TO CURRENT_USER"))
-        command = ["pg_restore", "--exit-on-error", "--no-owner", "--no-privileges",
-                   "--clean", "--if-exists", "--host", host, "--port", port,
-                   "--username", username, "--dbname", database, temp_path]
+        command = ["pg_restore", "--exit-on-error", "--single-transaction",
+                   "--no-owner", "--no-privileges", "--clean", "--if-exists",
+                   "--host", host, "--port", port, "--username", username,
+                   "--dbname", database, temp_path]
 
         completed = subprocess.run(command, capture_output=True, text=True, env=env, timeout=3600)
         if completed.returncode != 0:
-            current_app.logger.error("Database restore command failed (exit %s)", completed.returncode)
+            stderr_tail = (completed.stderr or "")[-4000:]
+            current_app.logger.error(
+                "Database restore command failed (exit %s): %s",
+                completed.returncode, stderr_tail,
+            )
             raise RuntimeError("Yedek dosyası geri yüklenemedi")
         db.session.remove()
         _write_database_audit("database.restore", actor_name, {"filename": filename})
