@@ -156,8 +156,8 @@ def restore():
     upload = request.files["file"]
     filename = Path(upload.filename or "").name
     suffix = Path(filename).suffix.lower()
-    if not filename or suffix not in {".dump", ".backup", ".sql"}:
-        return jsonify({"error": "Yalnızca .dump, .backup veya .sql dosyaları kabul edilir"}), 400
+    if not filename or suffix not in {".dump", ".backup"}:
+        return jsonify({"error": "Yalnızca IT Manager PostgreSQL .dump veya .backup dosyaları kabul edilir"}), 400
 
     temp_path = None
     actor_name = actor.username
@@ -171,35 +171,20 @@ def restore():
         if os.path.getsize(temp_path) == 0:
             return jsonify({"error": "Yedek dosyası boş"}), 400
 
-        if suffix == ".sql":
-            with open(temp_path, "r", encoding="utf-8", errors="replace") as sql_file:
-                header = sql_file.read(1024 * 1024)
-            creates_public = "CREATE SCHEMA PUBLIC" in header.upper()
-            db.session.remove()
-            with db.engine.begin() as connection:
-                connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
-                if not creates_public:
-                    # Plain SQL dumps do not always include schema creation.
-                    connection.execute(text("CREATE SCHEMA public AUTHORIZATION CURRENT_USER"))
-                    connection.execute(text("GRANT ALL ON SCHEMA public TO CURRENT_USER"))
-            command = ["psql", "--no-password", "--set", "ON_ERROR_STOP=1",
-                       "--host", host, "--port", port, "--username", username,
-                       "--dbname", database, "--file", temp_path]
-        else:
-            listing = subprocess.run(
-                ["pg_restore", "--list", temp_path], capture_output=True, text=True,
-                check=True, env=env, timeout=60,
-            ).stdout
-            has_public_schema = any("SCHEMA - public" in line for line in listing.splitlines())
-            db.session.remove()
-            with db.engine.begin() as connection:
-                connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
-                if not has_public_schema:
-                    connection.execute(text("CREATE SCHEMA public AUTHORIZATION CURRENT_USER"))
-                    connection.execute(text("GRANT ALL ON SCHEMA public TO CURRENT_USER"))
-            command = ["pg_restore", "--exit-on-error", "--no-owner", "--no-privileges",
-                       "--clean", "--if-exists", "--host", host, "--port", port,
-                       "--username", username, "--dbname", database, temp_path]
+        listing = subprocess.run(
+            ["pg_restore", "--list", temp_path], capture_output=True, text=True,
+            check=True, env=env, timeout=60,
+        ).stdout
+        has_public_schema = any("SCHEMA - public" in line for line in listing.splitlines())
+        db.session.remove()
+        with db.engine.begin() as connection:
+            connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+            if not has_public_schema:
+                connection.execute(text("CREATE SCHEMA public AUTHORIZATION CURRENT_USER"))
+                connection.execute(text("GRANT ALL ON SCHEMA public TO CURRENT_USER"))
+        command = ["pg_restore", "--exit-on-error", "--no-owner", "--no-privileges",
+                   "--clean", "--if-exists", "--host", host, "--port", port,
+                   "--username", username, "--dbname", database, temp_path]
 
         completed = subprocess.run(command, capture_output=True, text=True, env=env, timeout=3600)
         if completed.returncode != 0:
