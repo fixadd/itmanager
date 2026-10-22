@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import subprocess
 import tempfile
 from datetime import datetime, timezone
@@ -49,6 +50,27 @@ def _reset_public_schema(url):
         connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
         connection.execute(text("CREATE SCHEMA public AUTHORIZATION CURRENT_USER"))
         connection.execute(text("GRANT ALL ON SCHEMA public TO CURRENT_USER"))
+
+
+def _restore_toc_without_managed_objects(listing):
+    """Keep public schema and pg_trgm extension out of pg_restore --clean.
+
+    The target schema/extension are prepared additively before the restore.
+    Excluding these TOC entries prevents --clean from dropping public while
+    later archive entries still need it.
+    """
+    managed_object_patterns = (
+        re.compile(r"^\\s*\\d+;\\s+\\d+\\s+\\d+\\s+SCHEMA\\s+-\\s+public(?:\\s|$)"),
+        re.compile(r"^\\s*\\d+;\\s+\\d+\\s+\\d+\\s+EXTENSION\\s+-\\s+pg_trgm(?:\\s|$)"),
+        re.compile(r"^\\s*\\d+;\\s+\\d+\\s+\\d+\\s+COMMENT(?:\\s+-)?\\s+SCHEMA\\s+public(?:\\s|$)"),
+    )
+    filtered = []
+    for line in listing.splitlines():
+        if any(pattern.search(line) for pattern in managed_object_patterns):
+            filtered.append("; " + line)
+        else:
+            filtered.append(line)
+    return "\\n".join(filtered) + "\\n"
 
 
 def _write_database_audit(action, actor_name, details=None):
@@ -179,16 +201,44 @@ def restore():
         if not has_public_schema:
             return jsonify({"error": "Yedek dosyasında public şeması bulunamadı; veritabanı değiştirilmedi"}), 400
 
-        # Restore every object in one PostgreSQL transaction. If pg_restore fails,
-        # PostgreSQL rolls back the schema/object drops as well as the partial restore.
-        # Never DROP SCHEMA separately before validating the complete restore.
+        # Keep public and pg_trgm outside pg_restore's --clean list. Some dumps
+        # place extension/schema comments and dependencies in an order that can
+        # leave later entries referencing a missing public schema.
         db.session.remove()
-        command = ["pg_restore", "--exit-on-error", "--single-transaction",
-                   "--no-owner", "--no-privileges", "--clean", "--if-exists",
-                   "--host", host, "--port", port, "--username", username,
-                   "--dbname", database, temp_path]
+        subprocess.run(
+            ["psql", "--no-password", "--set", "ON_ERROR_STOP=1",
+             "--host", host, "--port", port, "--username", username,
+             "--dbname", database, "--command",
+             "CREATE SCHEMA IF NOT EXISTS public AUTHORIZATION CURRENT_USER; "
+             "GRANT ALL ON SCHEMA public TO CURRENT_USER; "
+             "CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;"],
+            capture_output=True, text=True, check=True, env=env, timeout=60,
+        )
 
-        completed = subprocess.run(command, capture_output=True, text=True, env=env, timeout=3600)
+        toc_path = None
+        try:
+            filtered_listing = _restore_toc_without_managed_objects(listing)
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", suffix=".list", delete=False
+            ) as toc_file:
+                toc_file.write(filtered_listing)
+                toc_path = toc_file.name
+
+            # The restore itself remains atomic. If any archive entry fails,
+            # PostgreSQL rolls back table drops and partial data/object restores.
+            command = ["pg_restore", "--exit-on-error", "--single-transaction",
+                       "--no-owner", "--no-privileges", "--clean", "--if-exists",
+                       "--use-list", toc_path, "--host", host, "--port", port,
+                       "--username", username, "--dbname", database, temp_path]
+            completed = subprocess.run(
+                command, capture_output=True, text=True, env=env, timeout=3600
+            )
+        finally:
+            if toc_path:
+                try:
+                    os.unlink(toc_path)
+                except OSError:
+                    current_app.logger.warning("Could not remove temporary restore TOC file")
         if completed.returncode != 0:
             stderr_tail = (completed.stderr or "")[-4000:]
             current_app.logger.error(
