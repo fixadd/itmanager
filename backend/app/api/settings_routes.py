@@ -1,8 +1,9 @@
 from flask import Blueprint, jsonify, request
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db
-from ..models import AuditLog, Brand, ConnectionSetting, Department, Factory, LicenseName, ProductModel, ProductType
+from ..models import AuditLog, Brand, ConnectionSetting, Department, Factory, Inventory, License, LicenseModel, LicenseName, Personnel, ProductModel, ProductType, PurchaseRequest, StockItem
 from .auth_routes import login_required, permission_required
 
 settings_bp = Blueprint("settings", __name__)
@@ -228,6 +229,91 @@ def update_model(model_id):
     except IntegrityError:
         db.session.rollback()
         return jsonify({"error": "model_exists_for_brand"}), 409
+
+
+def _has_reference(model, column, item_id):
+    return db.session.query(model.id).filter(column == item_id).first() is not None
+
+
+@settings_bp.post("/settings/inactive-unreferenced/cleanup")
+@permission_required("settings.manage")
+def cleanup_inactive_unreferenced():
+    """Permanently remove inactive master records with no dependent business records."""
+    removed = {key: [] for key in (
+        "factories", "departments", "product_types", "product_models",
+        "license_models", "license_names"
+    )}
+
+    def remove_if_unreferenced(obj, key, refs):
+        if any(_has_reference(model, column, obj.id) for model, column in refs):
+            return False
+        previous = _basic(obj)
+        _audit("settings.inactive_master_purged", key, obj.id, {
+            "name": obj.name, "previous": previous,
+            "reason": "inactive_and_unreferenced"
+        })
+        db.session.delete(obj)
+        removed[key].append({"id": obj.id, "name": obj.name})
+        return True
+
+    try:
+        # Leaf records first; then parent records can become eligible in this run.
+        for obj in ProductModel.query.filter_by(active=False).order_by(ProductModel.id).all():
+            if remove_if_unreferenced(obj, "product_models", [
+                (Inventory, Inventory.model_id), (StockItem, StockItem.model_id)
+            ]):
+                db.session.execute(text(
+                    "DELETE FROM product_catalog_scopes WHERE entity_type = 'model' AND entity_id = :id"
+                ), {"id": obj.id})
+        db.session.flush()
+
+        for obj in LicenseModel.query.filter_by(active=False).order_by(LicenseModel.id).all():
+            remove_if_unreferenced(obj, "license_models", [
+                (License, License.license_model_id)
+            ])
+        db.session.flush()
+
+        for obj in ProductType.query.filter_by(active=False).order_by(ProductType.id).all():
+            if remove_if_unreferenced(obj, "product_types", [
+                (Inventory, Inventory.product_type_id),
+                (StockItem, StockItem.product_type_id),
+                (ProductModel, ProductModel.product_type_id)
+            ]):
+                db.session.execute(text(
+                    "DELETE FROM product_catalog_scopes WHERE entity_type = 'type' AND entity_id = :id"
+                ), {"id": obj.id})
+        db.session.flush()
+
+        for obj in LicenseName.query.filter_by(active=False).order_by(LicenseName.id).all():
+            remove_if_unreferenced(obj, "license_names", [
+                (License, License.license_name_id),
+                (LicenseModel, LicenseModel.license_name_id)
+            ])
+        db.session.flush()
+
+        for obj in Factory.query.filter_by(active=False).order_by(Factory.id).all():
+            remove_if_unreferenced(obj, "factories", [
+                (Inventory, Inventory.factory_id),
+                (PurchaseRequest, PurchaseRequest.factory_id)
+            ])
+
+        for obj in Department.query.filter_by(active=False).order_by(Department.id).all():
+            remove_if_unreferenced(obj, "departments", [
+                (Inventory, Inventory.department_id),
+                (Personnel, Personnel.department_id),
+                (PurchaseRequest, PurchaseRequest.department_id)
+            ])
+
+        db.session.commit()
+        return jsonify({
+            "ok": True,
+            "removed": removed,
+            "counts": {key: len(items) for key, items in removed.items()},
+            "total": sum(len(items) for items in removed.values())
+        })
+    except Exception:
+        db.session.rollback()
+        raise
 
 
 @settings_bp.get("/settings/connections")
