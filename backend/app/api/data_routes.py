@@ -71,6 +71,8 @@ def _restore_toc_without_managed_objects(listing):
         else:
             filtered.append(line)
     return "\n".join(filtered) + "\n"
+
+
 def _write_database_audit(action, actor_name, details=None):
     db.session.add(AuditLog(
         action=action,
