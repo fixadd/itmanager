@@ -151,12 +151,14 @@ def restore():
         if suffix == ".sql":
             with open(temp_path, "r", encoding="utf-8", errors="replace") as sql_file:
                 header = sql_file.read(1024 * 1024)
-            creates_public = "CREATE SCHEMA public" in header.upper()
-            _reset_public_schema(url)
-            if not creates_public:
-                # Plain SQL dumps do not always include schema creation.
-                with db.engine.begin() as connection:
-                    connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+            creates_public = "CREATE SCHEMA PUBLIC" in header.upper()
+            db.session.remove()
+            with db.engine.begin() as connection:
+                connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+                if not creates_public:
+                    # Plain SQL dumps do not always include schema creation.
+                    connection.execute(text("CREATE SCHEMA public AUTHORIZATION CURRENT_USER"))
+                    connection.execute(text("GRANT ALL ON SCHEMA public TO CURRENT_USER"))
             command = ["psql", "--no-password", "--set", "ON_ERROR_STOP=1",
                        "--host", host, "--port", port, "--username", username,
                        "--dbname", database, "--file", temp_path]
