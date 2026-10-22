@@ -2,7 +2,7 @@
   const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const api=()=>window.IT_AUTH;
   const req=(p,o)=>api().request(p,o);
-  const defaults={system_name:'Baylan IT Manager',company_name:'BAYLAN',subtitle:'IT MANAGER',logo_data:''};
+  const defaults={system_name:'Baylan IT Manager',company_name:'BAYLAN',subtitle:'IT MANAGER',logo_data:'',login_title:'Güvenli giriş',login_subtitle:'IT varlık ve stok yönetim sistemine devam etmek için giriş yapın.',username_label:'Kullanıcı adı veya e-posta',password_label:'Parola',local_login_label:'Kullanıcı adı ile giriş',ad_login_label:'Active Directory ile giriş',login_background_color:'#101923',login_background_image:''};
   let branding={...defaults};
   function route(){return location.hash.replace(/^#/,'').split('?')[0]==='settings';}
   function applyBranding(value){
@@ -55,6 +55,20 @@
           </div></section>
         </div>
       </div>
+      <section class="card border-0 shadow-sm mt-3"><div class="card-body p-4">
+        <h5 class="mb-1">Giriş Ekranı ve Arka Plan</h5><p class="small text-secondary mb-4">Giriş sayfasında görünen metinleri, arka plan rengini veya görselini düzenleyin. Değişiklikler tüm kullanıcılara uygulanır.</p>
+        <form id="loginAppearanceForm"><div class="row g-3">
+          <div class="col-md-6"><label class="form-label" for="loginTitle">Giriş başlığı</label><input class="form-control" id="loginTitle" maxlength="100" required></div>
+          <div class="col-md-6"><label class="form-label" for="loginSubtitle">Açıklama</label><input class="form-control" id="loginSubtitle" maxlength="240" required></div>
+          <div class="col-md-6"><label class="form-label" for="loginUsernameLabel">Kullanıcı alanı adı</label><input class="form-control" id="loginUsernameLabel" maxlength="80" required></div>
+          <div class="col-md-6"><label class="form-label" for="loginPasswordLabel">Parola alanı adı</label><input class="form-control" id="loginPasswordLabel" maxlength="80" required></div>
+          <div class="col-md-6"><label class="form-label" for="loginLocalLabel">Yerel giriş düğmesi</label><input class="form-control" id="loginLocalLabel" maxlength="80" required></div>
+          <div class="col-md-6"><label class="form-label" for="loginAdLabel">Active Directory düğmesi</label><input class="form-control" id="loginAdLabel" maxlength="80" required></div>
+          <div class="col-md-4"><label class="form-label" for="loginBgColor">Arka plan rengi</label><input type="color" class="form-control form-control-color w-100" id="loginBgColor" value="#101923"></div>
+          <div class="col-md-8"><label class="form-label" for="loginBgImage">Arka plan görseli (isteğe bağlı)</label><input type="file" class="form-control" id="loginBgImage" accept="image/png,image/jpeg,image/webp"><div class="form-text">PNG, JPG veya WebP; en fazla 1 MB.</div></div>
+          <div class="col-12"><div class="d-flex flex-wrap gap-2"><button class="btn btn-primary" type="submit" id="loginAppearanceSave"><i class="ti ti-device-floppy me-1"></i>Giriş ekranını kaydet</button><button class="btn btn-outline-secondary" type="button" id="loginBgRemove">Arka plan görselini kaldır</button></div><div id="loginAppearanceMessage" class="mt-3" role="status" aria-live="polite"></div></div>
+        </div></form>
+      </div></section>
       <section class="card border-0 shadow-sm mt-3"><div class="card-body p-4"><h5 class="mb-1">Sistem Sağlığı</h5><p class="small text-secondary mb-3">Uygulama ve veritabanı bağlantı bilgileri.</p><div class="row g-3" id="settingsHealth"><div class="col-12 text-secondary small">Kontrol ediliyor...</div></div><button class="btn btn-sm btn-outline-secondary mt-3" id="settingsRefresh" type="button"><i class="ti ti-refresh me-1"></i>Durumu yenile</button></div></section>`);
     const byId=id=>root.querySelector('#'+id);
     let pendingLogo=branding.logo_data||'';
@@ -126,7 +140,20 @@
       }catch(err){box.innerHTML='<div class="col-12"><div class="alert alert-warning mb-0">'+esc(err.message||'Sistem durumu alınamadı.')+'</div></div>';}
     }
     byId('settingsRefresh').addEventListener('click',loadHealth);
-    fill(branding);loadHealth();
+    const appearanceIds={loginTitle:'login_title',loginSubtitle:'login_subtitle',loginUsernameLabel:'username_label',loginPasswordLabel:'password_label',loginLocalLabel:'local_login_label',loginAdLabel:'ad_login_label',loginBgColor:'login_background_color'};
+    function fillAppearance(){Object.entries(appearanceIds).forEach(([id,key])=>{byId(id).value=branding[key]||defaults[key];});byId('loginBgImage').value='';}
+    function appearanceMessage(text,type='success'){byId('loginAppearanceMessage').innerHTML='<div class="alert alert-'+type+' py-2 mb-0">'+esc(text)+'</div>';}
+    let pendingBackground=branding.login_background_image||'';
+    byId('loginAppearanceForm').addEventListener('submit',async e=>{
+      e.preventDefault();const btn=byId('loginAppearanceSave');btn.disabled=true;
+      try{const payload={};Object.entries(appearanceIds).forEach(([id,key])=>payload[key]=byId(id).value);payload.login_background_image=pendingBackground;
+        const response=await fetch('/api/settings/branding',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Giriş ekranı ayarları kaydedilemedi.');
+        applyBranding(data);fill(data);pendingBackground=data.login_background_image||'';fillAppearance();appearanceMessage('Giriş ekranı ayarları kaydedildi.','success');
+      }catch(err){appearanceMessage(err.message||'Giriş ekranı ayarları kaydedilemedi.','danger');}finally{btn.disabled=false;}
+    });
+    byId('loginBgImage').addEventListener('change',()=>{const file=byId('loginBgImage').files?.[0];if(!file)return;if(!['image/png','image/jpeg','image/webp'].includes(file.type)){appearanceMessage('PNG, JPG veya WebP dosyası seçin.','danger');byId('loginBgImage').value='';return;}if(file.size>1024*1024){appearanceMessage('Arka plan görseli en fazla 1 MB olabilir.','danger');byId('loginBgImage').value='';return;}const reader=new FileReader();reader.onload=()=>{pendingBackground=String(reader.result||'');appearanceMessage('Görsel seçildi. Kalıcı olması için Giriş ekranını kaydet düğmesine basın.','info');};reader.onerror=()=>appearanceMessage('Görsel okunamadı.','danger');reader.readAsDataURL(file);});
+    byId('loginBgRemove').addEventListener('click',()=>{pendingBackground='';byId('loginBgImage').value='';appearanceMessage('Görsel kaldırma seçildi. Değişikliği kaydetmeyi unutmayın.','info');});
+    fill(branding);fillAppearance();loadHealth();
   }
   async function loadBranding(){
     try{

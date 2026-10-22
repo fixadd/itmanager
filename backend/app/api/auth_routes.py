@@ -1,15 +1,33 @@
+import base64
+import hashlib
+import ssl
 from datetime import datetime, timezone
+
+from cryptography.fernet import Fernet, InvalidToken
+from ldap3 import SUBTREE, Connection, NONE, Server, Tls
+from ldap3.core.exceptions import LDAPException
+from ldap3.utils.conv import escape_filter_chars
 from functools import wraps
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, current_app, jsonify, request, session
 from sqlalchemy import or_
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
-from ..models import AuditLog, Permission, Role, User, Personnel
+from ..models import AuditLog, ConnectionSetting, Permission, Role, User, Personnel
 
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def _role_session_snapshot(user):
+    role = user.role
+    return {
+        "id": role.id if role else None,
+        "name": role.name if role else None,
+        "active": bool(role and role.active),
+        "permissions": sorted(p.key for p in role.permissions) if role and role.active else [],
+    }
 
 
 def current_user():
@@ -20,6 +38,12 @@ def current_user():
     if not user or not user.active:
         session.clear()
         return None
+    # Invalidate sessions whenever the assigned role, role status, or role
+    # permissions change. Existing sessions without a snapshot must log in again.
+    saved_role = session.get("auth_role_snapshot")
+    if saved_role is None or saved_role != _role_session_snapshot(user):
+        session.clear()
+        return None
     return user
 
 
@@ -27,6 +51,9 @@ def user_json(user):
     return {
         "id": user.id,
         "username": user.username,
+        "first_name": user.first_name or "",
+        "last_name": user.last_name or "",
+        "full_name": user.full_name,
         "email": user.email,
         "active": user.active,
         "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
@@ -65,6 +92,154 @@ def audit(action, entity_type=None, entity_id=None, details=None):
                             actor_user_id=actor.id if actor else None, details=details or {}))
 
 
+
+def _ad_secret_cipher():
+    secret_key = current_app.config.get("SECRET_KEY")
+    if not secret_key or len(str(secret_key)) < 32:
+        raise RuntimeError("A valid SECRET_KEY is required for AD secrets")
+    key = base64.urlsafe_b64encode(hashlib.sha256(str(secret_key).encode()).digest())
+    return Fernet(key)
+
+
+def _ad_login_failure():
+    return jsonify({"error": "invalid_credentials"}), 401
+
+
+@auth_bp.get("/auth/ad-status")
+def ad_status():
+    setting = ConnectionSetting.query.filter_by(kind="active_directory", active=True).first()
+    options = setting.options if setting and isinstance(setting.options, dict) else {}
+    available = bool(
+        setting and options.get("enabled") and options.get("last_test_ok")
+        and setting.host and setting.username and setting.secret_encrypted
+        and int(setting.port or 636) == 636
+    )
+    return jsonify({"available": available})
+
+
+@auth_bp.post("/auth/ad-login")
+def ad_login():
+    data = request.get_json(silent=True) or {}
+    identifier = str(data.get("username") or "").strip()
+    password = str(data.get("password") or "")
+    if not identifier or not password:
+        return jsonify({"error": "username_and_password_required"}), 400
+
+    connection_setting = ConnectionSetting.query.filter_by(
+        kind="active_directory", active=True
+    ).first()
+    options = connection_setting.options if connection_setting and isinstance(connection_setting.options, dict) else {}
+    if (
+        not connection_setting
+        or not options.get("enabled")
+        or not options.get("last_test_ok")
+        or not connection_setting.host
+        or not str(connection_setting.host).lower().endswith(".baylan.local")
+        or int(connection_setting.port or 636) != 636
+        or not connection_setting.username
+        or not connection_setting.secret_encrypted
+    ):
+        return jsonify({"error": "ad_login_unavailable"}), 503
+
+    try:
+        service_password = _ad_secret_cipher().decrypt(
+            connection_setting.secret_encrypted.encode()
+        ).decode()
+        server = Server(
+            connection_setting.host,
+            port=636,
+            use_ssl=True,
+            tls=Tls(validate=ssl.CERT_REQUIRED, version=ssl.PROTOCOL_TLS_CLIENT),
+            connect_timeout=5,
+            get_info=NONE,
+        )
+        search_base = str(options.get("search_base") or options.get("base_dn") or "DC=baylan,DC=local").strip()
+        normalized_search_base = "".join(search_base.split()).casefold()
+        if not normalized_search_base.endswith("dc=baylan,dc=local") or len(search_base) > 512:
+            return _ad_login_failure()
+        raw_identifier = identifier.split("\\", 1)[-1]
+        escaped_identifier = escape_filter_chars(raw_identifier)
+        ldap_filter = (
+            "(&(objectCategory=person)(objectClass=user)"
+            f"(|(sAMAccountName={escaped_identifier})(userPrincipalName={escaped_identifier})))"
+        )
+        service_connection = Connection(
+            server,
+            user=connection_setting.username,
+            password=service_password,
+            receive_timeout=5,
+            auto_bind=False,
+            raise_exceptions=True,
+        )
+        try:
+            if not service_connection.open() or not service_connection.bind():
+                return _ad_login_failure()
+            if not service_connection.search(
+                search_base=search_base,
+                search_filter=ldap_filter,
+                search_scope=SUBTREE,
+                attributes=["distinguishedName", "sAMAccountName", "userPrincipalName", "mail"],
+                size_limit=2,
+            ) or len(service_connection.entries) != 1:
+                return _ad_login_failure()
+            entry = service_connection.entries[0]
+            user_dn = str(entry.entry_dn)
+            attributes = entry.entry_attributes_as_dict
+            def attribute_value(name):
+                values = attributes.get(name) or []
+                if not isinstance(values, (list, tuple)):
+                    values = [values]
+                return str(values[0] or "").strip() if values else ""
+            ad_username = attribute_value("sAMAccountName")
+            ad_upn = attribute_value("userPrincipalName")
+            ad_email = attribute_value("mail")
+        finally:
+            try:
+                service_connection.unbind()
+            except Exception:
+                pass
+
+        user_connection = Connection(
+            server,
+            user=user_dn,
+            password=password,
+            receive_timeout=5,
+            auto_bind=False,
+            raise_exceptions=True,
+        )
+        try:
+            if not user_connection.open() or not user_connection.bind():
+                return _ad_login_failure()
+        finally:
+            try:
+                user_connection.unbind()
+            except Exception:
+                pass
+
+        # Only map to an existing active application user; never auto-provision or grant roles.
+        candidates = [value.lower() for value in (ad_username, identifier, ad_upn, ad_email) if value]
+        user = User.query.filter(
+            db.func.lower(User.username).in_(candidates)
+            | db.func.lower(User.email).in_(candidates)
+        ).first()
+        if not user or not user.active:
+            return _ad_login_failure()
+
+        user.last_login_at = datetime.now(timezone.utc)
+        session.clear()
+        session["user_id"] = user.id
+        session["auth_role_snapshot"] = _role_session_snapshot(user)
+        audit("login_ad", "user", user.id, {"provider": "active_directory"})
+        db.session.commit()
+        return jsonify({"user": user_json(user)})
+    except (LDAPException, OSError, ssl.SSLError, InvalidToken, ValueError, TypeError) as exc:
+        current_app.logger.warning("AD login failed (%s)", type(exc).__name__)
+        return _ad_login_failure()
+    except Exception as exc:
+        current_app.logger.warning("Unexpected AD login failure (%s)", type(exc).__name__)
+        return _ad_login_failure()
+
+
 @auth_bp.post("/auth/login")
 def login():
     data = request.get_json(silent=True) or {}
@@ -72,12 +247,18 @@ def login():
     password = str(data.get("password") or "")
     if not username or not password:
         return jsonify({"error": "username_and_password_required"}), 400
-    user = User.query.filter(db.func.lower(User.username) == username.lower()).first()
+    user = User.query.filter(
+        or_(
+            db.func.lower(User.username) == username.lower(),
+            db.func.lower(User.email) == username.lower(),
+        )
+    ).first()
     if not user or not user.active or not check_password_hash(user.password_hash, password):
         return jsonify({"error": "invalid_credentials"}), 401
     user.last_login_at = datetime.now(timezone.utc)
     session.clear()
     session["user_id"] = user.id
+    session["auth_role_snapshot"] = _role_session_snapshot(user)
     audit("login", "user", user.id)
     db.session.commit()
     return jsonify({"user": user_json(user)})
@@ -116,14 +297,16 @@ def create_user():
     data = request.get_json(silent=True) or {}
     username = str(data.get("username") or "").strip()
     password = str(data.get("password") or "")
-    if not username or len(password) < 8:
-        return jsonify({"error": "username_and_password_required", "detail": "Password must be at least 8 characters."}), 400
+    first_name = str(data.get("first_name") or "").strip()
+    last_name = str(data.get("last_name") or "").strip()
+    if not username or not first_name or not last_name or len(password) < 8:
+        return jsonify({"error": "required_fields_missing", "detail": "Kullanıcı adı, ad, soyad ve en az 8 karakterli şifre zorunludur."}), 400
     if User.query.filter(db.func.lower(User.username) == username.lower()).first():
         return jsonify({"error": "username_exists"}), 409
     email = str(data.get("email") or "").strip() or None
     if email and User.query.filter(db.func.lower(User.email) == email.lower()).first():
         return jsonify({"error": "email_exists"}), 409
-    user = User(username=username, email=email,
+    user = User(username=username, first_name=first_name, last_name=last_name, email=email,
                 password_hash=generate_password_hash(password), active=bool(data.get("active", True)))
     if data.get("role_id"):
         role = db.session.get(Role, int(data["role_id"]))
@@ -137,7 +320,7 @@ def create_user():
         user.personnel = personnel
     db.session.add(user)
     db.session.flush()
-    audit("user_created", "user", user.id, {"username": user.username})
+    audit("user_created", "user", user.id, {"username": user.username, "full_name": user.full_name})
     db.session.commit()
     return jsonify({"user": user_json(user)}), 201
 
@@ -157,6 +340,16 @@ def update_user(user_id):
         if conflict:
             return jsonify({"error": "username_exists"}), 409
         user.username = username
+    if "first_name" in data:
+        first_name = str(data["first_name"] or "").strip()
+        if not first_name:
+            return jsonify({"error": "first_name_required"}), 400
+        user.first_name = first_name
+    if "last_name" in data:
+        last_name = str(data["last_name"] or "").strip()
+        if not last_name:
+            return jsonify({"error": "last_name_required"}), 400
+        user.last_name = last_name
     if "email" in data:
         email = str(data["email"] or "").strip() or None
         if email and User.query.filter(db.func.lower(User.email) == email.lower(), User.id != user.id).first():
@@ -182,7 +375,7 @@ def update_user(user_id):
         if len(password) < 8:
             return jsonify({"error": "password_too_short"}), 400
         user.password_hash = generate_password_hash(password)
-    audit("user_updated", "user", user.id, {"username": user.username})
+    audit("user_updated", "user", user.id, {"username": user.username, "full_name": user.full_name})
     if password_changed:
         audit("password_changed", "user", user.id)
     db.session.commit()

@@ -36,7 +36,7 @@ def log_json(log, actors=None):
         "action": log.action,
         "entity_type": log.entity_type,
         "entity_id": log.entity_id,
-        "actor": {"id": actor.id, "username": actor.username} if actor else None,
+        "actor": {"id": actor.id, "username": actor.username, "full_name": actor.full_name} if actor else None,
         "details": safe_details(log.details),
         "created_at": log.created_at.isoformat() if log.created_at else None,
     }
@@ -55,7 +55,7 @@ def list_logs():
     query = AuditLog.query
     if q:
         term = f"%{q}%"
-        query = query.outerjoin(User, User.id == AuditLog.actor_user_id).filter(or_(AuditLog.action.ilike(term), AuditLog.entity_type.ilike(term), User.username.ilike(term), cast(AuditLog.details, Text).ilike(term), cast(AuditLog.entity_id, Text).ilike(term)))
+        query = query.outerjoin(User, User.id == AuditLog.actor_user_id).filter(or_(AuditLog.action.ilike(term), AuditLog.entity_type.ilike(term), User.username.ilike(term), User.first_name.ilike(term), User.last_name.ilike(term), cast(AuditLog.details, Text).ilike(term), cast(AuditLog.entity_id, Text).ilike(term)))
     if action:
         query = query.filter(AuditLog.action == action)
     if entity_type:
@@ -110,5 +110,5 @@ def log_meta():
     return jsonify({
         "actions": actions,
         "entity_types": entity_types,
-        "users": [{"id": u.id, "username": u.username} for u in users],
+        "users": [{"id": u.id, "username": u.username, "full_name": u.full_name} for u in users],
     })

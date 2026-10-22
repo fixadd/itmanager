@@ -20,7 +20,7 @@ async function load(){
   const typeBars=bars(inv.by_type);
   const scrapBars=bars([{label:'Envanter',count:s.inventory},{label:'Lisans',count:s.license},{label:'Stok',count:s.stock}]);
   c.innerHTML=`
-   <div class="page-head"><div><h1>Raporlar</h1><p>Sistemdeki IT varlıkları ve operasyonların güncel özet görünümü.</p></div><div class="page-actions"><div class="dropdown"><button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown"><i class="ti ti-file-spreadsheet me-1"></i>Excel Dışa Aktar (XLS)</button><div class="dropdown-menu dropdown-menu-end p-2" style="min-width:240px"><div class="small text-secondary px-2 py-1">Aktarılacak bölümü seçin</div><button class="dropdown-item" data-report-export="inventory">Envanter</button><button class="dropdown-item" data-report-export="licenses">Lisanslar</button><button class="dropdown-item" data-report-export="stock">Stok</button><button class="dropdown-item" data-report-export="people">Personeller</button><button class="dropdown-item" data-report-export="all">Tüm rapor özeti</button></div></div><button class="btn btn-outline-secondary" id="reportsPrint"><i class="ti ti-printer me-1"></i>Yazdır</button><button class="btn btn-outline-secondary" id="reportsRefresh"><i class="ti ti-refresh me-1"></i>Yenile</button></div></div>
+   <div class="page-head"><div><h1>Raporlar</h1><p>Sistemdeki IT varlıkları ve operasyonların güncel özet görünümü.</p></div><div class="page-actions"><div class="dropdown"><button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown"><i class="ti ti-file-spreadsheet me-1"></i>Dışa Aktar</button><div class="dropdown-menu dropdown-menu-end p-2" style="min-width:250px"><div class="small text-secondary px-2 py-1">Tüm kayıtlar ve işlem geçmişi</div><label class="form-label small px-2 mt-1 mb-1" for="reportExportSearch">Arama filtresi</label><input class="form-control form-control-sm mb-2" id="reportExportSearch" placeholder="Envanter no, seri no, barkod..."><label class="form-label small px-2 mb-1" for="reportExportStatus">Durum filtresi</label><select class="form-select form-select-sm mb-2" id="reportExportStatus"><option value="">Tüm durumlar</option><option value="active">Aktif</option><option value="available">Mevcut</option><option value="assigned">Atanmış</option><option value="inactive">Pasif</option><option value="faulty">Arızalı</option><option value="maintenance">Bakımda</option><option value="scrapped">Hurda</option><option value="pending">Bekliyor</option><option value="completed">Tamamlandı</option></select><div class="dropdown-divider"></div><button class="dropdown-item" data-report-format="xlsx"><i class="ti ti-file-spreadsheet me-2"></i>Excel (.xlsx) — ayrı sayfalar</button><button class="dropdown-item" data-report-format="csv"><i class="ti ti-file-text me-2"></i>CSV (.csv) — tüm modüller</button></div></div><button class="btn btn-outline-secondary" id="reportsPrint"><i class="ti ti-printer me-1"></i>Yazdır</button><button class="btn btn-outline-secondary" id="reportsRefresh"><i class="ti ti-refresh me-1"></i>Yenile</button></div></div>
    <div class="row g-3 mb-4">
     ${card('Toplam Envanter',inv.total,`${n(inv.active)} aktif · ${n(inv.scrapped)} hurda`)}
     ${card('Toplam Lisans',lic.total,`${n(lic.active)} aktif · ${n(lic.expiring)} süresi yaklaşıyor`)}
@@ -45,8 +45,22 @@ async function load(){
     </div></div></div></div>
    </div>`;
   document.querySelector('#reportsPrint')?.addEventListener('click',()=>window.print());
-  document.querySelectorAll('[data-report-export]').forEach(b=>b.addEventListener('click',()=>exportReport(b.dataset.reportExport,d)));
-  function exportReport(kind,data){const rows=[['Kategori','Alan','Değer']];if(kind==='inventory'||kind==='all')rows.push(['Envanter','Toplam',data.inventory?.total||0],['Envanter','Aktif',data.inventory?.active||0],['Envanter','Hurda',data.inventory?.scrapped||0]);if(kind==='licenses'||kind==='all')rows.push(['Lisans','Toplam',data.licenses?.total||0],['Lisans','Aktif',data.licenses?.active||0],['Lisans','Süresi yaklaşan',data.licenses?.expiring||0]);if(kind==='stock'||kind==='all')rows.push(['Stok','Kalem',data.stock?.items||0],['Stok','Toplam miktar',data.stock?.total_quantity||0]);if(kind==='people'||kind==='all')rows.push(['Personel','Toplam',data.people?.total||0],['Personel','Aktif',data.people?.active||0]);if(rows.length<2)return;const escXml=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');const sheetRows=rows.map((r,n)=>'<Row>'+r.map(v=>'<Cell'+(n===0?' ss:StyleID="header"':'')+'><Data ss:Type="'+(typeof v==='number'?'Number':'String')+'">'+escXml(v)+'</Data></Cell>').join('')+'</Row>').join('');const xml='<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="header"><Font ss:Bold="1"/></Style></Styles><Worksheet ss:Name="Rapor"><Table>'+sheetRows+'</Table></Worksheet></Workbook>';const blob=new Blob([xml],{type:'application/vnd.ms-excel'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='itmanager-rapor-'+kind+'.xls';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+  document.querySelectorAll('[data-report-format]').forEach(b=>b.addEventListener('click',()=>exportReport(b.dataset.reportFormat)));
+  async function exportReport(format){
+   const params=new URLSearchParams({format,scope:'all'});
+   const search=document.querySelector('#reportExportSearch')?.value.trim();
+   const status=document.querySelector('#reportExportStatus')?.value;
+   if(search)params.set('search',search);
+   if(status)params.set('status',status);
+   try{
+    const response=await fetch('/api/reports/export?'+params.toString());
+    if(!response.ok){let message='Dışa aktarma başarısız';try{message=(await response.json()).error||message}catch(_){}throw Error(message)}
+    const blob=await response.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=format==='xlsx'?'itmanager-rapor.xlsx':'itmanager-rapor.csv';
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+   }catch(error){console.error(error);alert(error.message||'Dışa aktarma başarısız');}
+  }
   document.querySelector('#reportsRefresh')?.addEventListener('click',load);
  }catch(e){
   console.error(e);

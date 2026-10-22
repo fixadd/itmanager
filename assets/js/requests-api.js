@@ -24,7 +24,7 @@ function render(items){
  const table=tables.find(t=>/TALEP|DURUM|ÖNCELİK/.test(t.querySelector('thead')?.textContent||''));
  if(!table)return;
  const body=table.querySelector('tbody'); if(!body)return;
- body.innerHTML=items.length?items.map(x=>`<tr data-request-id="${x.id}"><td><strong>${esc(x.request_no)}</strong></td><td>${esc(x.requester?.name||'—')}</td><td>${esc(x.items?.map(i=>`${i.product_type}${i.model?' · '+i.model:''} × ${i.quantity} (Gelen: ${Number(i.received_quantity||0)}, Kalan: ${Math.max(0,Number(i.quantity||0)-Number(i.received_quantity||0))})` ).join(', ')||'—')}</td><td>${badge(x.status)}</td><td>${x.requested_at?new Date(x.requested_at).toLocaleDateString('tr-TR'):'—'}</td><td><div class="btn-group btn-group-sm"><button class="btn btn-light request-detail" data-id="${x.id}"><i class="ti ti-eye"></i></button><button class="btn btn-outline-primary request-enter" data-id="${x.id}" title="Talep Gir">Talep Gir</button></div></td></tr>`).join(''):`<tr><td colspan="7" class="text-center text-muted py-4">Henüz satın alma talebi bulunmuyor.</td></tr>`;
+ body.innerHTML=items.length?items.map(x=>`<tr data-request-id="${x.id}"><td><strong>${esc(x.request_no)}</strong></td><td><div><strong>${esc(x.requester?.name||'—')}</strong><small class="d-block text-muted">Talep sahibi</small><span class="d-block mt-1">${esc(x.created_by?.name||'—')}</span><small class="d-block text-muted">Talep giren</small></div></td><td>${esc(x.items?.map(i=>`${i.product_type}${i.model?' · '+i.model:''} × ${i.quantity} (Gelen: ${Number(i.received_quantity||0)}, Kalan: ${Math.max(0,Number(i.quantity||0)-Number(i.received_quantity||0))})` ).join(', ')||'—')}</td><td>${badge(x.status)}</td><td>${x.requested_at?new Date(x.requested_at).toLocaleDateString('tr-TR'):'—'}</td><td><div class="btn-group btn-group-sm"><button class="btn btn-light request-detail" data-id="${x.id}"><i class="ti ti-eye"></i></button><button class="btn btn-outline-primary request-enter" data-id="${x.id}" title="Talep Gir">Talep Gir</button></div></td></tr>`).join(''):`<tr><td colspan="7" class="text-center text-muted py-4">Henüz satın alma talebi bulunmuyor.</td></tr>`;
 }
 let requestMasterData=null;
 async function loadAllRequestPersonnel(headers){
@@ -150,6 +150,8 @@ function openTransferForm(x,d){
   const catalog=productTypeKey==='envanter'
    ? {types:d.inventory_hardware_types||[],brands:d.inventory_brands||[],models:d.inventory_models||[]}
    : {types:d.stock_hardware_types||[],brands:d.stock_brands||[],models:d.stock_models||[]};
+  const itemTypeId=catalog.types.find(v=>String(v.name)===String(item.device_type))?.id;
+  const matchingBrands=catalog.brands.filter(v=>!itemTypeId||(v.product_type_ids||[]).map(String).includes(String(itemTypeId)));
   const qty=Number(item.quantity||1); const receivedAlready=Number(item.received_quantity||0); const remaining=Math.max(0,qty-receivedAlready);
   let html='<div class="border rounded p-3 mb-3 transfer-item" data-item-id="'+item.id+'" data-product-type="'+esc(p)+'" data-device-type="'+esc(item.device_type||'')+'" data-brand="'+esc(item.brand||'')+'" data-model="'+esc(item.model||'')+'" data-unit="'+esc(item.unit||'Adet')+'">';
   html+='<div class="d-flex justify-content-between align-items-start mb-3"><div><h6 class="mb-1">Kalem '+(i+1)+' — '+esc(p)+'</h6><div class="small text-muted">Talepte açılan ürün: <strong>'+esc(item.device_type||'—')+'</strong>'+(item.brand?' · <strong>'+esc(item.brand)+'</strong>':'')+(item.model?' · <strong>'+esc(item.model)+'</strong>':'')+' · Miktar: <strong>'+esc(qty)+'</strong> '+esc(item.unit||'Adet')+'</div><div class="small text-primary mt-1">Talepteki ürün bilgileri aşağıdaki alanlara otomatik aktarılmıştır.</div></div><div class="d-flex align-items-center gap-2"><label class="form-label mb-0">Kalan: <strong>'+remaining+'</strong></label><input class="form-control tr-received" type="number" min="0" max="'+remaining+'" step="'+(p==='Envanter'||p==='Lisans'?'1':'0.01')+'" value="'+remaining+'" style="width:100px" '+(remaining<=0?'disabled':'')+'><label class="form-check mb-0"><input class="form-check-input tr-selected" type="checkbox" '+(remaining<=0?'disabled':'')+'> <span class="form-check-label">'+(remaining<=0?'Tamamlandı':'Geldi')+'</span></label></div></div>';
@@ -159,13 +161,13 @@ function openTransferForm(x,d){
   }else if(productTypeKey==='lisans'){
    html+='<div class="row g-2"><div class="col-md-6"><label class="form-label">Lisans Adı *</label><select class="form-select tr-license_name" required>'+optionList(d.license_names,(d.license_names||[]).find(v=>String(v.name)===String(item.brand))?.id)+'</select></div><div class="col-md-6"><label class="form-label">Lisans Modeli *</label><select class="form-select tr-license_model" required><option value="">Önce lisans adı seçin</option></select></div><div class="col-md-4"><label class="form-label">Lisans Anahtarı</label><input class="form-control tr-license_key"></div><div class="col-md-4"><label class="form-label">E-posta</label><input class="form-control tr-email" type="email"></div><div class="col-md-4"><label class="form-label">Sorumlu Personel</label><select class="form-select tr-person">'+optionList(d.personnel,x.requester?.id)+'</select></div><div class="col-md-4"><label class="form-label">Şifre</label><input class="form-control tr-password"></div><div class="col-md-3"><label class="form-label">Başlangıç</label><input class="form-control tr-starts_at" type="date"></div><div class="col-md-3"><label class="form-label">Bitiş</label><input class="form-control tr-expires_at" type="date"></div><div class="col-12"><label class="form-label">Not</label><textarea class="form-control tr-note" rows="2">'+esc(item.description||'')+'</textarea></div></div>';
   }else{
-   html+='<div class="row g-2"><div class="col-md-4"><label class="form-label">Donanım Tipi *</label><select class="form-select tr-device" required>'+optionList(catalog.types,catalog.types.find(v=>v.name===item.device_type)?.id)+'</select></div><div class="col-md-4"><label class="form-label">Marka *</label><select class="form-select tr-brand" required>'+optionList(catalog.brands,catalog.brands.find(v=>v.name===item.brand)?.id)+'</select></div><div class="col-md-4"><label class="form-label">Model</label><select class="form-select tr-model"><option value="">Seçiniz</option></select></div><div class="col-md-4"><label class="form-label">Birim</label><select class="form-select tr-unit"><option>Adet</option><option>Kutu</option><option>Paket</option><option>Metre</option></select></div><div class="col-12"><label class="form-label">Not</label><textarea class="form-control tr-note" rows="2">'+esc(item.description||'')+'</textarea></div></div>';
+   html+='<div class="row g-2"><div class="col-md-4"><label class="form-label">Donanım Tipi *</label><select class="form-select tr-device" required>'+optionList(catalog.types,catalog.types.find(v=>v.name===item.device_type)?.id)+'</select></div><div class="col-md-4"><label class="form-label">Marka *</label><select class="form-select tr-brand" required>'+optionList(matchingBrands,matchingBrands.find(v=>v.name===item.brand)?.id)+'</select></div><div class="col-md-4"><label class="form-label">Model</label><select class="form-select tr-model"><option value="">Seçiniz</option></select></div><div class="col-md-4"><label class="form-label">Birim</label><select class="form-select tr-unit"><option>Adet</option><option>Kutu</option><option>Paket</option><option>Metre</option></select></div><div class="col-12"><label class="form-label">Not</label><textarea class="form-control tr-note" rows="2">'+esc(item.description||'')+'</textarea></div></div>';
   }
   html+='</div></div>';
   return html;
  }).join('');
  const body='<form id="requestTransferForm"><div class="alert alert-info">Gelen ürünleri işaretleyin ve gelen miktarı girin. Sadece işaretlediğiniz kalemler sisteme kaydedilir. Envanter cihazlarında her cihazın bilgisi ayrı ayrı istenir.</div>'+rows+'</form>';
- if(window.ITUI)ITUI.modal('Gelen Talepleri Envantere / Stoka / Lisansa Gir',body,{size:'modal-xl',footer:'<button class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button class="btn btn-primary" data-transfer-save>Seçilenleri Kaydet</button>'});
+ if(window.ITUI)ITUI.modal('Gelen Talepleri Envantere / Stoka / Lisansa Gir',body,{size:'modal-xl',footer:'<button type="button" class="btn btn-light" data-bs-dismiss="modal">Vazgeç</button><button type="button" class="btn btn-primary" data-transfer-save>Seçilenleri Kaydet</button>'});
  const form=document.querySelector('#requestTransferForm');if(!form)return;
  const refreshModels=row=>{const p=String(row.dataset.productType||'').trim();const catalog=p.toLowerCase()==='envanter'?{types:d.inventory_hardware_types||[],brands:d.inventory_brands||[],models:d.inventory_models||[]}:{types:d.stock_hardware_types||[],brands:d.stock_brands||[],models:d.stock_models||[]};const brand=row.querySelector('.tr-brand')?.value,type=row.querySelector('.tr-device')?.value,model=row.querySelector('.tr-model');if(!model)return;const b=catalog.brands.find(v=>String(v.id)===String(brand)),t=catalog.types.find(v=>String(v.id)===String(type));const ms=catalog.models.filter(v=>String(v.brand_id)===String(b?.id)&&(!t||!v.product_type_id||String(v.product_type_id)===String(t.id)));model.innerHTML='<option value="">Seçiniz</option>'+ms.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');};
  const buildRecords=row=>{
@@ -185,7 +187,7 @@ function openTransferForm(x,d){
  const itemName=row=>{const item=x.items.find(v=>String(v.id)===String(row.dataset.itemId));return item?.device_type||''};
  form.querySelectorAll('.transfer-item').forEach(row=>{
   const cb=row.querySelector('.tr-selected'),qty=row.querySelector('.tr-received');
-  const syncFields=()=>{const fields=row.querySelector('.transfer-fields');if(!fields)return;const checked=!!cb?.checked;const amount=Math.max(0,Math.floor(Number(qty?.value||0)));if(!checked||amount<=0){fields.style.setProperty('display','none','important');const box=row.querySelector('.tr-records');if(box)box.innerHTML='';return;}fields.style.setProperty('display','block','important');buildRecords(row);};
+  const syncFields=()=>{const fields=row.querySelector('.transfer-fields');if(!fields)return;const checked=!!cb?.checked;const amount=Math.max(0,Number(qty?.value||0));if(!checked||amount<=0){fields.style.setProperty('display','none','important');const box=row.querySelector('.tr-records');if(box)box.innerHTML='';return;}fields.style.setProperty('display','block','important');buildRecords(row);};
   // Checkbox ve miktar alanını doğrudan bağla; modal içindeki diğer global event'lerden etkilenmesin.
   cb?.addEventListener('change',syncFields);
   cb?.addEventListener('click',()=>setTimeout(syncFields,0));
@@ -196,7 +198,16 @@ function openTransferForm(x,d){
   qty?.addEventListener('keyup',syncFields);
   syncFields();
   row.querySelector('.tr-brand')?.addEventListener('change',()=>refreshModels(row));
-  row.querySelector('.tr-device')?.addEventListener('change',()=>refreshModels(row));
+  row.querySelector('.tr-device')?.addEventListener('change',()=>{
+   const p=String(row.dataset.productType||'').trim().toLowerCase();
+   const catalog=p==='envanter'?{types:d.inventory_hardware_types||[],brands:d.inventory_brands||[],models:d.inventory_models||[]}:{types:d.stock_hardware_types||[],brands:d.stock_brands||[],models:d.stock_models||[]};
+   const typeId=row.querySelector('.tr-device')?.value;
+   const brandSelect=row.querySelector('.tr-brand');
+   const previousBrand=brandSelect?.value;
+   const brands=catalog.brands.filter(v=>(v.product_type_ids||[]).map(String).includes(String(typeId)));
+   if(brandSelect){brandSelect.innerHTML=optionList(brands,brands.some(v=>String(v.id)===String(previousBrand))?previousBrand:'');}
+   refreshModels(row);
+  });
   const refreshLicenseModels=(row,preferred='')=>{const name=row.querySelector('.tr-license_name')?.value||'';const model=row.querySelector('.tr-license_model');if(!model)return;const ms=(d.license_models||[]).filter(v=>String(v.license_name_id)===String(name));model.innerHTML='<option value="">Seçiniz</option>'+ms.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name)+'</option>').join('');if(preferred&&ms.some(v=>String(v.id)===String(preferred)))model.value=String(preferred);};
   row.querySelector('.tr-license_name')?.addEventListener('change',()=>refreshLicenseModels(row));
   refreshModels(row);
@@ -209,11 +220,14 @@ function openTransferForm(x,d){
    const unit=row.querySelector('.tr-unit');if(unit&&row.dataset.unit){const opt=[...unit.options].find(o=>o.value===row.dataset.unit||o.textContent===row.dataset.unit);if(opt)unit.value=opt.value;}
   }
  });
- document.addEventListener('change',e=>{const cb=e.target.closest?.('.transfer-item .tr-selected');if(!cb)return;const row=cb.closest('.transfer-item'),fields=row?.querySelector('.transfer-fields'),qty=row?.querySelector('.tr-received');if(!row||!fields)return;const amount=Math.max(0,Math.floor(Number(qty?.value||0)));fields.style.setProperty('display',cb.checked&&amount>0?'block':'none','important');if(cb.checked&&amount>0&&String(row.dataset.productType||'').trim().toLowerCase()==='envanter')buildRecords(row);if(!cb.checked){const box=row.querySelector('.tr-records');if(box)box.innerHTML='';}},true);
- document.addEventListener('input',e=>{if(!e.target.matches('.transfer-item .tr-received'))return;const row=e.target.closest('.transfer-item'),cb=row?.querySelector('.tr-selected'),fields=row?.querySelector('.transfer-fields');if(!row||!cb||!fields||!cb.checked)return;const amount=Math.max(0,Math.floor(Number(e.target.value||0)));fields.style.setProperty('display',amount>0?'block':'none','important');if(amount>0&&String(row.dataset.productType||'').trim().toLowerCase()==='envanter')buildRecords(row);},true);
- document.querySelector('[data-transfer-save]')?.addEventListener('click',async e=>{
+ document.addEventListener('change',e=>{const cb=e.target.closest?.('.transfer-item .tr-selected');if(!cb)return;const row=cb.closest('.transfer-item'),fields=row?.querySelector('.transfer-fields'),qty=row?.querySelector('.tr-received');if(!row||!fields)return;const amount=Math.max(0,Number(qty?.value||0));fields.style.setProperty('display',cb.checked&&amount>0?'block':'none','important');if(cb.checked&&amount>0&&String(row.dataset.productType||'').trim().toLowerCase()==='envanter')buildRecords(row);if(!cb.checked){const box=row.querySelector('.tr-records');if(box)box.innerHTML='';}},true);
+ document.addEventListener('input',e=>{if(!e.target.matches('.transfer-item .tr-received'))return;const row=e.target.closest('.transfer-item'),cb=row?.querySelector('.tr-selected'),fields=row?.querySelector('.transfer-fields');if(!row||!cb||!fields||!cb.checked)return;const amount=Math.max(0,Number(e.target.value||0));fields.style.setProperty('display',amount>0?'block':'none','important');if(amount>0&&String(row.dataset.productType||'').trim().toLowerCase()==='envanter')buildRecords(row);},true);
+ document.addEventListener('click',async e=>{
+  const saveButton=e.target.closest('#itManagerModal [data-transfer-save]');
+  if(!saveButton||!form.isConnected)return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
   if(transferSaving)return;
-  const saveButton=e.target.closest('[data-transfer-save]');
   const selected=[...form.querySelectorAll('.transfer-item')].filter(r=>r.querySelector('.tr-selected')?.checked);
   if(!selected.length){notify('En az bir gelen kalemi seçin.');return}
   const items=[];
@@ -248,12 +262,25 @@ function openTransferForm(x,d){
     transferSaving=false;
     if(saveButton){saveButton.disabled=false;saveButton.innerHTML='Seçilenleri Kaydet';}
   }
- });
+ },true);
+}
+
+async function loadRequestHistory(id){
+ const target=document.querySelector('#itManagerModal #requestHistoryBody');if(!target)return;
+ try{
+  const r=await fetch('/api/requests/'+id+'/history',{headers:{Accept:'application/json'}});
+  const data=await r.json();if(!r.ok)throw Error(data.error||'Geçmiş alınamadı');
+  const items=data.items||[];
+  target.innerHTML=items.length?'<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Tarih</th><th>İşlem</th><th>İşlemi yapan</th><th>Detay</th></tr></thead><tbody>'+items.map(v=>{
+   const d=v.details||{};const extra=[d.request_no,d.inventory_no,d.license_name,d.license_model,d.quantity!=null?('Miktar: '+d.quantity+' '+(d.unit||'')):null,d.from_status?('Durum: '+d.from_status):null,d.reason].filter(Boolean).join(' · ');
+   return '<tr><td>'+esc(v.created_at?new Date(v.created_at).toLocaleString('tr-TR'):'—')+'</td><td>'+esc(v.action)+'</td><td>'+esc(v.actor||d.received_by_name||'—')+'</td><td>'+esc(extra||'—')+'</td></tr>';
+  }).join('')+'</tbody></table></div>':'Bu talep için henüz işlem geçmişi yok.';
+ }catch(err){target.textContent=err.message||'Geçmiş yüklenemedi';}
 }
 async function detail(id){
  let x=current.find(q=>q.id===id);if(!x){try{const rr=await fetch('/api/requests/'+id,{headers:{Accept:'application/json'}});const dd=await rr.json();if(!rr.ok)throw Error(dd.error||'Talep detayı alınamadı');x=dd}catch(e){notify(e.message);return}}
- const body='<div class="detail-grid"><div><span>Talep No</span><strong>'+esc(x.request_no)+'</strong></div><div><span>Talep Sahibi</span><strong>'+esc(x.requester?.name||'—')+'</strong></div><div><span>Departman</span><strong>'+esc(x.department?.name||'—')+'</strong></div><div><span>Fabrika</span><strong>'+esc(x.factory?.name||'—')+'</strong></div><div><span>Öncelik</span><strong>'+esc(x.priority)+'</strong></div><div><span>Durum</span><strong>'+esc(labels[x.status]||x.status)+'</strong></div></div><hr><h6>Talep Kalemleri</h6><div class="table-responsive"><table class="table"><thead><tr><th>Tip</th><th>Ürün</th><th>Marka</th><th>Model</th><th>Miktar</th><th>Açıklama</th></tr></thead><tbody>'+x.items.map(i=>'<tr><td>'+esc(i.product_type)+'</td><td>'+esc(i.device_type||'—')+'</td><td>'+esc(i.brand||'—')+'</td><td>'+esc(i.model||'—')+'</td><td>'+esc(i.quantity)+' '+esc(i.unit)+'</td><td>'+esc(i.description||'—')+'</td></tr>').join('')+'</tbody></table></div>' +(x.note?'<div class="mt-3"><strong>Not:</strong> '+esc(x.note)+'</div>':'');
- if(window.ITUI)ITUI.modal('Satın Alma Talebi Detayı',body,{footer:'<button class="btn btn-light" data-bs-dismiss="modal">Kapat</button>'});else notify(x.request_no);
+ const body='<div class="detail-grid"><div><span>Talep No</span><strong>'+esc(x.request_no)+'</strong></div><div><span>Talep Sahibi</span><strong>'+esc(x.requester?.name||'—')+'</strong></div><div><span>Talep Giren</span><strong>'+esc(x.created_by?.name||'—')+'</strong></div><div><span>Departman</span><strong>'+esc(x.department?.name||'—')+'</strong></div><div><span>Fabrika</span><strong>'+esc(x.factory?.name||'—')+'</strong></div><div><span>Öncelik</span><strong>'+esc(x.priority)+'</strong></div><div><span>Durum</span><strong>'+esc(labels[x.status]||x.status)+'</strong></div></div><hr><h6>Talep Kalemleri</h6><div class="table-responsive"><table class="table"><thead><tr><th>Tip</th><th>Ürün</th><th>Marka</th><th>Model</th><th>Miktar</th><th>Açıklama</th></tr></thead><tbody>'+x.items.map(i=>'<tr><td>'+esc(i.product_type)+'</td><td>'+esc(i.device_type||'—')+'</td><td>'+esc(i.brand||'—')+'</td><td>'+esc(i.model||'—')+'</td><td>'+esc(i.quantity)+' '+esc(i.unit)+'</td><td>'+esc(i.description||'—')+'</td></tr>').join('')+'</tbody></table></div>' +(x.note?'<div class="mt-3"><strong>Not:</strong> '+esc(x.note)+'</div>':'')+'<hr><h6>Talep / İşlem Geçmişi</h6><div id="requestHistoryBody" class="small text-muted py-2">Geçmiş yükleniyor...</div>';
+ if(window.ITUI){ITUI.modal('Satın Alma Talebi Detayı',body,{footer:'<button class="btn btn-light" data-bs-dismiss="modal">Kapat</button>'});loadRequestHistory(id);}else notify(x.request_no);
 }
 document.addEventListener('click',async e=>{
  const add=e.target.closest('#addRequestRow');if(add){e.preventDefault();try{await loadRequestMasterData();document.querySelector('#requestRows')?.insertAdjacentHTML('beforeend',itemRow());bindRequestRow(document.querySelector('#requestRows')?.lastElementChild);}catch(err){notify(err.message)}return}
@@ -289,8 +316,6 @@ async function openCreate(){
  const setRequester=people=>{
    if(!requester)return;
    requester.innerHTML='<option value="">Giriş yapan kullanıcı</option>'+(people||[]).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');
-   const current=window.IT_CURRENT_USER?.personnel_id||window.IT_CURRENT_USER?.personnel?.id;
-   if(current)requester.value=String(current);
  };
  setRequester(d.personnel);
  if(requester&&!d.personnel?.length){
@@ -301,6 +326,30 @@ async function openCreate(){
      window.IT_REQUEST_MASTER_DATA=requestMasterData;
      setRequester(people);
    }).catch(()=>{});
+ }
+ // Talep sahibi, formu açan oturum kullanıcısının bağlı personel kaydından belirlenir.
+ if(requester){
+   try{
+     const meRes=await fetch('/api/auth/me',{headers:{Accept:'application/json'}});
+     const meData=await meRes.json();
+     if(!meRes.ok)throw Error(meData.error||'Oturum kullanıcısı alınamadı');
+     const user=meData.user||{};
+     const person=user.personnel;
+     if(person?.id){
+       if(![...requester.options].some(o=>o.value===String(person.id))){
+         requester.add(new Option(person.name, String(person.id)));
+       }
+       requester.value=String(person.id);
+       requester.disabled=true;
+       requester.title='Talep sahibi açık oturum kullanıcısından otomatik alınır.';
+     }else{
+       requester.disabled=false;
+       notify('Açık kullanıcı ('+(user.username||'')+') için personel eşlemesi yok. Talep sahibinin otomatik atanması için kullanıcıyı ilgili personel kaydına bağlayın.');
+     }
+   }catch(err){
+     console.error('Talep sahibi oturum bilgisi alınamadı:',err);
+     notify('Oturum kullanıcısı alınamadı; talep sahibi otomatik seçilemedi.');
+   }
  }
 }
 document.addEventListener('click',e=>{const b=e.target.closest('#requestNew');if(!b||page()!=='requests')return;e.preventDefault();e.stopImmediatePropagation();openCreate().catch(err=>notify(err.message||'Yeni talep formu açılamadı.'));},true);

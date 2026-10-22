@@ -42,8 +42,9 @@ async function loadDashboard(){
     document.getElementById('dashMaintenance').textContent=`Bakım / servis: ${fmt(inv.maintenance)}`;
     document.getElementById('dashRequests').textContent=fmt((req.pending||0)+(req.approved||0)+(req.ordered||0));
     document.getElementById('dashRequestMeta').textContent=`Bekleyen ${fmt(req.pending)} · Onaylı ${fmt(req.approved)}`;
-    const maxType=Math.max(1,...(inv.by_type||[]).map(x=>x.count));
-    document.getElementById('dashTypes').innerHTML=(inv.by_type||[]).map(x=>`<div><span>${esc(x.label)}</span><b style="width:${Math.round(x.count/maxType*100)}%"></b><strong>${fmt(x.count)}</strong></div>`).join('')||'<span class="text-secondary">Kayıt yok.</span>';
+    dashboardTypeItems=(inv.by_type||[]).slice().sort((a,b)=>(Number(b.count)||0)-(Number(a.count)||0));
+    dashboardTypePage=1;
+    renderDashboardTypes();
     const labels={active:'Aktif',faulty:'Arızalı',maintenance:'Bakım / Servis',scrapped:'Hurda',it:'Bilgi İşlem',service:'Servis'};
     document.getElementById('dashInventoryStatus').innerHTML=(inv.by_status||[]).map(x=>`<div class="mb-2 d-flex justify-content-between"><span>${esc(labels[x.label]||x.label)}</span><strong>${fmt(x.count)}</strong></div>`).join('')||'<span class="text-secondary">Kayıt yok.</span>';
     const maxMonth=Math.max(1,...(d.monthly_activity||[]).map(x=>x.count));
@@ -81,6 +82,26 @@ function generic(k){return head(k,btn('Yeni Kayıt'))+filters()+panel(pages[k][0
 function layout(k){return ({dashboard,barcode,inventory,licenses,stock,maintenance,requests,people,knowledge,scrap,reports,profile,admin,settings,logs}[k]||(()=>generic(k)))()}
 let renderedPage=null;
 let dashboardController=null;
+let dashboardTypeItems=[];
+let dashboardTypePage=1;
+function renderDashboardTypes(){
+  const target=document.getElementById('dashTypes');
+  if(!target)return;
+  const items=dashboardTypeItems;
+  const pageSize=5;
+  const totalPages=Math.max(1,Math.ceil(items.length/pageSize));
+  dashboardTypePage=Math.min(Math.max(1,dashboardTypePage),totalPages);
+  const maxType=Math.max(1,...items.map(x=>Number(x.count)||0));
+  const visible=items.slice((dashboardTypePage-1)*pageSize,dashboardTypePage*pageSize);
+  target.innerHTML=(visible.map(x=>`<div><span>${esc(x.label)}</span><b style="width:${Math.round((Number(x.count)||0)/maxType*100)}%"></b><strong>${Number(x.count||0).toLocaleString('tr-TR')}</strong></div>`).join('')||'<span class="text-secondary">Kayıt yok.</span>')+
+    (items.length>pageSize?`<div class="dashboard-type-pagination" aria-label="Cihaz türleri sayfalama"><span>${(dashboardTypePage-1)*pageSize+1}–${Math.min(dashboardTypePage*pageSize,items.length)} / ${items.length}</span><div><button type="button" class="btn btn-sm btn-outline-secondary" data-dash-type-page="${dashboardTypePage-1}" ${dashboardTypePage===1?'disabled':''} aria-label="Önceki sayfa">‹</button><span>Sayfa ${dashboardTypePage} / ${totalPages}</span><button type="button" class="btn btn-sm btn-outline-secondary" data-dash-type-page="${dashboardTypePage+1}" ${dashboardTypePage===totalPages?'disabled':''} aria-label="Sonraki sayfa">›</button></div></div>`:'');
+}
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-dash-type-page]');
+  if(!button||button.disabled)return;
+  dashboardTypePage=Number(button.dataset.dashTypePage)||1;
+  renderDashboardTypes();
+});
 function go(k,force=false){
   if(!pages[k])return;
   const pageChanged=renderedPage!==k||force;
