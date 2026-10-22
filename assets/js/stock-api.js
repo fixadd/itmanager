@@ -34,13 +34,13 @@ function filters(root){
   type.innerHTML='<option value="">Tüm Donanım Tipleri</option>'+types.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
   const fillBrands=()=>{
     const tid=type.value;
-    const bs=brands.filter(x=>!tid||(x.product_type_ids||[]).map(String).includes(String(tid))||String(x.product_type_id||'')===String(tid));
+    const bs=brands.filter(x=>!tid||(Array.isArray(x.product_type_ids)&&(x.product_type_ids).map(String).includes(String(tid))));
     brand.innerHTML='<option value="">Tüm Markalar</option>'+bs.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
     model.innerHTML='<option value="">Tüm Modeller</option>';
     model.disabled=true;
   };
   const fillModels=()=>{
-    const bs=models.filter(x=>String(x.brand_id)===String(brand.value)&&(!type.value||(!x.product_type_id||String(x.product_type_id)===String(type.value))));
+    const bs=models.filter(x=>String(x.brand_id)===String(brand.value)&&(!type.value||String(x.product_type_id)===String(type.value)));
     model.innerHTML='<option value="">Tüm Modeller</option>'+bs.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
     model.disabled=!brand.value;
   };
