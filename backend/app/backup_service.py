@@ -3,6 +3,8 @@ import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+
+from flask import current_app
 from threading import Lock
 from zoneinfo import ZoneInfo
 
@@ -38,7 +40,7 @@ def _resolve_backup_directory(app, configured_path=None):
 def get_backup_settings():
     setting = ConnectionSetting.query.filter_by(kind="backup_schedule").first()
     options = setting.options if setting and isinstance(setting.options, dict) else {}
-    app = __import__("flask").current_app
+    app = current_app
     try:
         directory = str(_resolve_backup_directory(app, options.get("directory")))
     except (OSError, ValueError):
