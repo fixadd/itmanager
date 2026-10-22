@@ -36,3 +36,15 @@ def test_safe_audit_details_removes_normalized_secret_fields():
     assert "Password" not in safe
     assert safe["request_no"] == "SAT-2026-001"
     assert safe["nested"] == {"status": "approved"}
+
+
+
+def test_report_status_filter_normalizes_turkish_labels():
+    from backend.app.api.report_routes import _normalize_status
+
+    assert _normalize_status("Aktif") == "active"
+    assert _normalize_status("Pasif") == "inactive"
+    assert _normalize_status("Arızalı") == "faulty"
+    assert _normalize_status("Bakımda") == "maintenance"
+    assert _normalize_status("Tamamlandı") == "completed"
+    assert _normalize_status("assigned") == "assigned"
