@@ -18,7 +18,7 @@ from ldap3.core.exceptions import LDAPException
 from ..extensions import db
 from ..models import AuditLog, ConnectionSetting
 from .auth_routes import current_user, permission_required
-from ..backup_service import create_backup, get_backup_settings, update_backup_schedule
+from ..backup_service import create_backup, get_backup_settings, update_backup_schedule, _resolve_backup_directory
 
 connections_bp = Blueprint("connections", __name__)
 AD_KIND = "active_directory"
@@ -516,6 +516,12 @@ def save_backup_settings():
         return jsonify({"error": "backup_schedule_values_invalid"}), 400
     if frequency not in {"daily", "weekly"} or not 0 <= hour <= 23 or not 0 <= minute <= 59 or not 0 <= weekday <= 6:
         return jsonify({"error": "backup_schedule_values_invalid"}), 400
+    requested_directory = str(data.get("directory") or get_backup_settings().get("directory") or "/backups").strip()
+    try:
+        resolved_directory = _resolve_backup_directory(current_app._get_current_object(), requested_directory)
+    except (OSError, ValueError):
+        return jsonify({"error": "backup_directory_invalid",
+                        "message": "Yedek klasörü, sunucuda Docker'a bağlanan yedek kök klasörünün içinde olmalıdır (ör. /backups veya /backups/arsiv)."}), 400
     setting = ConnectionSetting.query.filter_by(kind="backup_schedule").first()
     if not setting:
         setting = ConnectionSetting(name="IT Manager Database Backup Schedule", kind="backup_schedule", active=True, options={})
@@ -523,9 +529,9 @@ def save_backup_settings():
     old = setting.options if isinstance(setting.options, dict) else {}
     setting.options = {
         "enabled": bool(data.get("enabled", False)), "frequency": frequency, "hour": hour,
-        "minute": minute, "weekday": weekday, "last_run_at": old.get("last_run_at"),
-        "last_result": old.get("last_result", "never"), "last_error": old.get("last_error"),
-        "last_backup": old.get("last_backup"),
+        "minute": minute, "weekday": weekday, "directory": str(resolved_directory),
+        "last_run_at": old.get("last_run_at"), "last_result": old.get("last_result", "never"),
+        "last_error": old.get("last_error"), "last_backup": old.get("last_backup"),
     }
     setting.active = bool(data.get("enabled", False))
     audit("backup.schedule_updated", setting, {"enabled": setting.options["enabled"],
@@ -570,7 +576,7 @@ def backup_now():
 @connections_bp.get("/connections/backup-status")
 @permission_required("settings.manage")
 def backup_status():
-    configured_path = str(current_app.config.get("BACKUP_DIR") or os.environ.get("BACKUP_DIR") or "/backups")
+    configured_path = get_backup_settings().get("directory") or str(current_app.config.get("BACKUP_DIR") or os.environ.get("BACKUP_DIR") or "/backups")
     directory = Path(configured_path)
     if not directory.is_dir():
         return jsonify({"status": "not_configured", "directory": configured_path, "latest_backup": None,
