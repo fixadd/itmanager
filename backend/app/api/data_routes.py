@@ -60,9 +60,9 @@ def _restore_toc_without_managed_objects(listing):
     later archive entries still need it.
     """
     managed_object_patterns = (
-        re.compile(r"^\\s*\\d+;\\s+\\d+\\s+\\d+\\s+SCHEMA\\s+-\\s+public(?:\\s|$)"),
-        re.compile(r"^\\s*\\d+;\\s+\\d+\\s+\\d+\\s+EXTENSION\\s+-\\s+pg_trgm(?:\\s|$)"),
-        re.compile(r"^\\s*\\d+;\\s+\\d+\\s+\\d+\\s+COMMENT(?:\\s+-)?\\s+SCHEMA\\s+public(?:\\s|$)"),
+        re.compile(r"^\s*\d+;\s+\d+\s+\d+\s+SCHEMA\s+-\s+public(?:\s|$)"),
+        re.compile(r"^\s*\d+;\s+\d+\s+\d+\s+EXTENSION\s+-\s+pg_trgm(?:\s|$)"),
+        re.compile(r"^\s*\d+;\s+\d+\s+\d+\s+COMMENT(?:\s+-)?\s+SCHEMA\s+public(?:\s|$)"),
     )
     filtered = []
     for line in listing.splitlines():
@@ -70,9 +70,7 @@ def _restore_toc_without_managed_objects(listing):
             filtered.append("; " + line)
         else:
             filtered.append(line)
-    return "\\n".join(filtered) + "\\n"
-
-
+    return "\n".join(filtered) + "\n"
 def _write_database_audit(action, actor_name, details=None):
     db.session.add(AuditLog(
         action=action,
