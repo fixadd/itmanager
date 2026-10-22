@@ -137,12 +137,12 @@ def stock_summary():
     today = date.today()
     month_start = today.replace(day=1)
     row = db.session.query(
-        func.count(StockItem.id).filter(StockItem.status != "scrapped"),
+        func.coalesce(func.sum(StockItem.quantity), 0).filter(StockItem.status != "scrapped"),
         func.count(StockItem.id).filter(StockItem.status == "available", StockItem.quantity <= 10),
         func.count(StockItem.id).filter(StockItem.status == "scrapped"),
     ).one()
     movements_this_month = db.session.query(func.count(StockMovement.id)).filter(StockMovement.created_at >= month_start).scalar() or 0
-    return jsonify({"total": int(row[0] or 0), "critical": int(row[1] or 0), "scrapped": int(row[2] or 0), "movements_this_month": int(movements_this_month)})
+    return jsonify({"total": float(row[0] or 0), "critical": int(row[1] or 0), "scrapped": int(row[2] or 0), "movements_this_month": int(movements_this_month)})
 
 @stock_bp.get("/stock/<int:stock_id>")
 @login_required
