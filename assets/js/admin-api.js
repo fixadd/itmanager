@@ -291,13 +291,13 @@
       e.preventDefault();
       const selectedFile=root.querySelector('#dbImportFile').files?.[0];
       if(!selectedFile){const msg=root.querySelector('#dbImportResult');msg.textContent='Önce yedek dosyasını seçin.';msg.className='small mt-2 text-danger';root.querySelector('#dbImportFile').focus();return;}
-      if(!/\\.(dump|backup)$/i.test(selectedFile.name)){const msg=root.querySelector('#dbImportResult');msg.textContent='Dosya uzantısı .dump veya .backup olmalı. İndirdiğiniz dosyanın adını ve uzantısını kontrol edin.';msg.className='small mt-2 text-danger';return;}
+      if(!/\.(dump|backup)$/i.test(selectedFile.name)){const msg=root.querySelector('#dbImportResult');msg.textContent='Dosya uzantısı .dump veya .backup olmalı. İndirdiğiniz dosyanın adını ve uzantısını kontrol edin.';msg.className='small mt-2 text-danger';return;}
       if(root.querySelector('#dbImportConfirm').value!=='GERIYUKLE'){adminNotify('Onay alanına GERIYUKLE yazın.');return;}
       if(!window.confirm('Mevcut veritabanı kayıtları yedekteki verilerle değiştirilecek. Devam edilsin mi?'))return;
       const button=root.querySelector('#dbImportButton'),output=root.querySelector('#dbImportResult');
       button.disabled=true;output.textContent='Veritabanı içe aktarılıyor…';
       try{
-        const form=new FormData();form.append('file',root.querySelector('#dbImportFile').files[0]);form.append('password',root.querySelector('#dbImportPassword').value);form.append('confirmation','GERIYUKLE');
+        const form=new FormData();form.append('file',selectedFile,selectedFile.name);form.append('password',root.querySelector('#dbImportPassword').value);form.append('confirmation','GERIYUKLE');
         const response=await req('/data/restore',{method:'POST',body:form});
         output.textContent=response.message||'İçe aktarma tamamlandı.';output.className='small mt-2 text-success';setTimeout(()=>window.location.reload(),1500);
       }catch(err){output.textContent=err.message;output.className='small mt-2 text-danger';button.disabled=false;}
