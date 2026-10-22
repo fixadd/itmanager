@@ -250,16 +250,20 @@ def assign_inventory(inventory_id):
     if x.status=="scrapped":return jsonify({"error":"Hurda durumundaki envanter atanamaz"}),400
     try:
         p=_resolve(Personnel,data.get("personnel_id",data.get("person")),"personel")
-        old=x.personnel_id; old_status=x.status
+        if not p.department_id:
+            raise ValueError("Seçilen personelin departmanı tanımlı değil; önce personel kaydına departman ekleyin")
+        old=x.personnel_id; old_status=x.status; old_department_id=x.department_id
         if old!=p.id:
             if old:
                 db.session.add(AssignmentHistory(personnel_id=old,asset_type="inventory",asset_id=x.id,action="unassign",note=data.get("note")))
             x.personnel_id=p.id
             db.session.add(AssignmentHistory(personnel_id=p.id,asset_type="inventory",asset_id=x.id,action="assign",note=data.get("note")))
+        # Keep the inventory department aligned with the assigned person's department.
+        x.department_id=p.department_id
         # Devices returned from IT to a user become active again.
         if x.status=="it":
             x.status="active"
-        _audit("inventory.assigned","inventory",x.id,{"from_personnel_id":old,"to_personnel_id":p.id,"from_status":old_status,"to_status":x.status,"note":data.get("note")})
+        _audit("inventory.assigned","inventory",x.id,{"from_personnel_id":old,"to_personnel_id":p.id,"from_status":old_status,"to_status":x.status,"from_department_id":old_department_id,"to_department_id":x.department_id,"note":data.get("note")})
         db.session.commit()
         return jsonify(_inventory_dict(x))
     except ValueError as e:
