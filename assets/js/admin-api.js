@@ -236,7 +236,8 @@
     root.querySelector('#refreshConnections').onclick=()=>connectionsView(root);
   }
   async function dataView(root){
-    const result=await Promise.all([req('/settings/summary'),req('/health/db'),req('/connections/backup-status'),req('/connections/backup-settings')]);
+    const canManage=can('settings.manage');
+    const result=await Promise.all([req('/settings/summary'),req('/health/db'),canManage?req('/connections/backup-status'):Promise.resolve({}),canManage?req('/connections/backup-settings'):Promise.resolve({})]);
     const summary=result[0]||{},health=result[1]||{},backup=result[2]||{},backupSettings=result[3]||{};
     const labels={'factories':'Fabrikalar','departments':'Departmanlar','product-types':'Donanım Tipleri','brands':'Markalar','license-names':'Lisans Adları','models':'Modeller'};
     const entries=Object.entries(summary);
@@ -245,7 +246,6 @@
       value=value||{};
       cards+='<div class="col-xl-3 col-md-4 col-6"><div class="border rounded-3 p-3 h-100"><div class="small text-secondary">'+esc(labels[key]||key)+'</div><div class="fs-4 fw-bold">'+Number(value.total||0)+'</div><div class="small"><span class="text-success">'+Number(value.active||0)+' aktif</span> · <span class="text-secondary">'+Number(value.inactive||0)+' pasif</span></div></div></div>';
     });
-    const canManage=can('settings.manage');
     let html='<div class="alert '+(health.status==='ok'?'alert-success':'alert-danger')+'"><i class="ti ti-database me-1"></i> PostgreSQL: '+(health.status==='ok'?'Bağlantı başarılı':'Bağlantı başarısız')+'</div>';
     html+='<div class="row g-3 mb-4">'+cards+'</div>';
     if(canManage){
