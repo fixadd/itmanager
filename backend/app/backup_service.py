@@ -19,15 +19,37 @@ _scheduler_lock = Lock()
 _schedule_signature = None
 
 
+def _backup_root(app):
+    return Path(str(app.config.get("BACKUP_DIR") or os.environ.get("BACKUP_DIR") or "/backups")).resolve()
+
+
+def _resolve_backup_directory(app, configured_path=None):
+    root = _backup_root(app)
+    raw_path = str(configured_path or root)
+    candidate = Path(raw_path)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    resolved = candidate.resolve()
+    if resolved != root and root not in resolved.parents:
+        raise ValueError("Backup directory must be inside the configured backup root")
+    return resolved
+
+
 def get_backup_settings():
     setting = ConnectionSetting.query.filter_by(kind="backup_schedule").first()
     options = setting.options if setting and isinstance(setting.options, dict) else {}
+    app = __import__("flask").current_app
+    try:
+        directory = str(_resolve_backup_directory(app, options.get("directory")))
+    except (OSError, ValueError):
+        directory = str(_backup_root(app))
     return {
         "enabled": bool(options.get("enabled", False)),
         "frequency": options.get("frequency", "daily") if options.get("frequency") in {"daily", "weekly"} else "daily",
         "hour": int(options.get("hour", 2)),
         "minute": int(options.get("minute", 0)),
         "weekday": int(options.get("weekday", 0)),
+        "directory": directory,
         "last_run_at": options.get("last_run_at"),
         "last_result": options.get("last_result", "never"),
         "last_error": options.get("last_error"),
@@ -36,7 +58,8 @@ def get_backup_settings():
 
 def create_backup(app):
     with app.app_context():
-        backup_dir = Path(str(app.config.get("BACKUP_DIR") or os.environ.get("BACKUP_DIR") or "/backups"))
+        settings = get_backup_settings()
+        backup_dir = _resolve_backup_directory(app, settings.get("directory"))
         backup_dir.mkdir(parents=True, exist_ok=True)
         now = datetime.now(timezone.utc)
         stamp = now.strftime("%Y%m%d-%H%M%S")
