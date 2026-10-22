@@ -41,6 +41,7 @@ const label=v=>{
  if(!s)return '—';
  if(s.includes(','))return s.split(',').map(x=>label(x)).filter(Boolean).join(', ');
  if(actionLabels[s])return actionLabels[s];
+ if(window.IT_UI_LABELS?.action){const translated=window.IT_UI_LABELS.action(s);if(translated&&translated!==s)return translated;}
  if(entityLabels[s])return entityLabels[s];
  if(valueLabels[s])return valueLabels[s];
  const parts=s.split('.');
@@ -50,9 +51,10 @@ const label=v=>{
   const verb=actionLabels[rawVerb]||actionLabels[parts[parts.length-1]]||rawVerb.replaceAll('_',' ');
   return scope+' · '+verb;
  }
+ if(window.IT_UI_LABELS?.label){const translated=window.IT_UI_LABELS.label(s);if(translated&&translated!==s)return translated;}
  return s.replaceAll('_',' ');
 };
-const detailLabel=v=>detailLabels[v]||label(v);
+const detailLabel=v=>detailLabels[v]||window.IT_UI_LABELS?.detail?.(v)||label(v);
 const actionClass=v=>{const s=String(v||'');if(s.includes('scrap')||s.includes('delete'))return 'soft-danger';if(s.includes('faulty')||s.includes('maintenance'))return 'soft-warning';if(s.includes('assign'))return 'soft-primary';if(s.includes('create'))return 'soft-success';if(s.includes('update'))return 'soft-info';return 'soft-secondary';};
 const date=v=>{if(!v)return '—';const d=new Date(v);if(Number.isNaN(d.getTime()))return String(v);return d.toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'});};
 const formatDetail=(v,key='')=>{
@@ -60,7 +62,8 @@ const formatDetail=(v,key='')=>{
  if(typeof v==='boolean')return v?'Evet':'Hayır';
  if(Array.isArray(v))return v.map(x=>formatDetail(x)).join(', ');
  if(typeof v==='object')return Object.entries(v).map(([k,val])=>`${detailLabel(k)}: ${formatDetail(val,k)}`).join(' · ');
- if(key==='action'||key==='status'||key==='old_status'||key==='new_status'||key==='source_type')return label(v);
+ if(key==='action'||key==='status'||key==='old_status'||key==='new_status'||key==='source_type'||key.endsWith('_status')||key==='type'||key.endsWith('_type'))return label(v);
+ if(typeof v==='string'&&window.IT_UI_LABELS){const translated=window.IT_UI_LABELS.label(v);if(translated&&translated!==v)return translated;}
  return String(v);
 };
 let page=1, meta={actions:[],entity_types:[],users:[]},metaController=null,refreshController=null;
