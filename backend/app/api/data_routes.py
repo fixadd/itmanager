@@ -103,20 +103,43 @@ def reset_database():
         return jsonify({"error": "Onay için SIFIRLA yazılmalıdır"}), 400
 
     actor_name = actor.username
+    password = str(data.get("password") or "")
+    previous_auth_disabled = os.environ.get("AUTH_DISABLED")
+    previous_admin_username = os.environ.get("ADMIN_USERNAME")
     try:
         url = _database_url()
         _reset_public_schema(url)
         # Reuse the project's Alembic migrations and initial-data bootstrap, not create_all/drop_all.
+        # Seed a temporary admin using the current account name, then set its hash to the
+        # already-verified password so the operator can log back in after the reset.
+        os.environ["AUTH_DISABLED"] = "true"
+        os.environ["ADMIN_USERNAME"] = actor_name
         from backend.init_db import bootstrap
         bootstrap(current_app._get_current_object())
+        from ..models import User
+        new_admin = User.query.filter_by(username=actor_name).first()
+        if not new_admin:
+            raise RuntimeError("Initial administrator was not created")
+        new_admin.password_hash = __import__("werkzeug.security", fromlist=["generate_password_hash"]).generate_password_hash(password)
+        new_admin.active = True
+        db.session.commit()
         _write_database_audit("database.reset", actor_name, {"method": "public_schema_recreated"})
         session.clear()
-        return jsonify({"message": "Veritabanı sıfırlandı. İlk kurulum verileri ve yönetici hesabı oluşturuldu; yeniden giriş yapın."})
+        return jsonify({"message": "Veritabanı sıfırlandı. Yönetici hesabı aynı kullanıcı adı ve şifreyle yeniden oluşturuldu; tekrar giriş yapın."})
     except Exception as exc:
         db.session.rollback()
         current_app.logger.exception("Database reset failed (%s)", type(exc).__name__)
         session.clear()
         return jsonify({"error": "Veritabanı sıfırlanamadı. Sunucu loglarını kontrol edin."}), 500
+    finally:
+        if previous_auth_disabled is None:
+            os.environ.pop("AUTH_DISABLED", None)
+        else:
+            os.environ["AUTH_DISABLED"] = previous_auth_disabled
+        if previous_admin_username is None:
+            os.environ.pop("ADMIN_USERNAME", None)
+        else:
+            os.environ["ADMIN_USERNAME"] = previous_admin_username
 
 
 @data_bp.post("/data/restore")
