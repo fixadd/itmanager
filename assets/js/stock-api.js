@@ -45,10 +45,10 @@ function filters(root){
     model.disabled=!brand.value;
   };
   const refresh=()=>{page=1;lastRoute='';scheduleLoad()};
-  type.addEventListener('change',()=>{fillBrands();fillModels();refresh()});
-  brand.addEventListener('change',()=>{fillModels();refresh()});
-  model.addEventListener('change',refresh);
-  root.querySelector('#stockStatusFilter')?.addEventListener('change',refresh);
+  // Keep the filter controls stable while the user is choosing options.
+  // Apply the selected filters only when the Filter button is pressed (or Enter in search).
+  type.addEventListener('change',()=>{fillBrands();fillModels()});
+  brand.addEventListener('change',fillModels);
   root.querySelector('#stockSearch')?.addEventListener('keydown',e=>{if(e.key==='Enter')refresh()});root.querySelector('#stockFilterBtn')?.addEventListener('click',refresh);root.querySelector('#stockClearBtn')?.addEventListener('click',()=>{root.querySelector('#stockSearch').value='';type.value='';brand.value='';model.value='';root.querySelector('#stockStatusFilter').value='';fillBrands();refresh()});
   fillBrands();
 }
