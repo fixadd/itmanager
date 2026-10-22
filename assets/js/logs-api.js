@@ -66,7 +66,11 @@ const formatDetail=(v,key='')=>{
  if(Array.isArray(v))return v.map(x=>formatDetail(x)).join(', ');
  if(typeof v==='object')return Object.entries(v).map(([k,val])=>`${detailLabel(k)}: ${formatDetail(val,k)}`).join(' · ');
  if(key==='action'||key==='status'||key==='old_status'||key==='new_status'||key==='source_type'||key==='from_status'||key==='to_status'||key.endsWith('_status')||key==='type'||key.endsWith('_type'))return label(v);
- if(typeof v==='string'&&window.IT_UI_LABELS){const translated=window.IT_UI_LABELS.label(v);if(translated&&translated!==v)return translated;}
+ if(typeof v==='string'){
+  if(actionLabels[v]||entityLabels[v]||valueLabels[v])return label(v);
+  if(window.IT_UI_LABELS){const translated=window.IT_UI_LABELS.label(v);if(translated&&translated!==v)return translated;}
+  if(/^[a-z][a-z0-9]+(?:[_-][a-z0-9]+)+$/.test(v))return humanize(v);
+ }
  return String(v);
 };
 let page=1, meta={actions:[],entity_types:[],users:[]},metaController=null,refreshController=null;
