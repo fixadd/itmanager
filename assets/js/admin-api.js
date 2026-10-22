@@ -247,10 +247,10 @@
     const entries=Object.entries(summary);
     const canManage=can('settings.manage');
     root.innerHTML=shell('Veriler','Ana veri özetini görüntüleyin; veritabanını dışa aktarın, başka sunucuya aktarın veya kontrollü biçimde sıfırlayın.',\`
-      <div class="alert \${health.status==='ok'?'alert-success':'alert-danger'}"><i class="ti ti-database me-1"></i> PostgreSQL: \${health.status==='ok'?'Bağlantı başarılı':'Bağlantı başarısız'}</div>
-      <div class="row g-3 mb-4">\${entries.map(([k,v])=>\`<div class="col-xl-3 col-md-4 col-6"><div class="border rounded-3 p-3 h-100"><div class="small text-secondary">\${esc(labels[k]||k)}</div><div class="fs-4 fw-bold">\${Number(v.total||0)}</div><div class="small"><span class="text-success">\${Number(v.active||0)} aktif</span> · <span class="text-secondary">\${Number(v.inactive||0)} pasif</span></div></div></div>\`).join('')}</div>
+      <div class="alert ${health.status==='ok'?'alert-success':'alert-danger'}"><i class="ti ti-database me-1"></i> PostgreSQL: ${health.status==='ok'?'Bağlantı başarılı':'Bağlantı başarısız'}</div>
+      <div class="row g-3 mb-4">${entries.map(([k,v])=>\`<div class="col-xl-3 col-md-4 col-6"><div class="border rounded-3 p-3 h-100"><div class="small text-secondary">${esc(labels[k]||k)}</div><div class="fs-4 fw-bold">${Number(v.total||0)}</div><div class="small"><span class="text-success">${Number(v.active||0)} aktif</span> · <span class="text-secondary">${Number(v.inactive||0)} pasif</span></div></div></div>\`).join('')}</div>
       <div class="d-flex justify-content-between align-items-center mb-4"><div class="text-secondary small">Yedek, PostgreSQL şeması ve kayıtları içerir. Yüklenen fotoğraf/dosya arşivi ayrıca taşınmalıdır.</div><button class="btn btn-outline-primary" id="refreshData"><i class="ti ti-refresh me-1"></i>Yenile</button></div>
-      \${canManage?\`
+      ${canManage?\`
       <div class="row g-3">
         <div class="col-xl-6"><div class="border rounded-3 p-3 h-100">
           <h5><i class="ti ti-database-export me-2"></i>Veritabanını dışa aktar</h5><p class="text-secondary small">Başka sunucuda içe aktarılabilecek tam PostgreSQL yedeği (.dump) indirir.</p>
