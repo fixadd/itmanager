@@ -35,26 +35,29 @@ completed:'Tamamlandı',cancelled:'İptal',draft:'Taslak',rejected:'Reddedildi',
 low:'Düşük',urgent:'Acil'
 };
 const label=v=>{
- const ui=window.IT_UI_LABELS;
- if(ui?.label)return ui.label(v);
  const s=String(v??'—').trim();
  if(!s)return '—';
+ const ui=window.IT_UI_LABELS;
  if(s.includes(','))return s.split(',').map(x=>label(x)).filter(Boolean).join(', ');
  if(actionLabels[s])return actionLabels[s];
- if(window.IT_UI_LABELS?.action){const translated=window.IT_UI_LABELS.action(s);if(translated&&translated!==s)return translated;}
+ if(ui?.actions?.[s])return ui.actions[s];
  if(entityLabels[s])return entityLabels[s];
+ if(ui?.entities?.[s])return ui.entities[s];
  if(valueLabels[s])return valueLabels[s];
+ if(ui?.values?.[s])return ui.values[s];
  const parts=s.split('.');
  if(parts.length>1){
-  const scope=entityLabels[parts[0]]||parts[0].replaceAll('_',' ');
+  const scope=entityLabels[parts[0]]||ui?.entities?.[parts[0]]||humanize(parts[0]);
   const rawVerb=parts.slice(1).join('.').trim();
-  const verb=actionLabels[rawVerb]||actionLabels[parts[parts.length-1]]||rawVerb.replaceAll('_',' ');
+  const verb=actionLabels[rawVerb]||ui?.actions?.[rawVerb]||actionLabels[parts[parts.length-1]]||ui?.actions?.[parts[parts.length-1]]||humanize(rawVerb);
   return scope+' · '+verb;
  }
- if(window.IT_UI_LABELS?.label){const translated=window.IT_UI_LABELS.label(s);if(translated&&translated!==s)return translated;}
- return s.replaceAll('_',' ');
+ if(ui?.label){const translated=ui.label(s);if(translated&&translated!==s)return translated;}
+ return humanize(s);
 };
-const detailLabel=v=>detailLabels[v]||window.IT_UI_LABELS?.detail?.(v)||label(v);
+const detailLabel=v=>detailLabels[v]||window.IT_UI_LABELS?.details?.[v]||window.IT_UI_LABELS?.detail?.(v)||humanize(v);
+const wordLabels={backup:'Yedek',restore:'Geri yükleme',restored:'Geri yüklendi',import:'İçe aktarma',imported:'İçe aktarıldı',export:'Dışa aktarma',exported:'Dışa aktarıldı',connection:'Bağlantı',smtp:'SMTP',test:'Test',failed:'Başarısız',success:'Başarılı',failure:'Başarısız',enabled:'Etkinleştirildi',disabled:'Devre dışı bırakıldı',created:'Oluşturuldu',updated:'Güncellendi',deleted:'Silindi',changed:'Değiştirildi',status:'Durum',user:'Kullanıcı',users:'Kullanıcılar',role:'Rol',permission:'Yetki',inventory:'Envanter',stock:'Stok',license:'Lisans',personnel:'Personel',maintenance:'Bakım',request:'Talep',purchase:'Satın alma',scrap:'Hurda',knowledge:'Bilgi bankası',settings:'Ayarlar',factory:'Fabrika',department:'Departman',brand:'Marka',model:'Model',product:'Ürün',file:'Dosya',image:'Görsel',photo:'Fotoğraf',upload:'Yükleme',download:'İndirme',schedule:'Zamanlama',directory:'Klasör',path:'Yol',email:'E-posta',password:'Şifre',login:'Giriş',logout:'Çıkış',assign:'Zimmet',assigned:'Atandı',unassign:'Atama kaldırma',transfer:'Aktarım',sent:'Gönderildi',send:'Gönderme',start:'Başlatma',complete:'Tamamlama',cancel:'İptal',approved:'Onaylandı',pending:'Bekliyor',active:'Aktif',inactive:'Pasif',old:'Eski',new:'Yeni',value:'Değer',reason:'Neden',description:'Açıklama',name:'Ad',type:'Tür',id:'ID'};
+function humanize(v){const s=String(v??'—').trim();if(!s)return '—';return s.split(/([_.\s-]+)/).map(part=>wordLabels[part.toLowerCase()]||part).join('').replace(/\s+/g,' ').trim();}
 const actionClass=v=>{const s=String(v||'');if(s.includes('scrap')||s.includes('delete'))return 'soft-danger';if(s.includes('faulty')||s.includes('maintenance'))return 'soft-warning';if(s.includes('assign'))return 'soft-primary';if(s.includes('create'))return 'soft-success';if(s.includes('update'))return 'soft-info';return 'soft-secondary';};
 const date=v=>{if(!v)return '—';const d=new Date(v);if(Number.isNaN(d.getTime()))return String(v);return d.toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'});};
 const formatDetail=(v,key='')=>{
