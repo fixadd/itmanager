@@ -8,7 +8,7 @@ from urllib.parse import unquote, urlparse
 
 from flask import Blueprint, current_app, jsonify, request, send_file, session
 from sqlalchemy import text
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
 from ..models import AuditLog
@@ -120,7 +120,7 @@ def reset_database():
         new_admin = User.query.filter_by(username=actor_name).first()
         if not new_admin:
             raise RuntimeError("Initial administrator was not created")
-        new_admin.password_hash = __import__("werkzeug.security", fromlist=["generate_password_hash"]).generate_password_hash(password)
+        new_admin.password_hash = generate_password_hash(password)
         new_admin.active = True
         db.session.commit()
         _write_database_audit("database.reset", actor_name, {"method": "public_schema_recreated"})
