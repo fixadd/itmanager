@@ -242,58 +242,67 @@
     root.querySelector('#refreshConnections').onclick=()=>connectionsView(root);
   }
   async function dataView(root){
-    const [summary,health]=await Promise.all([req('/settings/summary'),req('/health/db')]);
+    const result=await Promise.all([req('/settings/summary'),req('/health/db')]);
+    const summary=result[0]||{},health=result[1]||{};
     const labels={'factories':'Fabrikalar','departments':'Departmanlar','product-types':'Donanım Tipleri','brands':'Markalar','license-names':'Lisans Adları','models':'Modeller'};
     const entries=Object.entries(summary);
+    let cards='';
+    entries.forEach(([key,value])=>{
+      value=value||{};
+      cards+='<div class="col-xl-3 col-md-4 col-6"><div class="border rounded-3 p-3 h-100"><div class="small text-secondary">'+esc(labels[key]||key)+'</div><div class="fs-4 fw-bold">'+Number(value.total||0)+'</div><div class="small"><span class="text-success">'+Number(value.active||0)+' aktif</span> · <span class="text-secondary">'+Number(value.inactive||0)+' pasif</span></div></div></div>';
+    });
     const canManage=can('settings.manage');
-    root.innerHTML=shell('Veriler','Ana veri özetini görüntüleyin; veritabanını dışa aktarın, başka sunucuya aktarın veya kontrollü biçimde sıfırlayın.',`
-      <div class="alert ${health.status==='ok'?'alert-success':'alert-danger'}"><i class="ti ti-database me-1"></i> PostgreSQL: ${health.status==='ok'?'Bağlantı başarılı':'Bağlantı başarısız'}</div>
-      <div class="row g-3 mb-4">${entries.map(([k,v])=>`<div class="col-xl-3 col-md-4 col-6"><div class="border rounded-3 p-3 h-100"><div class="small text-secondary">${esc(labels[k]||k)}</div><div class="fs-4 fw-bold">${Number(v.total||0)}</div><div class="small"><span class="text-success">${Number(v.active||0)} aktif</span> · <span class="text-secondary">${Number(v.inactive||0)} pasif</span></div></div></div>`).join('')}</div>
-      <div class="d-flex justify-content-between align-items-center mb-4"><div class="text-secondary small">Yedek, PostgreSQL şeması ve kayıtları içerir. Yüklenen fotoğraf/dosya arşivi ayrıca taşınmalıdır.</div><button class="btn btn-outline-primary" id="refreshData"><i class="ti ti-refresh me-1"></i>Yenile</button></div>
-      ${canManage?`
-      <div class="row g-3">
-        <div class="col-xl-6"><div class="border rounded-3 p-3 h-100">
-          <h5><i class="ti ti-database-export me-2"></i>Veritabanını dışa aktar</h5><p class="text-secondary small">Başka sunucuda içe aktarılabilecek tam PostgreSQL yedeği (.dump) indirir.</p>
-          <form id="dbExportForm"><label class="form-label" for="dbExportPassword">Hesap şifresi</label><input class="form-control mb-3" id="dbExportPassword" type="password" autocomplete="current-password" required><button class="btn btn-primary" type="submit" id="dbExportButton"><i class="ti ti-download me-1"></i>Yedeği İndir</button></form><div id="dbExportResult" class="small mt-2" aria-live="polite"></div>
-        </div></div>
-        <div class="col-xl-6"><div class="border rounded-3 p-3 h-100">
-          <h5><i class="ti ti-database-import me-2"></i>Başka sunucudan içe aktar</h5><div class="alert alert-warning small">İçe aktarma mevcut veritabanı kayıtlarının yerine yedekteki kayıtları koyar. Yalnızca IT Manager yedeği kullanın.</div>
-          <form id="dbImportForm"><label class="form-label" for="dbImportFile">Yedek dosyası (.dump, .backup veya .sql)</label><input class="form-control mb-3" id="dbImportFile" type="file" accept=".dump,.backup,.sql" required><label class="form-label" for="dbImportPassword">Hesap şifresi</label><input class="form-control mb-3" id="dbImportPassword" type="password" autocomplete="current-password" required><label class="form-label" for="dbImportConfirm">Onay için GERIYUKLE yazın</label><input class="form-control mb-3" id="dbImportConfirm" required pattern="GERIYUKLE" autocomplete="off"><button class="btn btn-outline-warning" type="submit" id="dbImportButton"><i class="ti ti-upload me-1"></i>Veritabanını İçe Aktar</button></form><div id="dbImportResult" class="small mt-2" aria-live="polite"></div>
-        </div></div>
-        <div class="col-12"><div class="border border-danger rounded-3 p-3">
-          <h5 class="text-danger"><i class="ti ti-alert-triangle me-2"></i>Veritabanını tamamen sıfırla</h5><p class="text-secondary small">Tüm envanter, stok, lisans, personel, talepler, işlem geçmişi ve kullanıcı kayıtları silinir. Alembic migrationları yeniden uygulanır ve ilk kurulumdaki yönetici/master verileri oluşturulur. Yüklenen dosya ve fotoğraflar silinmez.</p>
-          <form id="dbResetForm" class="row g-2 align-items-end"><div class="col-md-4"><label class="form-label" for="dbResetPassword">Hesap şifresi</label><input class="form-control" id="dbResetPassword" type="password" autocomplete="current-password" required></div><div class="col-md-4"><label class="form-label" for="dbResetConfirm">Onay için SIFIRLA yazın</label><input class="form-control" id="dbResetConfirm" required pattern="SIFIRLA" autocomplete="off"></div><div class="col-md-4"><button class="btn btn-danger w-100" type="submit" id="dbResetButton"><i class="ti ti-trash me-1"></i>Tüm Verileri Sıfırla</button></div></form><div id="dbResetResult" class="small mt-2" aria-live="polite"></div>
-        </div></div>
-      </div>`:'<div class="alert alert-warning mb-0">Veritabanı işlemleri için settings.manage yetkisi gerekli.</div>'});
+    let html='<div class="alert '+(health.status==='ok'?'alert-success':'alert-danger')+'"><i class="ti ti-database me-1"></i> PostgreSQL: '+(health.status==='ok'?'Bağlantı başarılı':'Bağlantı başarısız')+'</div>';
+    html+='<div class="row g-3 mb-4">'+cards+'</div>';
+    html+='<div class="d-flex justify-content-between align-items-center mb-4"><div class="text-secondary small">Yedek PostgreSQL şeması ve kayıtlarını içerir. Yüklenen fotoğraf/dosyalar ayrıca taşınmalıdır.</div><button class="btn btn-outline-primary" id="refreshData"><i class="ti ti-refresh me-1"></i>Yenile</button></div>';
+    if(canManage){
+      html+='<div class="row g-3">';
+      html+='<div class="col-xl-6"><div class="border rounded-3 p-3 h-100"><h5><i class="ti ti-database-export me-2"></i>Veritabanını dışa aktar</h5><p class="text-secondary small">Başka sunucuya aktarılabilecek tam PostgreSQL yedeği (.dump) indirir.</p><form id="dbExportForm"><label class="form-label" for="dbExportPassword">Hesap şifresi</label><input class="form-control mb-3" id="dbExportPassword" type="password" autocomplete="current-password" required><button class="btn btn-primary" type="submit" id="dbExportButton"><i class="ti ti-download me-1"></i>Yedeği İndir</button></form><div id="dbExportResult" class="small mt-2" aria-live="polite"></div></div></div>';
+      html+='<div class="col-xl-6"><div class="border rounded-3 p-3 h-100"><h5><i class="ti ti-database-import me-2"></i>Veritabanını içe aktar</h5><div class="alert alert-warning small">İçe aktarma mevcut veritabanının içeriğini değiştirir. Yalnızca IT Manager yedeği kullanın.</div><form id="dbImportForm"><label class="form-label" for="dbImportFile">Yedek dosyası (.dump, .backup veya .sql)</label><input class="form-control mb-3" id="dbImportFile" type="file" accept=".dump,.backup,.sql" required><label class="form-label" for="dbImportPassword">Hesap şifresi</label><input class="form-control mb-3" id="dbImportPassword" type="password" autocomplete="current-password" required><label class="form-label" for="dbImportConfirm">Onay için GERIYUKLE yazın</label><input class="form-control mb-3" id="dbImportConfirm" required pattern="GERIYUKLE" autocomplete="off"><button class="btn btn-outline-warning" type="submit" id="dbImportButton"><i class="ti ti-upload me-1"></i>İçe Aktar</button></form><div id="dbImportResult" class="small mt-2" aria-live="polite"></div></div></div>';
+      html+='<div class="col-12"><div class="border border-danger rounded-3 p-3"><h5 class="text-danger"><i class="ti ti-alert-triangle me-2"></i>Veritabanını tamamen sıfırla</h5><p class="text-secondary small">Envanter, stok, lisans, personel, talepler, kullanıcılar ve işlem geçmişi silinir. Migrationlar ve ilk kurulum master/yönetici verileri yeniden oluşturulur. Yüklenen dosyalar silinmez.</p><form id="dbResetForm" class="row g-2 align-items-end"><div class="col-md-4"><label class="form-label" for="dbResetPassword">Hesap şifresi</label><input class="form-control" id="dbResetPassword" type="password" autocomplete="current-password" required></div><div class="col-md-4"><label class="form-label" for="dbResetConfirm">Onay için SIFIRLA yazın</label><input class="form-control" id="dbResetConfirm" required pattern="SIFIRLA" autocomplete="off"></div><div class="col-md-4"><button class="btn btn-danger w-100" type="submit" id="dbResetButton"><i class="ti ti-trash me-1"></i>Tüm Verileri Sıfırla</button></div></form><div id="dbResetResult" class="small mt-2" aria-live="polite"></div></div></div></div>';
+    }else{
+      html+='<div class="alert alert-warning">Veritabanı işlemleri için settings.manage yetkisi gerekli.</div>';
+    }
+    root.innerHTML=shell('Veriler','Ana verileri yönetin ve veritabanını dışa aktarın, içe aktarın veya sıfırlayın.',html);
     root.querySelector('#refreshData').onclick=()=>dataView(root);
     const exportForm=root.querySelector('#dbExportForm');
     if(exportForm)exportForm.onsubmit=async e=>{
-      e.preventDefault();const button=root.querySelector('#dbExportButton'),result=root.querySelector('#dbExportResult');button.disabled=true;result.textContent='Veritabanı dışa aktarılıyor…';
+      e.preventDefault();
+      const button=root.querySelector('#dbExportButton'),output=root.querySelector('#dbExportResult');
+      button.disabled=true;output.textContent='Veritabanı dışa aktarılıyor…';
       try{
         const response=await fetch('/api/data/backup',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:root.querySelector('#dbExportPassword').value})});
         if(!response.ok){let body={};try{body=await response.json()}catch(_){}throw new Error(body.error||'Yedek indirilemedi.');}
-        const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='itmanager-backup.dump';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
-        result.textContent='Yedek indirildi.';result.className='small mt-2 text-success';root.querySelector('#dbExportPassword').value='';
-      }catch(err){result.textContent=err.message;result.className='small mt-2 text-danger';}finally{button.disabled=false;}
+        const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');
+        link.href=url;link.download='itmanager-backup.dump';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+        output.textContent='Yedek indirildi.';output.className='small mt-2 text-success';root.querySelector('#dbExportPassword').value='';
+      }catch(err){output.textContent=err.message;output.className='small mt-2 text-danger';}
+      finally{button.disabled=false;}
     };
     const importForm=root.querySelector('#dbImportForm');
     if(importForm)importForm.onsubmit=async e=>{
-      e.preventDefault();if(root.querySelector('#dbImportConfirm').value!=='GERIYUKLE'){adminNotify('Onay alanına GERIYUKLE yazın.');return;}
+      e.preventDefault();
+      if(root.querySelector('#dbImportConfirm').value!=='GERIYUKLE'){adminNotify('Onay alanına GERIYUKLE yazın.');return;}
       if(!window.confirm('Mevcut veritabanı kayıtları yedekteki verilerle değiştirilecek. Devam edilsin mi?'))return;
-      const button=root.querySelector('#dbImportButton'),result=root.querySelector('#dbImportResult');button.disabled=true;result.textContent='Veritabanı içe aktarılıyor…';
+      const button=root.querySelector('#dbImportButton'),output=root.querySelector('#dbImportResult');
+      button.disabled=true;output.textContent='Veritabanı içe aktarılıyor…';
       try{
         const form=new FormData();form.append('file',root.querySelector('#dbImportFile').files[0]);form.append('password',root.querySelector('#dbImportPassword').value);form.append('confirmation','GERIYUKLE');
-        const response=await req('/data/restore',{method:'POST',body:form});result.textContent=response.message||'İçe aktarma tamamlandı.';result.className='small mt-2 text-success';setTimeout(()=>window.location.reload(),1500);
-      }catch(err){result.textContent=err.message;result.className='small mt-2 text-danger';button.disabled=false;}
+        const response=await req('/data/restore',{method:'POST',body:form});
+        output.textContent=response.message||'İçe aktarma tamamlandı.';output.className='small mt-2 text-success';setTimeout(()=>window.location.reload(),1500);
+      }catch(err){output.textContent=err.message;output.className='small mt-2 text-danger';button.disabled=false;}
     };
     const resetForm=root.querySelector('#dbResetForm');
     if(resetForm)resetForm.onsubmit=async e=>{
-      e.preventDefault();if(root.querySelector('#dbResetConfirm').value!=='SIFIRLA'){adminNotify('Onay alanına SIFIRLA yazın.');return;}
-      if(!window.confirm('DİKKAT: Envanter, stok, lisans, kullanıcı ve tüm işlem geçmişi kalıcı olarak silinecek. Veritabanı ilk kurulum durumuna dönecek. Devam edilsin mi?'))return;
-      const button=root.querySelector('#dbResetButton'),result=root.querySelector('#dbResetResult');button.disabled=true;result.textContent='Veritabanı sıfırlanıyor…';
+      e.preventDefault();
+      if(root.querySelector('#dbResetConfirm').value!=='SIFIRLA'){adminNotify('Onay alanına SIFIRLA yazın.');return;}
+      if(!window.confirm('DİKKAT: Tüm veritabanı kayıtları kalıcı olarak silinecek. İlk kurulum durumuna dönülecek. Devam edilsin mi?'))return;
+      const button=root.querySelector('#dbResetButton'),output=root.querySelector('#dbResetResult');
+      button.disabled=true;output.textContent='Veritabanı sıfırlanıyor…';
       try{
-        const response=await req('/data/reset',{method:'POST',body:JSON.stringify({password:root.querySelector('#dbResetPassword').value,confirmation:'SIFIRLA'})});result.textContent=response.message||'Veritabanı sıfırlandı.';result.className='small mt-2 text-success';setTimeout(()=>window.location.reload(),1500);
-      }catch(err){result.textContent=err.message;result.className='small mt-2 text-danger';button.disabled=false;}
+        const response=await req('/data/reset',{method:'POST',body:JSON.stringify({password:root.querySelector('#dbResetPassword').value,confirmation:'SIFIRLA'})});
+        output.textContent=response.message||'Veritabanı sıfırlandı.';output.className='small mt-2 text-success';setTimeout(()=>window.location.reload(),1500);
+      }catch(err){output.textContent=err.message;output.className='small mt-2 text-danger';button.disabled=false;}
     };
   }
   async function render(){const hash=location.hash.replace('#','').split('?')[0];if(hash!=='admin')return;const root=document.getElementById('pageContent');if(!root||!window.IT_AUTH)return;try{if(hash==='profile')return profileView(root);const sub=document.querySelector('.admin-submenu-link.active')?.dataset.adminView||'users';if(sub==='roles')return rolesView(root);if(sub==='products'){if(window.IT_PRODUCT_CATALOG_ADMIN?.render)return window.IT_PRODUCT_CATALOG_ADMIN.render();return;}if(sub==='connections')return connectionsView(root);if(sub==='data')return dataView(root);return usersView(root);}catch(err){root.innerHTML=shell('Hata','Yönetim ekranı yüklenemedi.',`<div class="alert alert-danger">${esc(err.message)}</div>`);}}
