@@ -122,11 +122,11 @@ async function loadRelated(x){
     }).join(''):'<p class="text-muted mb-0">Bu cihaza bağlı lisans bulunamadı.</p>';
   }catch(e){licenseHost.innerHTML='<p class="text-danger mb-0">Lisans kayıtları alınamadı.</p>'}
   licenseHost?.addEventListener('click',e=>{
-    const open=e.target.closest('.inventory-license-open');if(open){e.preventDefault();location.hash='#licenses/'+Number(open.dataset.licenseId);return}
+    const openButton=e.target.closest('.inventory-license-open');if(openButton){e.preventDefault();location.hash='#licenses/'+Number(openButton.dataset.licenseId);return}
     const btn=e.target.closest('.inventory-license-toggle');if(!btn)return;
     const target=document.getElementById(btn.dataset.licenseTarget);if(!target)return;
-    const open=target.hasAttribute('hidden');if(open)target.removeAttribute('hidden');else target.setAttribute('hidden','');
-    btn.setAttribute('aria-expanded',String(open));btn.innerHTML=open?'<i class="ti ti-eye-off"></i>':'<i class="ti ti-eye"></i>';
+    const isOpen=target.hasAttribute('hidden');if(isOpen)target.removeAttribute('hidden');else target.setAttribute('hidden','');
+    btn.setAttribute('aria-expanded',String(isOpen));btn.innerHTML=isOpen?'<i class="ti ti-eye-off"></i>':'<i class="ti ti-eye"></i>';
   });
   try{
     const d=await inventoryScreenApi('/api/maintenance?per_page=100&inventory_id='+encodeURIComponent(x.id));
