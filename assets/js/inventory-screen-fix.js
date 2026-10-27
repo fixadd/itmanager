@@ -99,7 +99,9 @@ async function loadRelated(x){
       historyPage=Number(p.page||page);
       historyHost.innerHTML=items.length?'<div class="table-responsive"><table class="table align-middle"><thead><tr><th>TARİH</th><th>İŞLEM</th><th>İŞLEMİ YAPAN / PERSONEL</th><th>TALEP / AÇIKLAMA</th></tr></thead><tbody>'+items.map(v=>{
         const person=v.personnel?.name;
-        let title=v.action_label||v.action||'İşlem';
+        const actionKey=String(v.action||'').trim();
+        const actionLabels={'maintenance.created':'Bakım Kaydı Oluşturuldu','maintenance.updated':'Bakım Kaydı Güncellendi','maintenance.completed':'Bakım Tamamlandı','inventory.created':'Envanter Oluşturuldu','inventory.updated':'Envanter Güncellendi','inventory.assigned':'Envanter Zimmetlendi','inventory.unassigned':'Envanter Zimmeti Kaldırıldı','inventory.sent_to_it':'Bilgi İşleme Gönderildi','inventory.scrapped':'Envanter Hurdaya Ayrıldı','inventory.faulty':'Envanter Arızalı İşaretlendi','created':'Oluşturuldu','updated':'Güncellendi','deleted':'Silindi','assigned':'Atandı','unassigned':'Atama Kaldırıldı','maintenance_started':'Bakım Başlatıldı','maintenance_completed':'Bakım Tamamlandı','status_changed':'Durum Değiştirildi'};
+        let title=actionLabels[actionKey]||window.IT_UI_LABELS?.action?.(actionKey)||v.action_label||actionKey||'İşlem';
         if(v.assignment_action==='assign')title=person?'Kime atandı: '+person:'Atama yapıldı';
         else if(v.assignment_action==='unassign')title=person?'Ataması kaldırıldı: '+person:'Atama kaldırıldı';
         else if(v.action==='inventory.assigned')title=person?'Kime atandı: '+person:'Atama güncellendi';
@@ -131,7 +133,9 @@ async function loadRelated(x){
   try{
     const d=await inventoryScreenApi('/api/maintenance?per_page=100&inventory_id='+encodeURIComponent(x.id));
     const items=d.items||[];
-    maintenanceHost.innerHTML=items.length?items.map(v=>'<div class="activity"><strong>'+esc(v.fault||'Bakım')+'</strong><span>'+esc(v.service||'İç bakım')+' · '+esc(v.status||'')+' · '+esc(v.started_at?new Date(v.started_at).toLocaleString('tr-TR'):'')+'</span></div>').join(''):'<p class="text-muted mb-0">Bu cihaza ait bakım kaydı yok.</p>';
+    const maintenanceStatus={pending:'Bekliyor',in_progress:'İşlemde',service:'Serviste',completed:'Tamamlandı',cancelled:'İptal'};
+    const maintenanceType={internal:'İç Bakım',service:'Dış Servis / Tamir',periodic:'Periyodik Bakım'};
+    maintenanceHost.innerHTML=items.length?items.map(v=>'<div class="activity maintenance-history-item"><strong>'+esc(v.fault||'Bakım')+'</strong><span>'+esc(maintenanceType[v.type]||v.type||'Bakım')+' · Bakımı Yapan: '+esc(v.technician||'Belirtilmemiş')+' · '+esc(v.service||'Servis belirtilmemiş')+' · '+esc(maintenanceStatus[v.status]||v.status||'Durum bilinmiyor')+' · '+esc(v.started_at?new Date(v.started_at).toLocaleString('tr-TR'):'')+'</span></div>').join(''):'<p class="text-muted mb-0">Bu cihaza ait bakım kaydı yok.</p>';
   }catch(e){if(maintenanceHost)maintenanceHost.innerHTML='<p class="text-danger mb-0">Bakım kayıtları alınamadı.</p>'}
 }
 async function init(){if(location.hash!=='#inventory')return;document.querySelector('#pageContent')?.classList.remove('inventory-detail-view');const content=document.querySelector('#pageContent');if(!content)return;let screen=content.querySelector('#inventoryScreen');if(!screen){screen=document.createElement('div');screen.id='inventoryScreen';content.innerHTML='';content.appendChild(screen)}if(!document.querySelector('.inv-screen-panel')){const existing=content.querySelector('#inventoryScreen');if(!existing)return;existing.className='panel inv-screen-panel';existing.innerHTML=`<div class="panel-head"><div><h3>Envanter Takip</h3><p>PostgreSQL envanter kayıtları</p></div><div class="page-actions"><button type="button" class="btn btn-primary" id="ivAddBtn"><i class="ti ti-plus me-1"></i>Envanter Ekle</button></div></div><div class="row g-3 mb-3"><div class="col-md-3"><div class="stat-card"><div class="stat-icon"><i class="ti ti-devices"></i></div><div><span>Toplam Envanter</span><h2 id="ivTotal">0</h2></div></div></div></div>${filters()}${table()}`;existing.querySelector('.table-responsive table')?.classList.add('inv-screen-table');}
