@@ -14,6 +14,13 @@ ALLOWED_STATUS = {"pending", "in_progress", "service", "completed", "cancelled"}
 ALLOWED_TYPES = {"internal", "service", "periodic"}
 
 
+
+def _current_account_name():
+    user = current_user()
+    if not user:
+        return None
+    return str(getattr(user, "full_name", None) or getattr(user, "username", None) or "").strip() or None
+
 def _dt(value):
     if value in (None, ""):
         return None
@@ -133,10 +140,9 @@ def _payload(data, existing=None):
         if not completed_at:
             completed_at = now
 
-    technician = str(data.get("technician", existing.technician if existing else "") or "").strip() or None
-    if status == "completed" and not technician:
-        actor = current_user()
-        technician = (actor.full_name or getattr(actor, "username", None)) if actor else None
+    # Bakımı yapan alanı serbest metin değil, işlemi yapan oturum hesabıdır.
+    # Her oluşturma/düzenleme işleminde son işlemi yapan hesap kaydedilir.
+    technician = _current_account_name()
 
     cost_value = data.get("cost", existing.cost if existing else None)
     if cost_value not in (None, ""):
@@ -283,12 +289,8 @@ def change_status(maintenance_id):
     try:
         old_status = x.status
         x.status = status
-        supplied_technician = str(data.get("technician", "") or "").strip()
-        if supplied_technician:
-            x.technician = supplied_technician
-        elif status == "completed" and not str(x.technician or "").strip():
-            actor = current_user()
-            x.technician = (actor.full_name or getattr(actor, "username", None)) if actor else None
+        # Durum değiştiren son oturum hesabını sakla.
+        x.technician = _current_account_name()
         db.session.flush()
         _sync_inventory_maintenance_status(x.inventory_id, x.id)
         if status in {"in_progress", "service"} and not x.started_at:
