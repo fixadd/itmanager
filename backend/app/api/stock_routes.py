@@ -287,7 +287,8 @@ def assign_stock(stock_id):
         p = _resolve(Personnel, data.get("personnel_id", data.get("person")), "personel")
         quantity = _decimal(data.get("quantity", 1))
         if quantity > x.quantity:
-            raise ValueError("Yetersiz stok miktarı")
+            available = format(x.quantity.normalize(), "f") if x.quantity is not None else "0"
+            raise ValueError(f"Stokta yalnızca {available} {x.unit} var. Bundan fazla atama yapamazsınız.")
         x.quantity -= quantity
         db.session.add(StockMovement(stock_item_id=x.id, movement_type="out", quantity=quantity, unit=x.unit, personnel_id=p.id, note=data.get("note")))
         db.session.add(AssignmentHistory(personnel_id=p.id, asset_type="stock", asset_id=x.id, action="assign", note=f"{quantity} {x.unit}: {data.get('note') or ''}".strip()))
