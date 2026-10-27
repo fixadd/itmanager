@@ -133,6 +133,11 @@ def _payload(data, existing=None):
         if not completed_at:
             completed_at = now
 
+    technician = str(data.get("technician", existing.technician if existing else "") or "").strip() or None
+    if status == "completed" and not technician:
+        actor = current_user()
+        technician = (actor.full_name or getattr(actor, "username", None)) if actor else None
+
     cost_value = data.get("cost", existing.cost if existing else None)
     if cost_value not in (None, ""):
         try:
@@ -150,7 +155,7 @@ def _payload(data, existing=None):
         "fault": fault,
         "description": data.get("description", existing.description if existing else None),
         "service": data.get("service", existing.service if existing else None),
-        "technician": data.get("technician", existing.technician if existing else None),
+        "technician": technician,
         "started_at": started_at,
         "completed_at": completed_at,
         "status": status,
@@ -278,6 +283,12 @@ def change_status(maintenance_id):
     try:
         old_status = x.status
         x.status = status
+        supplied_technician = str(data.get("technician", "") or "").strip()
+        if supplied_technician:
+            x.technician = supplied_technician
+        elif status == "completed" and not str(x.technician or "").strip():
+            actor = current_user()
+            x.technician = (actor.full_name or getattr(actor, "username", None)) if actor else None
         db.session.flush()
         _sync_inventory_maintenance_status(x.inventory_id, x.id)
         if status in {"in_progress", "service"} and not x.started_at:
