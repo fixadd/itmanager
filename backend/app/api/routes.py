@@ -336,7 +336,7 @@ def _license_effective_status(x):
 
 def _license_dict(x):
     days=(x.expires_at-date.today()).days if x.expires_at else None
-    return {"id":x.id,"barcode":x.barcode,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id,"image_path":x.license_model.image_path} if x.license_model else None,"license_type":x.license_type,"starts_at":x.starts_at.isoformat() if x.starts_at else None,"license_key":x.license_key,"email":x.email,"has_password":bool(x.password),"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"inventory_id":x.inventory_id,"inventory":{"id":x.inventory.id,"inventory_no":x.inventory.inventory_no,"computer_name":x.inventory.computer_name} if x.inventory else None,"personnel":{"id":x.personnel.id,"name":x.personnel.name} if x.personnel else None,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+    return {"id":x.id,"barcode":x.barcode,"license_name":{"id":x.license_name_id,"name":x.license_name.name} if x.license_name else None,"license_model":{"id":x.license_model_id,"name":x.license_model.name,"license_name_id":x.license_model.license_name_id,"image_path":x.license_model.image_path} if x.license_model else None,"license_type":x.license_type,"starts_at":x.starts_at.isoformat() if x.starts_at else None,"license_key":x.license_key,"email":x.email,"has_password":bool(x.password),"expires_at":x.expires_at.isoformat() if x.expires_at else None,"expires_in_days":days,"note":x.note,"status":_license_effective_status(x),"stored_status":x.status,"inventory_id":x.inventory_id,"inventory":{"id":x.inventory.id,"inventory_no":x.inventory.inventory_no,"computer_name":x.inventory.computer_name,"serial_no":x.inventory.serial_no,"status":x.inventory.status,"brand":{"id":x.inventory.brand_id,"name":x.inventory.brand.name} if x.inventory.brand else None,"model":{"id":x.inventory.model_id,"name":x.inventory.model.name} if x.inventory.model else None,"device_type":{"id":x.inventory.product_type_id,"name":x.inventory.product_type.name} if x.inventory.product_type else None} if x.inventory else None,"personnel":{"id":x.personnel.id,"name":x.personnel.name} if x.personnel else None,"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 
 LICENSE_STATUSES={"active","empty","it","scrapped"}
 
@@ -514,14 +514,32 @@ def assign_license(license_id):
     try:
         p=_resolve(Personnel,data.get("personnel_id",data.get("person")),"personel")
         old=x.personnel_id
+        inventory_value=data.get("inventory_id")
+        if inventory_value not in (None, ""):
+            inv=db.session.get(Inventory,int(inventory_value))
+            if not inv: raise ValueError("Envanter kaydı bulunamadı")
+            if inv.status=="scrapped": raise ValueError("Hurda durumundaki envantere lisans bağlanamaz")
+            if inv.personnel_id != p.id: raise ValueError("Seçilen envanter bu personele zimmetli değil")
+            x.inventory_id=inv.id
+        else:
+            # Personelin tek bir aktif cihazı varsa lisansı otomatik o cihaza bağla.
+            current_inv=db.session.get(Inventory,x.inventory_id) if x.inventory_id else None
+            if current_inv and current_inv.personnel_id == p.id and current_inv.status != "scrapped":
+                pass
+            else:
+                assigned_devices=Inventory.query.filter(
+                    Inventory.personnel_id==p.id,
+                    Inventory.status != "scrapped"
+                ).order_by(Inventory.id.desc()).all()
+                x.inventory_id=assigned_devices[0].id if len(assigned_devices)==1 else None
         if old != p.id:
             if old:
                 db.session.add(AssignmentHistory(personnel_id=old,asset_type="license",asset_id=x.id,action="unassign",note=data.get("note")))
             x.personnel_id=p.id
             db.session.add(AssignmentHistory(personnel_id=p.id,asset_type="license",asset_id=x.id,action="assign",note=data.get("note")))
-        _audit("license.assigned","license",x.id,{"from_personnel_id":old,"to_personnel_id":p.id,"note":data.get("note")})
+        _audit("license.assigned","license",x.id,{"from_personnel_id":old,"to_personnel_id":p.id,"inventory_id":x.inventory_id,"note":data.get("note")})
         db.session.commit(); return jsonify(_license_dict(x))
-    except ValueError as e: db.session.rollback(); return jsonify({"error":str(e)}),400
+    except (ValueError,TypeError) as e: db.session.rollback(); return jsonify({"error":str(e)}),400
 
 @api_bp.post("/licenses/<int:license_id>/send-to-it")
 @login_required
