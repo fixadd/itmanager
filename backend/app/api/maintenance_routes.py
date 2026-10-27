@@ -80,7 +80,7 @@ def _sync_inventory_maintenance_status(inventory_id, maintenance_id=None):
 
 
 def _maintenance_audit_details(x):
-    inventory = x.inventory or db.session.get(Inventory, x.inventory_id)
+    inventory = db.session.get(Inventory, x.inventory_id)
     return {
         "inventory_id": x.inventory_id,
         "inventory_no": inventory.inventory_no if inventory else None,
