@@ -79,6 +79,25 @@ def _sync_inventory_maintenance_status(inventory_id, maintenance_id=None):
         ))
 
 
+def _maintenance_audit_details(x):
+    inventory = x.inventory or db.session.get(Inventory, x.inventory_id)
+    return {
+        "inventory_id": x.inventory_id,
+        "inventory_no": inventory.inventory_no if inventory else None,
+        "computer_name": inventory.computer_name if inventory else None,
+        "maintenance_type": x.maintenance_type,
+        "fault": x.fault,
+        "description": x.description,
+        "service": x.service,
+        "technician": x.technician,
+        "status": x.status,
+        "started_at": x.started_at.isoformat() if x.started_at else None,
+        "completed_at": x.completed_at.isoformat() if x.completed_at else None,
+        "cost": str(x.cost) if x.cost is not None else None,
+        "note": x.note,
+    }
+
+
 def _payload(data, existing=None):
     inventory_id = data.get("inventory_id", existing.inventory_id if existing else None)
     creator = existing.created_by_personnel_id if existing else (current_user().personnel.id if current_user() and current_user().personnel else None)
@@ -208,7 +227,7 @@ def create_maintenance():
         db.session.add(x)
         db.session.flush()
         _sync_inventory_maintenance_status(x.inventory_id, x.id)
-        _audit("maintenance.created", x.id, {"inventory_id": x.inventory_id})
+        _audit("maintenance.created", x.id, _maintenance_audit_details(x))
         db.session.commit()
         return jsonify(_dict(x)), 201
     except ValueError as e:
@@ -234,7 +253,7 @@ def update_maintenance(maintenance_id):
         _sync_inventory_maintenance_status(old_inventory_id, x.id)
         if x.inventory_id != old_inventory_id:
             _sync_inventory_maintenance_status(x.inventory_id, x.id)
-        _audit("maintenance.updated", x.id, {"before": before, "after": _dict(x)})
+        _audit("maintenance.updated", x.id, {"before": before, "after": _dict(x), **_maintenance_audit_details(x)})
         db.session.commit()
         return jsonify(_dict(x))
     except ValueError as e:
@@ -274,6 +293,7 @@ def change_status(maintenance_id):
             "from_status": old_status,
             "status": status,
             "note": data.get("note"),
+            **_maintenance_audit_details(x),
         })
         db.session.commit()
         return jsonify(_dict(x))
