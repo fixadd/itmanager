@@ -551,3 +551,57 @@ html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca
     gap: 6px;
   }
 }
+
+
+/* Envanter listesi: tablo ve alt sayfalama alanı panel dışına taşmasın. */
+.inv-screen-panel {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.inv-screen-panel .table-responsive {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.inv-screen-panel .inv-screen-table {
+  min-width: 980px;
+}
+.inv-screen-panel #ivPagination {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 18px 16px;
+  box-sizing: border-box;
+}
+.inv-screen-panel #ivPagination > #ivCount {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.inv-screen-panel #ivPagination > div:last-child {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.inv-screen-panel #ivPagination .form-select {
+  max-width: 90px;
+}
+@media (max-width: 700px) {
+  .content:has(.inv-screen-panel) {
+    padding: 16px 12px;
+  }
+  .inv-screen-panel #ivPagination {
+    align-items: flex-start !important;
+    padding: 0 12px 14px;
+  }
+  .inv-screen-panel #ivPagination > #ivCount {
+    width: 100%;
+  }
+  .inv-screen-panel #ivPagination > div:last-child {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px !important;
+  }
+}
