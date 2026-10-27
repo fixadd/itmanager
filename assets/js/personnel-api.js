@@ -102,11 +102,13 @@ async function openDetail(id){
   };
   root.querySelector('.personnel-detail-edit').onclick=()=>openForm(x);
   root.querySelector('.personnel-detail-toggle').onclick=async()=>{try{await json('/api/personnel/'+x.id+'/toggle',{method:'POST'});toast('Personel durumu güncellendi.');openDetail(x.id)}catch(e){toast(e.message)}};
-  root.querySelectorAll('.personnel-open-inventory').forEach(b=>b.onclick=()=>{location.hash='#inventory/'+Number(b.dataset.inventoryId)});
+  root.querySelectorAll('.personnel-open-inventory').forEach(b=>b.onclick=()=>navigateToInventory(Number(b.dataset.inventoryId),Number(x.id)));
   root.querySelectorAll('.personnel-transfer-detail').forEach(b=>b.onclick=()=>chooseTarget(x.id,{asset_type:b.dataset.kind,asset_id:Number(b.dataset.asset)}));
   root.querySelectorAll('.personnel-open-license').forEach(b=>b.onclick=()=>{location.hash='#licenses/'+Number(b.dataset.licenseId)});
  }catch(e){toast(e.message)}
 }
+
+function navigateToInventory(inventoryId,personnelId){window.IT_INVENTORY_RETURN_HANDLER=()=>{history.replaceState(null,'',location.pathname+location.search+'#people');window.dispatchEvent(new Event('hashchange'));setTimeout(()=>openDetail(Number(personnelId)),0);};location.hash='#inventory/'+Number(inventoryId);}
 
 async function chooseTarget(sourceId,assets){
  const all=[];
@@ -140,7 +142,7 @@ document.addEventListener('click',async e=>{
  const close=e.target.closest('.personnel-close');if(close){e.preventDefault();e.stopImmediatePropagation();close.closest('tr.inline-detail')?.remove();return}
  const eye=e.target.closest('.personnel-eye');if(eye){e.preventDefault();e.stopImmediatePropagation();await openDetail(Number(eye.closest('tr').dataset.personnelId));return}
  const openLicense=e.target.closest('.personnel-open-license');if(openLicense){e.preventDefault();e.stopImmediatePropagation();location.hash='#licenses/'+Number(openLicense.dataset.licenseId);return}
- const openInventory=e.target.closest('.personnel-open-inventory');if(openInventory){e.preventDefault();e.stopImmediatePropagation();location.hash='#inventory/'+Number(openInventory.dataset.inventoryId);return}
+ const openInventory=e.target.closest('.personnel-open-inventory');if(openInventory){e.preventDefault();e.stopImmediatePropagation();const personId=Number(openInventory.closest('tr.inline-detail')?.previousElementSibling?.dataset.personnelId||openInventory.dataset.personnelId);if(personId)navigateToInventory(Number(openInventory.dataset.inventoryId),personId);else location.hash='#inventory/'+Number(openInventory.dataset.inventoryId);return}
  const transfer=e.target.closest('.personnel-transfer');if(transfer){e.preventDefault();e.stopImmediatePropagation();await chooseTarget(Number(transfer.closest('tr.inline-detail')?.previousElementSibling?.dataset.personnelId),{asset_type:transfer.dataset.kind,asset_id:Number(transfer.dataset.asset)});return}
 });
 document.addEventListener('input',e=>{if(location.hash.slice(1)==='people'&&e.target.id==='personnelSearch'){clearTimeout(window.__personnelSearchTimer);window.__personnelSearchTimer=setTimeout(()=>load(1),300)}});
