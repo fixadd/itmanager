@@ -474,3 +474,80 @@ html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca
  .maintenance-screen .tabs-bar{max-width:100%;overflow-x:auto}
  .maintenance-screen .tabs-bar button{white-space:nowrap}
 }
+
+
+/* Bakım ekranı ve envanter detayındaki bakım kartları: uzun metinler köşelerden taşmasın. */
+.maintenance-screen,
+.maintenance-screen .panel,
+.maintenance-screen .maintenance-table-wrap,
+.maintenance-screen .inline-detail-box,
+.maintenance-screen .maintenance-inline-detail,
+.inventory-detail-view .maintenance-history-item {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.maintenance-screen .maintenance-inline-detail > td {
+  padding: 12px !important;
+  overflow: hidden;
+}
+.maintenance-screen .inline-detail-box {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+}
+.maintenance-screen .detail-grid {
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.maintenance-screen .detail-field {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.maintenance-screen .detail-field > span,
+.maintenance-screen .detail-field > strong {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.maintenance-screen .maintenance-table td,
+.maintenance-screen .maintenance-table th {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.inventory-detail-view .maintenance-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.inventory-detail-view .maintenance-history-item strong,
+.inventory-detail-view .maintenance-history-item span {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+@media (max-width: 900px) {
+  .maintenance-screen .detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .maintenance-screen .maintenance-inline-detail > td {
+    padding: 8px !important;
+  }
+  .maintenance-screen .detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+}
