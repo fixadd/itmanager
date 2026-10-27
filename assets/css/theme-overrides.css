@@ -439,3 +439,38 @@ html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca
 #dashTypes .dashboard-type-pagination>div{display:flex;align-items:center;gap:8px}
 #dashTypes .dashboard-type-pagination .btn{min-width:32px;padding:3px 8px;color:var(--text);border-color:var(--border)}
 #dashTypes .dashboard-type-pagination .btn:disabled{opacity:.35}
+
+
+/* Tamir / bakım ekranı: dengeli tablo, taşmayan filtreler ve dar ekran uyumu. */
+.maintenance-screen{min-width:0}
+.maintenance-screen>.page-head{gap:16px;align-items:center;flex-wrap:wrap}
+.maintenance-screen>.page-head>div{min-width:0}
+.maintenance-screen .maintenance-stats .stat-card{min-height:94px;height:100%;display:flex;align-items:center}
+.maintenance-screen .maintenance-filters{display:grid;grid-template-columns:minmax(240px,1fr) minmax(180px,240px) auto;gap:10px;align-items:center}
+.maintenance-screen .maintenance-filters>*{min-width:0;width:100%}
+.maintenance-screen .maintenance-table-wrap{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+.maintenance-screen .maintenance-table{min-width:1120px;margin-bottom:0;table-layout:auto}
+.maintenance-screen .maintenance-table th{white-space:nowrap;font-size:.72rem;letter-spacing:.025em}
+.maintenance-screen .maintenance-table td{vertical-align:middle;max-width:260px;overflow-wrap:anywhere}
+.maintenance-screen .maintenance-table .maintenance-device-cell{min-width:130px}
+.maintenance-screen .maintenance-table .maintenance-fault-cell{min-width:180px}
+.maintenance-screen .maintenance-table .action-cell{white-space:nowrap;width:64px}
+.maintenance-screen .panel{min-width:0;overflow:hidden}
+.maintenance-screen .inline-detail-box{min-width:0}
+.maintenance-screen .detail-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.maintenance-screen #maintenancePagination>div{gap:12px;flex-wrap:wrap}
+@media(max-width:900px){
+ .maintenance-screen .maintenance-filters{grid-template-columns:minmax(0,1fr) minmax(150px,.7fr)}
+ .maintenance-screen .maintenance-filters button{grid-column:1/-1;justify-self:start;width:auto}
+ .maintenance-screen .detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px){
+ .maintenance-screen>.page-head{align-items:flex-start}
+ .maintenance-screen>.page-head .page-actions{width:100%}
+ .maintenance-screen>.page-head .page-actions .btn{width:100%}
+ .maintenance-screen .maintenance-filters{grid-template-columns:minmax(0,1fr)}
+ .maintenance-screen .maintenance-filters button{grid-column:auto;width:100%}
+ .maintenance-screen .detail-grid{grid-template-columns:minmax(0,1fr)}
+ .maintenance-screen .tabs-bar{max-width:100%;overflow-x:auto}
+ .maintenance-screen .tabs-bar button{white-space:nowrap}
+}
