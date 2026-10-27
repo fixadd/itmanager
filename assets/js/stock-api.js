@@ -67,10 +67,10 @@ async function openStockAssignment(){
   const [people,d]=await Promise.all([loadAllPersonnel(),json('/api/stock?per_page=100&status=available')]);
   const items=(d.items||[]).filter(x=>Number(x.quantity)>0&&x.status!=='scrapped');
   const stockList=form.querySelector('#stockAssignStockList'),personnelList=form.querySelector('#stockAssignPersonnelList'),stockInput=form.querySelector('[name="stock_name"]'),personnelInput=form.querySelector('[name="personnel_name"]');
-  const stockOptions=items.map(x=>({id:String(x.id),label:(x.model?.name||x.brand?.name||'Stok')+' · '+x.quantity+' '+(x.unit||'')+' · '+(x.barcode||('STK-'+x.id))}));
+  const stockOptions=items.map(x=>({id:String(x.id),label:[x.product_type?.name,x.brand?.name,x.model?.name].filter(Boolean).join(' / ')||'Ürün adı tanımlanmamış',detail:[x.product_type?.name,x.brand?.name,x.model?.name].filter(Boolean).join(' / '),quantity:String(x.quantity??0)+' '+(x.unit||''),barcode:x.barcode||('STK-'+x.id)}));
   stockList.innerHTML=stockOptions.map(x=>'<option value="'+esc(x.label)+'"></option>').join('');
   personnelList.innerHTML=people.map(p=>'<option value="'+esc(p.name)+'"></option>').join('');
-  const resolve=()=>{const sv=(stockInput.value||'').trim(),pv=(personnelInput.value||'').trim();const s=stockOptions.find(x=>x.label===sv),p=people.find(x=>String(x.name||'').trim()===pv);form.stock_id.value=s?.id||'';form.personnel_id.value=p?.id||'';stockInput.setCustomValidity(s?'':'Listeden geçerli bir stok seçin.');personnelInput.setCustomValidity(p?'':'Listeden geçerli bir personel seçin.')};
+  const preview=document.createElement('div');preview.className='form-text mt-2';preview.setAttribute('aria-live','polite');stockInput.insertAdjacentElement('afterend',preview);const resolve=()=>{const sv=(stockInput.value||'').trim(),pv=(personnelInput.value||'').trim();const s=stockOptions.find(x=>x.label===sv),p=people.find(x=>String(x.name||'').trim()===pv);form.stock_id.value=s?.id||'';form.personnel_id.value=p?.id||'';stockInput.setCustomValidity(s?'':'Listeden geçerli bir stok seçin.');personnelInput.setCustomValidity(p?'':'Listeden geçerli bir personel seçin.');preview.textContent=s?'Seçilen ürün: '+s.detail+' · Miktar: '+s.quantity+' · Barkod: '+s.barcode:'';preview.classList.toggle('text-success',Boolean(s));};
   stockInput.addEventListener('input',resolve);personnelInput.addEventListener('input',resolve);
  }catch(e){toast(e.message)}
 }
