@@ -1,10 +1,8 @@
-from datetime import datetime, timezone
-
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from odf.opendocument import load
-from odf.table import Table, TableRow, TableCell
-from odf.text import P
+from odf.table import Table, TableRow
+from odf.namespaces import TABLENS
 from odf.teletype import extractText
 
 from ..extensions import db
@@ -168,7 +166,7 @@ def import_ods():
             for tr in rows:
                 values = []
                 for cell in tr.childNodes:
-                    if not isinstance(cell, TableCell):
+                    if getattr(cell, "qname", None) != (TABLENS, "table-cell"):
                         continue
                     text = extractText(cell).strip()
                     repeat = int(cell.getAttribute("numbercolumnsrepeated") or 1)
@@ -217,7 +215,7 @@ def import_ods():
                     _audit("network_port.imported", existing, values_to_save)
         db.session.commit()
         return jsonify({"created": created, "updated": updated, "skipped_files": skipped})
-    except (ValueError, OSError, Exception) as exc:
+    except Exception as exc:
         db.session.rollback()
         message = str(exc) if isinstance(exc, ValueError) else "ODS dosyası okunamadı"
         return jsonify({"error": message}), 400
