@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from flask import Blueprint,jsonify,request
 from ..extensions import db
-from ..models import Personnel,Department,Inventory,License,AssignmentHistory,StockMovement,StockItem,AuditLog,User
+from ..models import AccessSystem,PersonnelSystemAccess,Personnel,Department,Inventory,License,AssignmentHistory,StockMovement,StockItem,AuditLog,User
 from .auth_routes import current_user,login_required
 personnel_bp=Blueprint("personnel",__name__)
 def person_json(p):return {"id":p.id,"employee_no":p.employee_no,"name":p.name,"email":p.email,"active":p.active,"department":{"id":p.department.id,"name":p.department.name} if p.department else None}
@@ -117,3 +117,96 @@ def transfer_assets(person_id):
   if not moved:return jsonify({"error":"Seçilen varlıkların hiçbiri kaynak personele atanmış değil"}),400
   audit("personnel.assets_transferred","personnel",source.id,{"from":source.id,"to":target.id,"assets":moved,"note":note});db.session.commit();return jsonify({"message":"Varlıklar devredildi","moved":moved})
  except Exception as exc:db.session.rollback();return jsonify({"error":"Devir başarısız","detail":str(exc)}),409
+
+
+@personnel_bp.get("/personnel/<int:person_id>/systems")
+@login_required
+def list_personnel_systems(person_id):
+    db.get_or_404(Personnel, person_id)
+    rows = (PersonnelSystemAccess.query
+            .join(AccessSystem, PersonnelSystemAccess.system_id == AccessSystem.id)
+            .filter(PersonnelSystemAccess.personnel_id == person_id)
+            .order_by(AccessSystem.name.asc()).all())
+    return jsonify({"items": [{
+        "id": row.id,
+        "system_id": row.system_id,
+        "name": row.system.name,
+        "system_active": row.system.active,
+        "has_access": row.has_access,
+        "note": row.note,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    } for row in rows]})
+
+
+@personnel_bp.post("/personnel/<int:person_id>/systems")
+@login_required
+def add_personnel_system(person_id):
+    person = db.get_or_404(Personnel, person_id)
+    data = request.get_json(silent=True) or {}
+    try:
+        system_id = int(data.get("system_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Geçerli bir sistem seçilmelidir."}), 400
+    system = db.session.get(AccessSystem, system_id)
+    if not system or not system.active:
+        return jsonify({"error": "Aktif sistem tanımı bulunamadı."}), 404
+    row = PersonnelSystemAccess.query.filter_by(personnel_id=person.id, system_id=system.id).first()
+    created = row is None
+    if row is None:
+        row = PersonnelSystemAccess(personnel_id=person.id, system_id=system.id, has_access=True)
+        db.session.add(row)
+    else:
+        row.has_access = True
+    if "note" in data:
+        row.note = str(data.get("note") or "").strip()[:500] or None
+    try:
+        db.session.flush()
+        audit("personnel.system_access_added" if created else "personnel.system_access_reenabled",
+              "personnel_system_access", row.id,
+              {"personnel_id": person.id, "system_id": system.id, "system_name": system.name})
+        db.session.commit()
+        return jsonify({"id": row.id, "system_id": system.id, "name": system.name,
+                        "system_active": system.active, "has_access": row.has_access,
+                        "note": row.note, "created_at": row.created_at.isoformat(),
+                        "updated_at": row.updated_at.isoformat()}), 201 if created else 200
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Bu sistem personele zaten eklenmiş."}), 409
+
+
+@personnel_bp.patch("/personnel/<int:person_id>/systems/<int:assignment_id>")
+@login_required
+def update_personnel_system(person_id, assignment_id):
+    person = db.get_or_404(Personnel, person_id)
+    row = db.get_or_404(PersonnelSystemAccess, assignment_id)
+    if row.personnel_id != person.id:
+        return jsonify({"error": "Sistem kaydı bu personele ait değil."}), 404
+    data = request.get_json(silent=True) or {}
+    if "has_access" in data:
+        if not isinstance(data["has_access"], bool):
+            return jsonify({"error": "Erişim durumu true veya false olmalıdır."}), 400
+        row.has_access = data["has_access"]
+    if "note" in data:
+        row.note = str(data.get("note") or "").strip()[:500] or None
+    audit("personnel.system_access_changed", "personnel_system_access", row.id,
+          {"personnel_id": person.id, "system_id": row.system_id,
+           "system_name": row.system.name, "has_access": row.has_access})
+    db.session.commit()
+    return jsonify({"id": row.id, "system_id": row.system_id, "name": row.system.name,
+                    "system_active": row.system.active, "has_access": row.has_access,
+                    "note": row.note, "updated_at": row.updated_at.isoformat() if row.updated_at else None})
+
+
+@personnel_bp.delete("/personnel/<int:person_id>/systems/<int:assignment_id>")
+@login_required
+def remove_personnel_system(person_id, assignment_id):
+    person = db.get_or_404(Personnel, person_id)
+    row = db.get_or_404(PersonnelSystemAccess, assignment_id)
+    if row.personnel_id != person.id:
+        return jsonify({"error": "Sistem kaydı bu personele ait değil."}), 404
+    audit("personnel.system_access_removed", "personnel_system_access", row.id,
+          {"personnel_id": person.id, "system_id": row.system_id, "system_name": row.system.name})
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({"success": True})
