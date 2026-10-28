@@ -202,8 +202,11 @@ def import_ods():
                     "note": None,
                 }
                 if existing:
-                    for key, value in values_to_save.items():
-                        if value is not None or key in {"device_type", "patch_panel", "note"}:
+                    # Re-importing an ODS refreshes source columns only. Preserve
+                    # fields that the IT team added manually in the application.
+                    for key in ("port_label", "ip_address", "switch_port", "mounting_location"):
+                        value = values_to_save[key]
+                        if value is not None:
                             setattr(existing, key, value)
                     updated += 1
                     _audit("network_port.import_updated", existing, values_to_save)
