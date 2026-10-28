@@ -81,6 +81,7 @@ function bind(){
  $('#networkNew')?.addEventListener('click',()=>openForm(null));
  $('#networkPortForm')?.addEventListener('submit',save);
  $('#networkFileInput')?.addEventListener('change',importFiles);
+ $('#networkImportBtn')?.addEventListener('click',()=>$('#networkFileInput')?.click());
  $('#networkRows')?.addEventListener('click',e=>{const b=e.target.closest('[data-edit-network]');if(b){const item=items.find(x=>String(x.id)===b.dataset.editNetwork);if(item)openForm(item);}});
 }
 function render(){
