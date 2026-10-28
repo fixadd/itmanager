@@ -27,7 +27,7 @@ def upgrade():
         sa.Column("note", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.UniqueConstraint("cabinet_name", "row_number", name="uq_network_port_cabinet_row"),
+        sa.UniqueConstraint("cabinet_name", "row_number", "switch_port", name="uq_network_port_cabinet_row_switch"),
     )
     op.create_index("ix_network_ports_cabinet_name", "network_ports", ["cabinet_name"])
 
