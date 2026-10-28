@@ -63,6 +63,7 @@ class NetworkPort(TimestampMixin,db.Model):
     id=db.Column(db.Integer,primary_key=True)
     cabinet_name=db.Column(db.String(160),nullable=False,index=True)
     row_number=db.Column(db.Integer,nullable=False)
+    source_key=db.Column(db.String(160))
     device_type=db.Column(db.String(80))
     port_label=db.Column(db.String(120))
     patch_panel=db.Column(db.String(120))
@@ -70,4 +71,4 @@ class NetworkPort(TimestampMixin,db.Model):
     switch_port=db.Column(db.String(120))
     mounting_location=db.Column(db.String(200))
     note=db.Column(db.Text)
-    __table_args__=(db.UniqueConstraint("cabinet_name","row_number","switch_port",name="uq_network_port_cabinet_row_switch"),)
+    __table_args__=(db.UniqueConstraint("cabinet_name","row_number","switch_port",name="uq_network_port_cabinet_row_switch"),db.UniqueConstraint("cabinet_name","source_key",name="uq_network_port_cabinet_source_key"))
