@@ -57,3 +57,17 @@ class ScrapRecord(TimestampMixin,db.Model):
     __tablename__="scrap_records"; id=db.Column(db.Integer,primary_key=True); source_type=db.Column(db.String(30),nullable=False); source_id=db.Column(db.Integer,nullable=False); reason=db.Column(db.String(80),nullable=False); note=db.Column(db.Text); scrapped_at=db.Column(db.DateTime(timezone=True),nullable=False,default=utcnow)
 class AuditLog(db.Model):
     __tablename__="audit_logs"; id=db.Column(db.BigInteger,primary_key=True); action=db.Column(db.String(80),nullable=False); entity_type=db.Column(db.String(80)); entity_id=db.Column(db.Integer); actor_user_id=db.Column(db.Integer); details=db.Column(db.JSON); created_at=db.Column(db.DateTime(timezone=True),default=utcnow,nullable=False)
+
+class NetworkPort(TimestampMixin,db.Model):
+    __tablename__="network_ports"
+    id=db.Column(db.Integer,primary_key=True)
+    cabinet_name=db.Column(db.String(160),nullable=False,index=True)
+    row_number=db.Column(db.Integer,nullable=False)
+    device_type=db.Column(db.String(80))
+    port_label=db.Column(db.String(120))
+    patch_panel=db.Column(db.String(120))
+    ip_address=db.Column(db.String(64))
+    switch_port=db.Column(db.String(120))
+    mounting_location=db.Column(db.String(200))
+    note=db.Column(db.Text)
+    __table_args__=(db.UniqueConstraint("cabinet_name","row_number",name="uq_network_port_cabinet_row"),)
