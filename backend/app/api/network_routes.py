@@ -189,10 +189,12 @@ def import_ods():
                     row_number = None
                 if not row_number or row_number < 1:
                     continue
-                existing = NetworkPort.query.filter_by(cabinet_name=cabinet, row_number=row_number, switch_port=switch_port or None).first()
+                source_key = switch_port or f"ROW-{row_number}"
+                existing = NetworkPort.query.filter_by(cabinet_name=cabinet, source_key=source_key).first()
                 values_to_save = {
                     "cabinet_name": cabinet,
                     "row_number": row_number,
+                    "source_key": source_key,
                     "device_type": None,
                     "port_label": label or None,
                     "patch_panel": None,
