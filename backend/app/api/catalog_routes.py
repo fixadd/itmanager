@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify, request, send_from_directory, current_app
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from ..extensions import db
-from ..models import AuditLog, Brand, ProductModel, ProductType
+from ..models import AccessSystem, AuditLog, Brand, ProductModel, ProductType
 from .auth_routes import login_required, permission_required, current_user
 
 catalog_bp = Blueprint("catalog", __name__)
@@ -437,3 +437,77 @@ def delete_license_catalog_model(model_id):
     if not row:return jsonify({"error":"not_found"}),404
     db.session.execute(text("UPDATE license_models SET active=false,updated_at=CURRENT_TIMESTAMP WHERE id=:id"),{"id":model_id})
     _audit("settings.license_model_deleted","license_model",model_id,{"name":row["name"]});db.session.commit();return jsonify({"ok":True})
+
+@catalog_bp.get("/settings/access-systems")
+@login_required
+def list_access_systems():
+    query = AccessSystem.query
+    if request.args.get("active_only") in {"1", "true", "yes"}:
+        query = query.filter_by(active=True)
+    items = query.order_by(AccessSystem.active.desc(), AccessSystem.name.asc()).all()
+    return jsonify({"items": [{"id": x.id, "name": x.name, "active": x.active} for x in items]})
+
+
+@catalog_bp.post("/settings/access-systems")
+@login_required
+def create_access_system():
+    data = request.get_json(silent=True) or {}
+    name = str(data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Sistem adı zorunludur."}), 400
+    if AccessSystem.query.filter(AccessSystem.name.ilike(name)).first():
+        return jsonify({"error": "Bu sistem adı zaten tanımlı."}), 409
+    system = AccessSystem(name=name, active=True)
+    db.session.add(system)
+    try:
+        db.session.flush()
+        user = current_user()
+        db.session.add(AuditLog(action="access_system.created", entity_type="access_system",
+                                entity_id=system.id, actor_user_id=user.id if user else None,
+                                details={"name": system.name}))
+        db.session.commit()
+        return jsonify({"id": system.id, "name": system.name, "active": system.active}), 201
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Bu sistem adı zaten tanımlı."}), 409
+
+
+@catalog_bp.patch("/settings/access-systems/<int:system_id>")
+@login_required
+def update_access_system(system_id):
+    system = db.get_or_404(AccessSystem, system_id)
+    data = request.get_json(silent=True) or {}
+    if "name" in data:
+        name = str(data.get("name") or "").strip()
+        if not name:
+            return jsonify({"error": "Sistem adı zorunludur."}), 400
+        duplicate = AccessSystem.query.filter(AccessSystem.id != system.id, AccessSystem.name.ilike(name)).first()
+        if duplicate:
+            return jsonify({"error": "Bu sistem adı zaten tanımlı."}), 409
+        system.name = name
+    if "active" in data:
+        system.active = bool(data["active"])
+    try:
+        db.session.flush()
+        user = current_user()
+        db.session.add(AuditLog(action="access_system.updated", entity_type="access_system",
+                                entity_id=system.id, actor_user_id=user.id if user else None,
+                                details={"name": system.name, "active": system.active}))
+        db.session.commit()
+        return jsonify({"id": system.id, "name": system.name, "active": system.active})
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Bu sistem adı zaten tanımlı."}), 409
+
+
+@catalog_bp.delete("/settings/access-systems/<int:system_id>")
+@login_required
+def deactivate_access_system(system_id):
+    system = db.get_or_404(AccessSystem, system_id)
+    system.active = False
+    user = current_user()
+    db.session.add(AuditLog(action="access_system.deactivated", entity_type="access_system",
+                            entity_id=system.id, actor_user_id=user.id if user else None,
+                            details={"name": system.name}))
+    db.session.commit()
+    return jsonify({"id": system.id, "name": system.name, "active": system.active})
