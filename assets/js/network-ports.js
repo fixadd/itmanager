@@ -40,12 +40,14 @@ async function load(){
  }catch(e){target.innerHTML=`<tr><td colspan="9" class="text-center text-danger py-4">${esc(e.message)}</td></tr>`;}
 }
 function openForm(item){
- const form=$('#networkPortForm');if(!form)return;
+ const form=$('#networkPortForm');if(!form){message('Port formu bulunamadı. Sayfayı yenileyip tekrar deneyin.','danger');return;}
  form.reset();$('#networkPortId').value=item?.id||'';
  $('#networkModalTitle').textContent=item?'Port Kaydını Düzenle':'Yeni Port Ekle';
  fields.forEach(([key,label])=>{const input=form.elements[key];if(input)input.value=item?.[key]??'';});
- if(window.bootstrap?.Modal)bootstrap.Modal.getOrCreateInstance($('#networkModal')).show();
- else $('#networkModal').style.display='block';
+ const modalEl=$('#networkModal');
+ if(window.bootstrap?.Modal){window.bootstrap.Modal.getOrCreateInstance(modalEl).show();}
+ else {modalEl.classList.add('show');modalEl.style.display='block';modalEl.removeAttribute('aria-hidden');modalEl.setAttribute('aria-modal','true');document.body.classList.add('modal-open');}
+
 }
 async function save(event){
  event.preventDefault();
@@ -56,7 +58,9 @@ async function save(event){
   const r=await fetch(id?'/api/network-ports/'+id:'/api/network-ports',{method:id?'PATCH':'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});
   const d=await r.json().catch(()=>({}));
   if(!r.ok)throw new Error(d.error||'Kayıt kaydedilemedi');
-  bootstrap.Modal.getOrCreateInstance($('#networkModal')).hide();
+  const modalEl=$('#networkModal');
+  if(window.bootstrap?.Modal){window.bootstrap.Modal.getOrCreateInstance(modalEl).hide();}
+  else {modalEl.classList.remove('show');modalEl.style.display='none';modalEl.setAttribute('aria-hidden','true');modalEl.removeAttribute('aria-modal');document.body.classList.remove('modal-open');}
   message(id?'Port kaydı güncellendi.':'Yeni port eklendi.');
   await load();
  }catch(e){message(e.message,'danger');}
@@ -75,14 +79,17 @@ async function importFiles(event){
  finally{btn.disabled=false;btn.innerHTML='<i class="ti ti-file-import me-1"></i>ODS İçe Aktar';event.target.value='';}
 }
 function bind(){
+ const host=$('#networkScreen');
+ if(host?.dataset.networkEventsBound==='1')return;
+ if(host)host.dataset.networkEventsBound='1';
  $('#networkSearch')?.addEventListener('input',renderTable);
  $('#networkCabinet')?.addEventListener('change',renderTable);
  $('#networkRefresh')?.addEventListener('click',load);
- $('#networkNew')?.addEventListener('click',()=>openForm(null));
+ $('#networkNew')?.addEventListener('click',e=>{e.preventDefault();openForm(null);});
  $('#networkPortForm')?.addEventListener('submit',save);
  $('#networkFileInput')?.addEventListener('change',importFiles);
  $('#networkImportBtn')?.addEventListener('click',()=>$('#networkFileInput')?.click());
- $('#networkRows')?.addEventListener('click',e=>{const b=e.target.closest('[data-edit-network]');if(b){const item=items.find(x=>String(x.id)===b.dataset.editNetwork);if(item)openForm(item);}});
+ $('#networkRows')?.addEventListener('click',e=>{const b=e.target.closest('button[data-edit-network]');if(!b)return;e.preventDefault();const item=items.find(x=>String(x.id)===b.dataset.editNetwork);if(item)openForm(item);else message('Düzenlenecek port kaydı bulunamadı. Listeyi yenileyin.','danger');});
 }
 function render(){
  const host=$('#networkScreen');if(!host)return;
