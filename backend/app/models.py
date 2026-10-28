@@ -58,6 +58,23 @@ class ScrapRecord(TimestampMixin,db.Model):
 class AuditLog(db.Model):
     __tablename__="audit_logs"; id=db.Column(db.BigInteger,primary_key=True); action=db.Column(db.String(80),nullable=False); entity_type=db.Column(db.String(80)); entity_id=db.Column(db.Integer); actor_user_id=db.Column(db.Integer); details=db.Column(db.JSON); created_at=db.Column(db.DateTime(timezone=True),default=utcnow,nullable=False)
 
+class AccessSystem(TimestampMixin,db.Model):
+    __tablename__="access_systems"
+    id=db.Column(db.Integer,primary_key=True)
+    name=db.Column(db.String(160),unique=True,nullable=False)
+    active=db.Column(db.Boolean,default=True,nullable=False)
+
+class PersonnelSystemAccess(TimestampMixin,db.Model):
+    __tablename__="personnel_system_accesses"
+    id=db.Column(db.Integer,primary_key=True)
+    personnel_id=db.Column(db.Integer,db.ForeignKey("personnel.id",ondelete="CASCADE"),nullable=False)
+    system_id=db.Column(db.Integer,db.ForeignKey("access_systems.id",ondelete="RESTRICT"),nullable=False)
+    has_access=db.Column(db.Boolean,default=True,nullable=False)
+    note=db.Column(db.String(500))
+    personnel=db.relationship("Personnel")
+    system=db.relationship("AccessSystem")
+    __table_args__=(db.UniqueConstraint("personnel_id","system_id",name="uq_personnel_system_access"),)
+
 class NetworkPort(TimestampMixin,db.Model):
     __tablename__="network_ports"
     id=db.Column(db.Integer,primary_key=True)
