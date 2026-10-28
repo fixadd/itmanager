@@ -432,3 +432,176 @@ html[data-bs-theme=dark] .top-user-menu button[data-user-menu=logout]{color:#fca
  .license-detail-page>.page-head .page-actions{display:flex;flex-wrap:wrap;gap:6px!important}
  .license-detail-page>.page-head .page-actions .btn{flex:1 1 calc(50% - 6px)}
 }
+
+
+/* Ana sayfa > Cihaz Türleri: sıralama sonrası 5'erli sayfalama kontrolleri. */
+#dashTypes .dashboard-type-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);color:var(--muted);font-size:11px}
+#dashTypes .dashboard-type-pagination>div{display:flex;align-items:center;gap:8px}
+#dashTypes .dashboard-type-pagination .btn{min-width:32px;padding:3px 8px;color:var(--text);border-color:var(--border)}
+#dashTypes .dashboard-type-pagination .btn:disabled{opacity:.35}
+
+
+/* Tamir / bakım ekranı: dengeli tablo, taşmayan filtreler ve dar ekran uyumu. */
+.maintenance-screen{min-width:0}
+.maintenance-screen>.page-head{gap:16px;align-items:center;flex-wrap:wrap}
+.maintenance-screen>.page-head>div{min-width:0}
+.maintenance-screen .maintenance-stats .stat-card{min-height:94px;height:100%;display:flex;align-items:center}
+.maintenance-screen .maintenance-filters{display:grid;grid-template-columns:minmax(240px,1fr) minmax(180px,240px) auto;gap:10px;align-items:center}
+.maintenance-screen .maintenance-filters>*{min-width:0;width:100%}
+.maintenance-screen .maintenance-table-wrap{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+.maintenance-screen .maintenance-table{min-width:1120px;margin-bottom:0;table-layout:auto}
+.maintenance-screen .maintenance-table th{white-space:nowrap;font-size:.72rem;letter-spacing:.025em}
+.maintenance-screen .maintenance-table td{vertical-align:middle;max-width:260px;overflow-wrap:anywhere}
+.maintenance-screen .maintenance-table .maintenance-device-cell{min-width:130px}
+.maintenance-screen .maintenance-table .maintenance-fault-cell{min-width:180px}
+.maintenance-screen .maintenance-table .action-cell{white-space:nowrap;width:64px}
+.maintenance-screen .panel{min-width:0;overflow:hidden}
+.maintenance-screen .inline-detail-box{min-width:0}
+.maintenance-screen .detail-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.maintenance-screen #maintenancePagination>div{gap:12px;flex-wrap:wrap}
+@media(max-width:900px){
+ .maintenance-screen .maintenance-filters{grid-template-columns:minmax(0,1fr) minmax(150px,.7fr)}
+ .maintenance-screen .maintenance-filters button{grid-column:1/-1;justify-self:start;width:auto}
+ .maintenance-screen .detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px){
+ .maintenance-screen>.page-head{align-items:flex-start}
+ .maintenance-screen>.page-head .page-actions{width:100%}
+ .maintenance-screen>.page-head .page-actions .btn{width:100%}
+ .maintenance-screen .maintenance-filters{grid-template-columns:minmax(0,1fr)}
+ .maintenance-screen .maintenance-filters button{grid-column:auto;width:100%}
+ .maintenance-screen .detail-grid{grid-template-columns:minmax(0,1fr)}
+ .maintenance-screen .tabs-bar{max-width:100%;overflow-x:auto}
+ .maintenance-screen .tabs-bar button{white-space:nowrap}
+}
+
+
+/* Bakım ekranı ve envanter detayındaki bakım kartları: uzun metinler köşelerden taşmasın. */
+.maintenance-screen,
+.maintenance-screen .panel,
+.maintenance-screen .maintenance-table-wrap,
+.maintenance-screen .inline-detail-box,
+.maintenance-screen .maintenance-inline-detail,
+.inventory-detail-view .maintenance-history-item {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.maintenance-screen .maintenance-inline-detail > td {
+  padding: 12px !important;
+  overflow: hidden;
+}
+.maintenance-screen .inline-detail-box {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+}
+.maintenance-screen .detail-grid {
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.maintenance-screen .detail-field {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.maintenance-screen .detail-field > span,
+.maintenance-screen .detail-field > strong {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.maintenance-screen .maintenance-table td,
+.maintenance-screen .maintenance-table th {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.inventory-detail-view .maintenance-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.inventory-detail-view .maintenance-history-item strong,
+.inventory-detail-view .maintenance-history-item span {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+@media (max-width: 900px) {
+  .maintenance-screen .detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .maintenance-screen .maintenance-inline-detail > td {
+    padding: 8px !important;
+  }
+  .maintenance-screen .detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+}
+
+
+/* Envanter listesi: tablo ve alt sayfalama alanı panel dışına taşmasın. */
+.inv-screen-panel {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.inv-screen-panel .table-responsive {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.inv-screen-panel .inv-screen-table {
+  min-width: 980px;
+}
+.inv-screen-panel #ivPagination {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 18px 16px;
+  box-sizing: border-box;
+}
+.inv-screen-panel #ivPagination > #ivCount {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.inv-screen-panel #ivPagination > div:last-child {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.inv-screen-panel #ivPagination .form-select {
+  max-width: 90px;
+}
+@media (max-width: 700px) {
+  .content:has(.inv-screen-panel) {
+    padding: 16px 12px;
+  }
+  .inv-screen-panel #ivPagination {
+    align-items: flex-start !important;
+    padding: 0 12px 14px;
+  }
+  .inv-screen-panel #ivPagination > #ivCount {
+    width: 100%;
+  }
+  .inv-screen-panel #ivPagination > div:last-child {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px !important;
+  }
+}

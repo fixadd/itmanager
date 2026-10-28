@@ -1,8 +1,12 @@
-from flask import Blueprint, jsonify
-from sqlalchemy import func
+import csv
+import io
+from datetime import date, datetime
+from decimal import Decimal
+from flask import Blueprint, jsonify, request, Response, send_file
+from sqlalchemy import func, or_
 
 from ..extensions import db
-from ..models import Inventory, License, StockItem, StockMovement, MaintenanceRecord, PurchaseRequest, Personnel, ScrapRecord, ProductType, AuditLog, User
+from ..models import Inventory, License, LicenseName, LicenseModel, StockItem, StockMovement, MaintenanceRecord, PurchaseRequest, PurchaseRequestItem, Personnel, ScrapRecord, ProductType, AuditLog, User, Factory, Department
 from .auth_routes import permission_required, login_required
 
 reports_bp = Blueprint("reports", __name__)
@@ -159,3 +163,270 @@ def dashboard_summary():
             for row, username in recent
         ],
     })
+
+
+def _export_value(value):
+    if value is None:
+        return ""
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
+
+def _normalize_status(value):
+    normalized = str(value or "").strip().casefold()
+    aliases = {
+        "aktif": "active", "pasif": "inactive",
+        "mevcut": "available", "mevcut değil": "unavailable", "mevcut degil": "unavailable",
+        "atanmış": "assigned", "atanmis": "assigned",
+        "arızalı": "faulty", "arizalı": "faulty", "arizali": "faulty", "broken": "faulty",
+        "bakımda": "maintenance", "bakimda": "maintenance",
+        "hurda": "scrapped", "bekliyor": "pending",
+        "işlemde": "in_progress", "islemde": "in_progress",
+        "tamamlandı": "completed", "tamamlandi": "completed",
+        "iptal": "cancelled", "taslak": "draft",
+        "onaylandı": "approved", "onaylandi": "approved",
+        "sipariş verildi": "ordered", "siparis verildi": "ordered",
+        "reddedildi": "rejected", "süresi doldu": "expired",
+        "süresi yaklaşıyor": "expiring", "serviste": "service",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _safe_audit_details(details):
+    if not isinstance(details, dict):
+        return {}
+    blocked = ("password", "secret", "token", "licensekey", "licencekey", "credential", "connectionstring", "apikey", "privatekey")
+    safe = {}
+    for key, value in details.items():
+        normalized = "".join(ch for ch in str(key).lower() if ch.isalnum())
+        if any(part in normalized for part in blocked):
+            continue
+        if isinstance(value, dict):
+            safe[key] = _safe_audit_details(value)
+        elif isinstance(value, list):
+            safe[key] = [_safe_audit_details(item) if isinstance(item, dict) else _export_value(item) for item in value]
+        else:
+            safe[key] = _export_value(value)
+    return safe
+
+
+def _export_cell(value):
+    value = _export_value(value)
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
+@reports_bp.get("/reports/export")
+@permission_required("reports.view")
+def report_export():
+    export_format = (request.args.get("format") or "xlsx").lower()
+    if export_format not in {"xlsx", "csv"}:
+        return jsonify({"error": "Desteklenmeyen dışa aktarma biçimi"}), 400
+
+    search = (request.args.get("search") or "").strip()
+    status = (request.args.get("status") or "").strip()
+    factory_id = request.args.get("factory_id", type=int)
+    department_id = request.args.get("department_id", type=int)
+    sheets = {}
+
+    inventory_q = Inventory.query
+    if factory_id:
+        inventory_q = inventory_q.filter(Inventory.factory_id == factory_id)
+    if department_id:
+        inventory_q = inventory_q.filter(Inventory.department_id == department_id)
+    inventory_rows = []
+    for x in inventory_q.order_by(Inventory.id.asc()).all():
+        inventory_rows.append({
+            "Kayıt ID": x.id, "Envanter No": x.inventory_no, "Barkod": x.barcode, "Seri No": x.serial_no,
+            "Bilgisayar Adı": x.computer_name, "Makine No": x.machine_no, "IFS No": x.ifs_no,
+            "Donanım Tipi": x.product_type.name if x.product_type else "",
+            "Marka": x.brand.name if x.brand else "", "Model": x.model.name if x.model else "",
+            "Fabrika": x.factory.name if x.factory else "", "Departman": x.department.name if x.department else "",
+            "Atanan Personel": x.personnel.name if x.personnel else "", "Durum": x.status,
+            "Not": x.note, "Oluşturulma": x.created_at, "Güncellenme": x.updated_at,
+        })
+    sheets["Envanter"] = inventory_rows
+
+    stock_q = StockItem.query
+    stock_rows = []
+    for x in stock_q.order_by(StockItem.id.asc()).all():
+        stock_rows.append({
+            "Kayıt ID": x.id, "Barkod": x.barcode, "Donanım Tipi": x.product_type.name if x.product_type else "",
+            "Marka": x.brand.name if x.brand else "", "Model": x.model.name if x.model else "",
+            "Miktar": x.quantity, "Birim": x.unit, "Durum": x.status, "Not": x.note,
+            "Oluşturulma": x.created_at, "Güncellenme": x.updated_at,
+        })
+    sheets["Stok"] = stock_rows
+
+    license_q = License.query
+    license_rows = []
+    for x in license_q.order_by(License.id.asc()).all():
+        license_rows.append({
+            "Kayıt ID": x.id, "Barkod": x.barcode, "Lisans Adı": x.license_name.name if x.license_name else "",
+            "Lisans Modeli": x.license_model.name if x.license_model else "",
+            "Lisans Türü": x.license_type, "Durum": x.status,
+            "Atanan Personel": x.personnel.name if x.personnel else "",
+            "Bağlı Envanter No": x.inventory.inventory_no if x.inventory else "",
+            "E-posta": x.email, "Başlangıç": x.starts_at, "Bitiş": x.expires_at,
+            "Not": x.note, "Oluşturulma": x.created_at, "Güncellenme": x.updated_at,
+        })
+    # License keys and passwords are intentionally excluded from exports.
+    sheets["Lisanslar"] = license_rows
+
+    movement_rows = []
+    for x in StockMovement.query.order_by(StockMovement.created_at.asc(), StockMovement.id.asc()).all():
+        movement_rows.append({
+            "Hareket ID": x.id, "Tarih": x.created_at, "Stok Barkodu": x.stock_item.barcode if x.stock_item else "",
+            "Hareket": x.movement_type, "Miktar": x.quantity, "Birim": x.unit,
+            "Personel": x.personnel.name if x.personnel else "",
+            "Envanter No": x.inventory.inventory_no if x.inventory else "", "Not": x.note,
+        })
+    sheets["Stok Hareketleri"] = movement_rows
+
+    people_rows = [{
+        "Personel No": x.employee_no, "Ad Soyad": x.name, "E-posta": x.email,
+        "Departman": x.department.name if x.department else "", "Durum": "Aktif" if x.active else "Pasif",
+        "Oluşturulma": x.created_at, "Güncellenme": x.updated_at,
+    } for x in Personnel.query.order_by(Personnel.name.asc()).all()]
+    sheets["Personeller"] = people_rows
+
+    maintenance_rows = []
+    for x in MaintenanceRecord.query.order_by(MaintenanceRecord.created_at.asc(), MaintenanceRecord.id.asc()).all():
+        maintenance_rows.append({
+            "Bakım Kayıt ID": x.id, "Envanter No": x.inventory.inventory_no if x.inventory else "",
+            "Arıza": x.fault, "Açıklama": x.description, "Servis": x.service, "Teknisyen": x.technician,
+            "Durum": x.status, "Başlangıç": x.started_at, "Tamamlanma": x.completed_at,
+            "Maliyet": x.cost, "Kaydı Açan Personel": x.created_by_personnel.name if x.created_by_personnel else "",
+            "Not": x.note, "Oluşturulma": x.created_at,
+        })
+    sheets["Bakım Servis"] = maintenance_rows
+
+    scrap_rows = [{
+        "Hurda Kayıt ID": x.id, "Kaynak Türü": x.source_type, "Kaynak Kayıt ID": x.source_id, "Hurda Nedeni": x.reason,
+        "Not": x.note, "Hurdaya Ayrılma Tarihi": x.scrapped_at, "Kayıt Tarihi": x.created_at,
+    } for x in ScrapRecord.query.order_by(ScrapRecord.scrapped_at.asc(), ScrapRecord.id.asc()).all()]
+    sheets["Hurda Kayıtları"] = scrap_rows
+
+    request_rows = []
+    request_query = PurchaseRequest.query
+    for x in request_query.order_by(PurchaseRequest.requested_at.asc(), PurchaseRequest.id.asc()).all():
+        creator_audits = AuditLog.query.filter(
+            AuditLog.entity_type == "purchase_request", AuditLog.entity_id == x.id
+        ).order_by(AuditLog.created_at.asc()).all()
+        creator_names = []
+        for audit in creator_audits:
+            if audit.actor_user_id:
+                actor = db.session.get(User, audit.actor_user_id)
+                if actor:
+                    creator_names.append(actor.full_name)
+        for item in x.items:
+            request_rows.append({
+                "Talep Kayıt ID": x.id, "Talep Satır ID": item.id, "Talep No": x.request_no, "Talep Sahibi": x.requester.name if x.requester else "",
+                "Talebi Açan Kullanıcı": creator_names[0] if creator_names else "",
+                "Fabrika": x.factory.name if x.factory else "", "Departman": x.department.name if x.department else "",
+                "Durum": x.status, "Talep Tarihi": x.requested_at, "Onay Tarihi": x.approved_at,
+                "Tamamlanma Tarihi": x.completed_at, "Ürün Türü": item.product_type,
+                "Donanım Tipi": item.device_type, "Marka": item.brand, "Model": item.model,
+                "Talep Miktarı": item.quantity, "Teslim Alınan": item.received_quantity,
+                "Birim": item.unit, "Açıklama": item.description, "Talep Notu": x.note,
+            })
+    sheets["Satın Alma Talepleri"] = request_rows
+
+    history_rows = []
+    audits = AuditLog.query.order_by(AuditLog.created_at.asc(), AuditLog.id.asc()).all()
+    actor_ids = {a.actor_user_id for a in audits if a.actor_user_id}
+    actors = {u.id: u.full_name for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
+    for a in audits:
+        details = _safe_audit_details(a.details)
+        history_rows.append({
+            "İşlem Kayıt ID": a.id, "Tarih": a.created_at, "İşlemi Yapan": actors.get(a.actor_user_id, "Sistem"),
+            "İşlem": a.action, "Kayıt Türü": a.entity_type, "Kayıt ID": a.entity_id,
+            "Talep No": details.get("request_no") or details.get("request_number") or "",
+            "Talep Sahibi": details.get("requester_name") or "",
+            "Talebi Açan Kullanıcı": details.get("request_creator_name") or "",
+            "Detay": __import__("json").dumps(details, ensure_ascii=False, default=str),
+        })
+    sheets["İşlem Geçmişi"] = history_rows
+
+    # Apply the same free-text/status filters to every export module, including
+    # maintenance, personnel, stock movements, scrap and audit history.
+    # Filtering happens on the export projection so each module searches the
+    # fields that are actually visible to the recipient.
+    if search or status:
+        needle = search.casefold()
+        for module_name, rows in sheets.items():
+            filtered_rows = []
+            for row in rows:
+                if needle and not any(
+                    needle in str(_export_value(value)).casefold()
+                    for value in row.values()
+                ):
+                    continue
+                if status and "Durum" in row and _normalize_status(row.get("Durum")) != _normalize_status(status):
+                    continue
+                if status and module_name == "İşlem Geçmişi":
+                    history_text = " ".join(str(_export_value(value)) for value in row.values()).casefold()
+                    status_aliases = {str(status).casefold(), _normalize_status(status)}
+                    if not any(alias and alias in history_text for alias in status_aliases):
+                        continue
+                filtered_rows.append(row)
+            sheets[module_name] = filtered_rows
+
+    if export_format == "csv":
+        output = io.StringIO(newline="")
+        writer = csv.writer(output, delimiter=";", quoting=csv.QUOTE_MINIMAL)
+        # CSV cannot contain multiple worksheets, so flatten all modules into
+        # one table with a module discriminator and the union of safe columns.
+        headers = list(dict.fromkeys(
+            key for rows in sheets.values() for row in rows for key in row.keys()
+        ))
+        writer.writerow(["Modül", *headers])
+        for sheet_name, rows in sheets.items():
+            if not rows:
+                writer.writerow([sheet_name, *(["Kayıt bulunamadı"] + [""] * max(0, len(headers) - 1))])
+                continue
+            for row in rows:
+                writer.writerow([sheet_name, *[
+                    _export_cell(row.get(header, "")) for header in headers
+                ]])
+        data = "\ufeff" + output.getvalue()
+        return Response(data, mimetype="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": 'attachment; filename="itmanager-rapor.csv"'})
+
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        return jsonify({"error": "XLSX dışa aktarma bileşeni kurulu değil"}), 500
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    for sheet_name, rows in sheets.items():
+        ws = workbook.create_sheet(sheet_name[:31])
+        headers = list(rows[0].keys()) if rows else ["Kayıt"]
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="24476B")
+        if rows:
+            for row in rows:
+                ws.append([_export_cell(row.get(h)) for h in headers])
+        else:
+            ws.append(["Kayıt bulunamadı"])
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+        for col_idx, header in enumerate(headers, 1):
+            values = [str(header)] + [str(ws.cell(row=i, column=col_idx).value or "") for i in range(2, min(ws.max_row, 200) + 1)]
+            ws.column_dimensions[get_column_letter(col_idx)].width = min(max(max(map(len, values), default=10) + 2, 12), 42)
+    output = io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    return send_file(output, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                     as_attachment=True, download_name="itmanager-rapor.xlsx")

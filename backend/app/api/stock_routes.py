@@ -4,7 +4,7 @@ from sqlalchemy import case, func, or_, text
 from sqlalchemy.orm import joinedload
 from ..extensions import db
 from .auth_routes import current_user, login_required
-from ..models import AssignmentHistory, AuditLog, Brand, Inventory, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement
+from ..models import AssignmentHistory, AuditLog, Brand, Inventory, Personnel, ProductModel, ProductType, ScrapRecord, StockItem, StockMovement, User
 
 stock_bp = Blueprint("stock", __name__)
 
@@ -53,7 +53,8 @@ def _dict(x):
     }
 
 
-def _movement_dict(m):
+def _movement_dict(m, provenance=None, actor=None):
+    provenance = provenance or {}
     return {
         "id": m.id,
         "type": m.movement_type,
@@ -62,6 +63,10 @@ def _movement_dict(m):
         "personnel": {"id": m.personnel_id, "name": m.personnel.name} if m.personnel else None,
         "inventory": {"id": m.inventory_id, "inventory_no": m.inventory.inventory_no} if m.inventory else None,
         "note": m.note,
+        "request_no": provenance.get("request_no"),
+        "requester_name": provenance.get("requester_name"),
+        "request_creator_name": provenance.get("request_creator_name"),
+        "entered_by": actor.full_name if actor else provenance.get("received_by_name"),
         "created_at": m.created_at.isoformat() if m.created_at else None,
     }
 
@@ -132,12 +137,12 @@ def stock_summary():
     today = date.today()
     month_start = today.replace(day=1)
     row = db.session.query(
-        func.count(StockItem.id).filter(StockItem.status != "scrapped"),
+        func.coalesce(func.sum(StockItem.quantity), 0).filter(StockItem.status != "scrapped"),
         func.count(StockItem.id).filter(StockItem.status == "available", StockItem.quantity <= 10),
         func.count(StockItem.id).filter(StockItem.status == "scrapped"),
     ).one()
     movements_this_month = db.session.query(func.count(StockMovement.id)).filter(StockMovement.created_at >= month_start).scalar() or 0
-    return jsonify({"total": int(row[0] or 0), "critical": int(row[1] or 0), "scrapped": int(row[2] or 0), "movements_this_month": int(movements_this_month)})
+    return jsonify({"total": float(row[0] or 0), "critical": int(row[1] or 0), "scrapped": int(row[2] or 0), "movements_this_month": int(movements_this_month)})
 
 @stock_bp.get("/stock/<int:stock_id>")
 @login_required
@@ -155,7 +160,15 @@ def stock_movements(stock_id):
     if not x:
         return jsonify({"error": "Stok kaydı bulunamadı"}), 404
     rows = StockMovement.query.options(joinedload(StockMovement.personnel), joinedload(StockMovement.inventory)).filter_by(stock_item_id=stock_id).order_by(StockMovement.id.desc()).all()
-    return jsonify({"items": [_movement_dict(m) for m in rows]})
+    audits = AuditLog.query.filter_by(entity_type="stock", entity_id=stock_id).filter(AuditLog.action == "stock.received_from_request").order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).all()
+    actor_ids = {a.actor_user_id for a in audits if a.actor_user_id}
+    actors = {u.id: u for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
+    enriched=[]
+    for movement in rows:
+        matching = next((a for a in audits if a.details and a.details.get("request_no") and a.details.get("unit", movement.unit) == movement.unit and abs(float(a.details.get("quantity", 0))-float(movement.quantity)) < 0.0001 and a.created_at and movement.created_at and abs((a.created_at-movement.created_at).total_seconds()) < 10), None)
+        details = matching.details or {} if matching else {}
+        enriched.append(_movement_dict(movement, details, actors.get(matching.actor_user_id) if matching and matching.actor_user_id else None))
+    return jsonify({"items": enriched})
 
 
 @stock_bp.post("/stock")
@@ -274,7 +287,8 @@ def assign_stock(stock_id):
         p = _resolve(Personnel, data.get("personnel_id", data.get("person")), "personel")
         quantity = _decimal(data.get("quantity", 1))
         if quantity > x.quantity:
-            raise ValueError("Yetersiz stok miktarı")
+            available = format(x.quantity.normalize(), "f") if x.quantity is not None else "0"
+            raise ValueError(f"Stokta yalnızca {available} {x.unit} var. Bundan fazla atama yapamazsınız.")
         x.quantity -= quantity
         db.session.add(StockMovement(stock_item_id=x.id, movement_type="out", quantity=quantity, unit=x.unit, personnel_id=p.id, note=data.get("note")))
         db.session.add(AssignmentHistory(personnel_id=p.id, asset_type="stock", asset_id=x.id, action="assign", note=f"{quantity} {x.unit}: {data.get('note') or ''}".strip()))

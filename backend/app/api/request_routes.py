@@ -1,10 +1,11 @@
 from datetime import datetime,timezone
+from decimal import Decimal
 from uuid import uuid4
 from flask import Blueprint,jsonify,request
 from sqlalchemy import or_,text
 from sqlalchemy.orm import joinedload, selectinload
 from ..extensions import db
-from ..models import AuditLog,Brand,Department,Factory,Inventory,License,LicenseModel,LicenseName,Personnel,ProductModel,ProductType,PurchaseRequest,PurchaseRequestItem,StockItem,StockMovement
+from ..models import AuditLog,Brand,Department,Factory,Inventory,License,LicenseModel,LicenseName,Personnel,ProductModel,ProductType,PurchaseRequest,PurchaseRequestItem,StockItem,StockMovement,User
 from .auth_routes import current_user,login_required
 requests_bp=Blueprint("requests",__name__)
 STATUSES={"draft","pending","approved","rejected","ordered","completed","cancelled"};PRIORITIES={"low","normal","high","urgent"}
@@ -14,7 +15,14 @@ def _dt(v):
  try:return datetime.fromisoformat(str(v).replace("Z","+00:00"))
  except ValueError:raise ValueError("Geçersiz tarih formatı")
 def _item_dict(x):return {"id":x.id,"product_type":x.product_type,"device_type":x.device_type,"brand":x.brand,"model":x.model,"quantity":float(x.quantity) if x.quantity is not None else 0,"received_quantity":float(x.received_quantity or 0),"unit":x.unit,"estimated_unit_price":float(x.estimated_unit_price) if x.estimated_unit_price is not None else None,"description":x.description}
-def _dict(x):return {"id":x.id,"request_no":x.request_no,"requester":{"id":x.requester_id,"name":x.requester.name} if x.requester else None,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"status":x.status,"priority":x.priority,"requested_at":x.requested_at.isoformat() if x.requested_at else None,"approved_at":x.approved_at.isoformat() if x.approved_at else None,"approved_by":x.approved_by,"completed_at":x.completed_at.isoformat() if x.completed_at else None,"note":x.note,"items":[_item_dict(i) for i in x.items],"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
+def _creator(x):
+ log=AuditLog.query.filter_by(entity_type="purchase_request",entity_id=x.id).filter(AuditLog.action.in_(("request.created","request.updated"))).order_by(AuditLog.created_at.asc(),AuditLog.id.asc()).first()
+ user=db.session.get(User,log.actor_user_id) if log and log.actor_user_id else None
+ return {"id":user.id,"name":user.full_name,"username":user.username} if user else None
+def _dict(x):
+ creator=_creator(x)
+ requester={"id":x.requester_id,"name":x.requester.name} if x.requester else creator
+ return {"id":x.id,"request_no":x.request_no,"requester":requester,"created_by":creator,"department":{"id":x.department_id,"name":x.department.name} if x.department else None,"factory":{"id":x.factory_id,"name":x.factory.name} if x.factory else None,"status":x.status,"priority":x.priority,"requested_at":x.requested_at.isoformat() if x.requested_at else None,"approved_at":x.approved_at.isoformat() if x.approved_at else None,"approved_by":x.approved_by,"completed_at":x.completed_at.isoformat() if x.completed_at else None,"note":x.note,"items":[_item_dict(i) for i in x.items],"created_at":x.created_at.isoformat() if x.created_at else None,"updated_at":x.updated_at.isoformat() if x.updated_at else None}
 def _resolve(model,value,label):
  if value in (None,""):return None
  obj=db.session.get(model,int(value)) if str(value).isdigit() else model.query.filter(db.func.lower(model.name)==str(value).strip().lower()).first()
@@ -144,6 +152,7 @@ def _transfer_missing(x,data):
     for key,label in (("inventory_no","Envanter No"),("factory","Fabrika"),("department","Departman"),("device_type","Donanım Tipi"),("brand","Marka")):
      if not isinstance(rec,dict) or rec.get(key) in (None,""): missing.append({"key":f"records[{idx}].{key}","label":f"{idx+1}. cihaz {label}"})
   elif item.product_type=="Lisans":
+   if received > 0 and not received.is_integer(): missing.append({"key":"received_quantity","label":"Lisans miktarı tam sayı olmalıdır"})
    for key,label in (("license_name","Lisans Adı"),("license_model_id","Lisans Modeli")):
     if v.get(key) in (None,""): missing.append({"key":key,"label":label})
   else:
@@ -162,6 +171,7 @@ def transfer_request(request_id):
  if not selected:return jsonify({"error":"En az bir gelen talep kalemi seçmelisiniz","requires_input":True,"items":missing}),400
  if any(v["missing"] for v in selected):return jsonify({"error":"Aktarım için eksik bilgiler var","requires_input":True,"items":missing}),409
  by_id={str(v.get("item_id")):v for v in (data.get("items") or [])}; created=[]
+ actor=current_user(); creator=_creator(x); requester_name=(x.requester.name if x.requester else None); provenance={"request_id":x.id,"request_no":x.request_no,"requester_name":requester_name,"request_creator_name":(creator or {}).get("name"),"received_by_user_id":actor.id if actor else None,"received_by_name":actor.full_name if actor else None}
  seen_inventory_nos=set()
  try:
   for item in x.items:
@@ -187,7 +197,7 @@ def transfer_request(request_id):
       raise ValueError(f"Envanter No zaten kullanılıyor: {inventory_no}")
      seen_inventory_nos.add(inventory_key)
      obj=Inventory(inventory_no=inventory_no,computer_name=rec.get("computer_name") or None,serial_no=rec.get("serial_no") or None,machine_no=rec.get("machine_no") or None,ifs_no=rec.get("ifs_no") or None,note=rec.get("note") or item.description or None,factory_id=factory.id,department_id=department.id,product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,personnel_id=person.id if person else None)
-     db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Envanter","id":obj.id})
+     db.session.add(obj);db.session.flush();_audit("inventory.received_from_request",obj.id,{**provenance,"inventory_no":obj.inventory_no});created.append({"item_id":item.id,"type":"Envanter","id":obj.id})
    elif item.product_type=="Lisans":
     name=_resolve(LicenseName,v.get("license_name"),"lisans adı"); model=_resolve(LicenseModel,v.get("license_model_id") or v.get("license_model"),"lisans modeli")
     if not name.active or not model.active: raise ValueError("Aktarımda pasif lisans master kaydı kullanılamaz")
@@ -198,7 +208,7 @@ def transfer_request(request_id):
     if person and not person.active: raise ValueError("Aktarımda pasif personel kullanılamaz")
     for _ in range(int(received)):
      obj=License(license_name_id=name.id,license_model_id=model.id,license_type=v.get("license_type") or "subscription",license_key=v.get("license_key") or None,email=v.get("email") or None,password=v.get("password") or None,starts_at=starts,expires_at=expires,note=v.get("note") or item.description or None,status="active",personnel_id=person.id if person else None)
-     db.session.add(obj);db.session.flush();created.append({"item_id":item.id,"type":"Lisans","id":obj.id})
+     db.session.add(obj);db.session.flush();db.session.add(AuditLog(action="license.received_from_request",entity_type="license",entity_id=obj.id,actor_user_id=actor.id if actor else None,details={**provenance,"license_name":name.name,"license_model":model.name}));created.append({"item_id":item.id,"type":"Lisans","id":obj.id})
    else:
     ptype=_resolve(ProductType,v.get("device_type") or item.device_type,"donanım tipi"); brand=_resolve(Brand,v.get("brand") or item.brand,"marka"); model=None
     if not ptype.active or not brand.active: raise ValueError("Aktarımda pasif master kayıt kullanılamaz")
@@ -207,23 +217,23 @@ def transfer_request(request_id):
      model=_resolve(ProductModel,v.get("model") or item.model,"model")
      if not model.active: raise ValueError("Aktarımda pasif model kullanılamaz")
      if model.brand_id!=brand.id or (model.product_type_id and model.product_type_id!=ptype.id):raise ValueError("Stok model, marka/donanım tipiyle eşleşmiyor")
-    q=received
+    q=Decimal(str(received))
     unit=v.get("unit") or item.unit or "Adet"
     obj=StockItem.query.filter_by(product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,unit=unit).filter(StockItem.status!="scrapped").order_by(StockItem.id.asc()).first()
     merged_into_existing=bool(obj)
     if obj:
-     obj.quantity=(obj.quantity or 0)+q
+     obj.quantity=(obj.quantity or Decimal("0"))+q
      if v.get("note") or item.description: obj.note=v.get("note") or item.description
-     db.session.add(StockMovement(stock_item_id=obj.id,movement_type="in",quantity=q,unit=obj.unit,note=f"Satın alma talebi {x.request_no}"))
+     db.session.add(StockMovement(stock_item_id=obj.id,movement_type="in",quantity=q,unit=obj.unit,note=f"Satın alma talebi {x.request_no} · Kaydı giren: {actor.full_name if actor else 'Bilinmiyor'}"));_audit("stock.received_from_request",obj.id,{**provenance,"quantity":float(q),"unit":obj.unit})
     else:
      obj=StockItem(product_type_id=ptype.id,brand_id=brand.id,model_id=model.id if model else None,quantity=q,unit=unit,note=v.get("note") or item.description or None)
-     db.session.add(obj);db.session.flush();db.session.add(StockMovement(stock_item_id=obj.id,movement_type="in",quantity=q,unit=obj.unit,note=f"Satın alma talebi {x.request_no}"))
+     db.session.add(obj);db.session.flush();db.session.add(StockMovement(stock_item_id=obj.id,movement_type="in",quantity=q,unit=obj.unit,note=f"Satın alma talebi {x.request_no} · Kaydı giren: {actor.full_name if actor else 'Bilinmiyor'}"));_audit("stock.received_from_request",obj.id,{**provenance,"quantity":float(q),"unit":obj.unit})
     created.append({"item_id":item.id,"type":"Stok","id":obj.id,"merged_into_existing":merged_into_existing})
   for item in x.items:
    v=by_id.get(str(item.id),{})
    if v.get("selected"):
     received=float(v.get("received_quantity",0) or 0)
-    item.received_quantity=(item.received_quantity or 0)+received
+    item.received_quantity=(item.received_quantity or Decimal("0"))+Decimal(str(received))
   # Tüm talep kalemleri tamamen teslim alındıysa talebi otomatik tamamla.
   all_received=all(float(item.received_quantity or 0) >= float(item.quantity or 0) - 1e-9 for item in x.items)
   if all_received and x.status not in {"completed","cancelled","rejected"}:
@@ -234,6 +244,34 @@ def transfer_request(request_id):
   _audit("request.transferred",x.id,{"request_no":x.request_no,"targets":created});db.session.commit();return jsonify({"request_id":x.id,"request_no":x.request_no,"status":x.status,"transferred":created})
  except ValueError as e:db.session.rollback();return jsonify({"error":str(e)}),400
  except Exception as e:db.session.rollback();return jsonify({"error":"Talep aktarımı başarısız","detail":str(e)}),409
+
+
+@requests_bp.get("/requests/<int:request_id>/history")
+@login_required
+def request_history(request_id):
+ x=db.session.get(PurchaseRequest,request_id)
+ if not x:return jsonify({"error":"Talep bulunamadı"}),404
+ rows=AuditLog.query.filter_by(entity_type="purchase_request",entity_id=request_id).order_by(AuditLog.created_at.asc(),AuditLog.id.asc()).all()
+ targets=[]
+ for row in rows:
+  if row.action=="request.transferred" and isinstance(row.details,dict):
+   targets.extend((str(t.get("type","")).lower(),t.get("id")) for t in row.details.get("targets",[]) if isinstance(t,dict) and t.get("id") is not None)
+ type_map={"envanter":"inventory","lisans":"license","stok":"stock"}
+ for kind,entity_id in targets:
+  entity_type=type_map.get(kind,kind)
+  found=AuditLog.query.filter_by(entity_type=entity_type,entity_id=entity_id).order_by(AuditLog.created_at.asc(),AuditLog.id.asc()).all()
+  rows.extend(r for r in found if isinstance(r.details,dict) and r.details.get("request_id")==request_id and r not in rows)
+ rows.sort(key=lambda r:(r.created_at or datetime.min.replace(tzinfo=timezone.utc),r.id))
+ actor_ids={r.actor_user_id for r in rows if r.actor_user_id}
+ actors={u.id:u for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
+ safe_keys={"request_no","from_status","to_status","reason","item_count","quantity","unit","inventory_no","license_name","license_model","requester_name","request_creator_name","received_by_name","targets","status"}
+ history=[]
+ for row in rows:
+  details=row.details if isinstance(row.details,dict) else {}
+  safe={k:details[k] for k in safe_keys if k in details}
+  actor=actors.get(row.actor_user_id)
+  history.append({"action":row.action,"actor":actor.full_name if actor else None,"created_at":row.created_at.isoformat() if row.created_at else None,"entity_type":row.entity_type,"entity_id":row.entity_id,"details":safe})
+ return jsonify({"items":history})
 
 @requests_bp.post("/requests/<int:request_id>/approve")
 @login_required

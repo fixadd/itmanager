@@ -14,6 +14,13 @@ ALLOWED_STATUS = {"pending", "in_progress", "service", "completed", "cancelled"}
 ALLOWED_TYPES = {"internal", "service", "periodic"}
 
 
+
+def _current_account_name():
+    user = current_user()
+    if not user:
+        return None
+    return str(getattr(user, "full_name", None) or getattr(user, "username", None) or "").strip() or None
+
 def _dt(value):
     if value in (None, ""):
         return None
@@ -51,6 +58,53 @@ def _audit(action, entity_id, details=None):
     db.session.add(AuditLog(action=action, entity_type="maintenance", entity_id=entity_id, actor_user_id=user.id if user else None, details=details or {}))
 
 
+def _sync_inventory_maintenance_status(inventory_id, maintenance_id=None):
+    inventory = db.session.get(Inventory, inventory_id)
+    if not inventory or inventory.status == "scrapped":
+        return
+    open_count = MaintenanceRecord.query.filter(
+        MaintenanceRecord.inventory_id == inventory_id,
+        MaintenanceRecord.status.in_({"pending", "in_progress", "service"}),
+    ).count()
+    old_status = inventory.status
+    if open_count:
+        inventory.status = "maintenance"
+    elif inventory.status == "maintenance":
+        inventory.status = "active"
+    if inventory.status != old_status:
+        user = current_user()
+        db.session.add(AuditLog(
+            action="inventory.maintenance_status_changed",
+            entity_type="inventory",
+            entity_id=inventory.id,
+            actor_user_id=user.id if user else None,
+            details={
+                "from_status": old_status,
+                "to_status": inventory.status,
+                "maintenance_id": maintenance_id,
+            },
+        ))
+
+
+def _maintenance_audit_details(x):
+    inventory = db.session.get(Inventory, x.inventory_id)
+    return {
+        "inventory_id": x.inventory_id,
+        "inventory_no": inventory.inventory_no if inventory else None,
+        "computer_name": inventory.computer_name if inventory else None,
+        "maintenance_type": x.maintenance_type,
+        "fault": x.fault,
+        "description": x.description,
+        "service": x.service,
+        "technician": x.technician,
+        "status": x.status,
+        "started_at": x.started_at.isoformat() if x.started_at else None,
+        "completed_at": x.completed_at.isoformat() if x.completed_at else None,
+        "cost": str(x.cost) if x.cost is not None else None,
+        "note": x.note,
+    }
+
+
 def _payload(data, existing=None):
     inventory_id = data.get("inventory_id", existing.inventory_id if existing else None)
     creator = existing.created_by_personnel_id if existing else (current_user().personnel.id if current_user() and current_user().personnel else None)
@@ -86,6 +140,10 @@ def _payload(data, existing=None):
         if not completed_at:
             completed_at = now
 
+    # Bakımı yapan alanı serbest metin değil, işlemi yapan oturum hesabıdır.
+    # Her oluşturma/düzenleme işleminde son işlemi yapan hesap kaydedilir.
+    technician = _current_account_name()
+
     cost_value = data.get("cost", existing.cost if existing else None)
     if cost_value not in (None, ""):
         try:
@@ -103,7 +161,7 @@ def _payload(data, existing=None):
         "fault": fault,
         "description": data.get("description", existing.description if existing else None),
         "service": data.get("service", existing.service if existing else None),
-        "technician": data.get("technician", existing.technician if existing else None),
+        "technician": technician,
         "started_at": started_at,
         "completed_at": completed_at,
         "status": status,
@@ -115,8 +173,17 @@ def _payload(data, existing=None):
 @maintenance_bp.get("/maintenance/inventory-options")
 @login_required
 def maintenance_inventory_options():
-    rows = Inventory.query.with_entities(Inventory.id, Inventory.inventory_no, Inventory.computer_name, Inventory.serial_no, Inventory.status).filter(Inventory.status != "scrapped").order_by(Inventory.inventory_no.asc()).all()
-    return jsonify({"items": [{"id": x.id, "inventory_no": x.inventory_no, "computer_name": x.computer_name, "serial_no": x.serial_no, "status": x.status} for x in rows]})
+    rows = Inventory.query.options(joinedload(Inventory.product_type), joinedload(Inventory.brand), joinedload(Inventory.model)).filter(Inventory.status != "scrapped").order_by(Inventory.inventory_no.asc()).all()
+    return jsonify({"items": [{
+        "id": x.id,
+        "inventory_no": x.inventory_no,
+        "computer_name": x.computer_name,
+        "serial_no": x.serial_no,
+        "status": x.status,
+        "product_type": x.product_type.name if x.product_type else None,
+        "brand": x.brand.name if x.brand else None,
+        "model": x.model.name if x.model else None,
+    } for x in rows]})
 
 
 @maintenance_bp.get("/maintenance")
@@ -170,7 +237,8 @@ def create_maintenance():
         x = MaintenanceRecord(**_payload(request.get_json(silent=True) or {}))
         db.session.add(x)
         db.session.flush()
-        _audit("maintenance.created", x.id, {"inventory_id": x.inventory_id})
+        _sync_inventory_maintenance_status(x.inventory_id, x.id)
+        _audit("maintenance.created", x.id, _maintenance_audit_details(x))
         db.session.commit()
         return jsonify(_dict(x)), 201
     except ValueError as e:
@@ -189,9 +257,14 @@ def update_maintenance(maintenance_id):
         return jsonify({"error": "Bakım kaydı bulunamadı"}), 404
     try:
         before = _dict(x)
+        old_inventory_id = x.inventory_id
         for k, v in _payload(request.get_json(silent=True) or {}, x).items():
             setattr(x, k, v)
-        _audit("maintenance.updated", x.id, {"before": before, "after": _dict(x)})
+        db.session.flush()
+        _sync_inventory_maintenance_status(old_inventory_id, x.id)
+        if x.inventory_id != old_inventory_id:
+            _sync_inventory_maintenance_status(x.inventory_id, x.id)
+        _audit("maintenance.updated", x.id, {"before": before, "after": _dict(x), **_maintenance_audit_details(x)})
         db.session.commit()
         return jsonify(_dict(x))
     except ValueError as e:
@@ -216,6 +289,10 @@ def change_status(maintenance_id):
     try:
         old_status = x.status
         x.status = status
+        # Durum değiştiren son oturum hesabını sakla.
+        x.technician = _current_account_name()
+        db.session.flush()
+        _sync_inventory_maintenance_status(x.inventory_id, x.id)
         if status in {"in_progress", "service"} and not x.started_at:
             x.started_at = now
         if status == "completed":
@@ -229,6 +306,7 @@ def change_status(maintenance_id):
             "from_status": old_status,
             "status": status,
             "note": data.get("note"),
+            **_maintenance_audit_details(x),
         })
         db.session.commit()
         return jsonify(_dict(x))

@@ -11,7 +11,9 @@ class Role(TimestampMixin,db.Model):
 class Permission(TimestampMixin,db.Model):
     __tablename__="permissions"; id=db.Column(db.Integer,primary_key=True); key=db.Column(db.String(120),unique=True,nullable=False); name=db.Column(db.String(160),nullable=False); description=db.Column(db.String(255)); roles=db.relationship("Role",secondary=role_permissions,back_populates="permissions")
 class User(TimestampMixin,db.Model):
-    __tablename__="users"; id=db.Column(db.Integer,primary_key=True); username=db.Column(db.String(80),unique=True,nullable=False); email=db.Column(db.String(255),unique=True); password_hash=db.Column(db.String(255),nullable=False); role_id=db.Column(db.Integer,db.ForeignKey("roles.id")); personnel_id=db.Column(db.Integer,db.ForeignKey("personnel.id")); active=db.Column(db.Boolean,default=True,nullable=False); last_login_at=db.Column(db.DateTime(timezone=True)); role=db.relationship("Role",backref=db.backref("users",lazy="dynamic")); personnel=db.relationship("Personnel")
+    __tablename__="users"; id=db.Column(db.Integer,primary_key=True); username=db.Column(db.String(80),unique=True,nullable=False); first_name=db.Column(db.String(100),nullable=False,default=""); last_name=db.Column(db.String(100),nullable=False,default=""); email=db.Column(db.String(255),unique=True); password_hash=db.Column(db.String(255),nullable=False); role_id=db.Column(db.Integer,db.ForeignKey("roles.id")); personnel_id=db.Column(db.Integer,db.ForeignKey("personnel.id")); active=db.Column(db.Boolean,default=True,nullable=False); last_login_at=db.Column(db.DateTime(timezone=True)); role=db.relationship("Role",backref=db.backref("users",lazy="dynamic")); personnel=db.relationship("Personnel")
+    @property
+    def full_name(self): return " ".join(part.strip() for part in (self.first_name or "", self.last_name or "") if part.strip()) or (self.personnel.name if self.personnel else self.username)
     def has_permission(self,key): return bool(self.role and self.role.active and any(p.key==key for p in self.role.permissions))
 class Factory(TimestampMixin,db.Model):
     __tablename__="factories"; id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(120),unique=True,nullable=False); active=db.Column(db.Boolean,default=True,nullable=False)
@@ -34,7 +36,7 @@ class Inventory(TimestampMixin,db.Model):
 class License(TimestampMixin,db.Model):
     __tablename__="licenses"; id=db.Column(db.Integer,primary_key=True); barcode=db.Column(db.String(32),unique=True,nullable=False,server_default=db.text("'LIC-' || lpad(nextval('license_barcode_seq')::text, 6, '0')")); license_name_id=db.Column(db.Integer,db.ForeignKey("license_names.id"),nullable=False); license_model_id=db.Column(db.Integer,db.ForeignKey("license_models.id",ondelete="SET NULL")); license_type=db.Column(db.String(30),nullable=False,default="subscription"); license_key=db.Column(db.Text); email=db.Column(db.String(255)); password=db.Column(db.Text); starts_at=db.Column(db.Date); expires_at=db.Column(db.Date); note=db.Column(db.Text); status=db.Column(db.String(30),default="active",nullable=False); inventory_id=db.Column(db.Integer,db.ForeignKey("inventory.id",ondelete="SET NULL")); personnel_id=db.Column(db.Integer,db.ForeignKey("personnel.id")); license_name=db.relationship("LicenseName"); license_model=db.relationship("LicenseModel"); inventory=db.relationship("Inventory"); personnel=db.relationship("Personnel")
 class StockItem(TimestampMixin,db.Model):
-    __tablename__="stock_items"; id=db.Column(db.Integer,primary_key=True); barcode=db.Column(db.String(32),unique=True,nullable=False,server_default=db.text("'STK-' || lpad(nextval('stock_barcode_seq')::text, 6, &#39;0&#39;)")); product_type_id=db.Column(db.Integer,db.ForeignKey("product_types.id"),nullable=False); brand_id=db.Column(db.Integer,db.ForeignKey("brands.id"),nullable=False); model_id=db.Column(db.Integer,db.ForeignKey("product_models.id")); quantity=db.Column(db.Numeric(12,2),default=0,nullable=False); unit=db.Column(db.String(30),default="Adet",nullable=False); note=db.Column(db.Text); status=db.Column(db.String(30),default="available",nullable=False); product_type=db.relationship("ProductType"); brand=db.relationship("Brand"); model=db.relationship("ProductModel")
+    __tablename__="stock_items"; id=db.Column(db.Integer,primary_key=True); barcode=db.Column(db.String(32),unique=True,nullable=False,server_default=db.text("'STK-' || lpad(nextval('stock_barcode_seq')::text, 6, '0')")); product_type_id=db.Column(db.Integer,db.ForeignKey("product_types.id"),nullable=False); brand_id=db.Column(db.Integer,db.ForeignKey("brands.id"),nullable=False); model_id=db.Column(db.Integer,db.ForeignKey("product_models.id")); quantity=db.Column(db.Numeric(12,2),default=0,nullable=False); unit=db.Column(db.String(30),default="Adet",nullable=False); note=db.Column(db.Text); status=db.Column(db.String(30),default="available",nullable=False); product_type=db.relationship("ProductType"); brand=db.relationship("Brand"); model=db.relationship("ProductModel")
 class StockMovement(TimestampMixin,db.Model):
     __tablename__="stock_movements"; id=db.Column(db.Integer,primary_key=True); stock_item_id=db.Column(db.Integer,db.ForeignKey("stock_items.id"),nullable=False); movement_type=db.Column(db.String(20),nullable=False); quantity=db.Column(db.Numeric(12,2),nullable=False); unit=db.Column(db.String(30),default="Adet",nullable=False); personnel_id=db.Column(db.Integer,db.ForeignKey("personnel.id")); inventory_id=db.Column(db.Integer,db.ForeignKey("inventory.id")); note=db.Column(db.Text); stock_item=db.relationship("StockItem",backref=db.backref("movements",lazy="dynamic")); personnel=db.relationship("Personnel"); inventory=db.relationship("Inventory")
 class MaintenanceRecord(TimestampMixin,db.Model):
@@ -55,3 +57,35 @@ class ScrapRecord(TimestampMixin,db.Model):
     __tablename__="scrap_records"; id=db.Column(db.Integer,primary_key=True); source_type=db.Column(db.String(30),nullable=False); source_id=db.Column(db.Integer,nullable=False); reason=db.Column(db.String(80),nullable=False); note=db.Column(db.Text); scrapped_at=db.Column(db.DateTime(timezone=True),nullable=False,default=utcnow)
 class AuditLog(db.Model):
     __tablename__="audit_logs"; id=db.Column(db.BigInteger,primary_key=True); action=db.Column(db.String(80),nullable=False); entity_type=db.Column(db.String(80)); entity_id=db.Column(db.Integer); actor_user_id=db.Column(db.Integer); details=db.Column(db.JSON); created_at=db.Column(db.DateTime(timezone=True),default=utcnow,nullable=False)
+
+class AccessSystem(TimestampMixin,db.Model):
+    __tablename__="access_systems"
+    id=db.Column(db.Integer,primary_key=True)
+    name=db.Column(db.String(160),unique=True,nullable=False)
+    active=db.Column(db.Boolean,default=True,nullable=False)
+
+class PersonnelSystemAccess(TimestampMixin,db.Model):
+    __tablename__="personnel_system_accesses"
+    id=db.Column(db.Integer,primary_key=True)
+    personnel_id=db.Column(db.Integer,db.ForeignKey("personnel.id",ondelete="CASCADE"),nullable=False)
+    system_id=db.Column(db.Integer,db.ForeignKey("access_systems.id",ondelete="RESTRICT"),nullable=False)
+    has_access=db.Column(db.Boolean,default=True,nullable=False)
+    note=db.Column(db.String(500))
+    personnel=db.relationship("Personnel")
+    system=db.relationship("AccessSystem")
+    __table_args__=(db.UniqueConstraint("personnel_id","system_id",name="uq_personnel_system_access"),)
+
+class NetworkPort(TimestampMixin,db.Model):
+    __tablename__="network_ports"
+    id=db.Column(db.Integer,primary_key=True)
+    cabinet_name=db.Column(db.String(160),nullable=False,index=True)
+    row_number=db.Column(db.Integer,nullable=False)
+    source_key=db.Column(db.String(160))
+    device_type=db.Column(db.String(80))
+    port_label=db.Column(db.String(120))
+    patch_panel=db.Column(db.String(120))
+    ip_address=db.Column(db.String(64))
+    switch_port=db.Column(db.String(120))
+    mounting_location=db.Column(db.String(200))
+    note=db.Column(db.Text)
+    __table_args__=(db.UniqueConstraint("cabinet_name","row_number","switch_port",name="uq_network_port_cabinet_row_switch"),db.UniqueConstraint("cabinet_name","source_key",name="uq_network_port_cabinet_source_key"))

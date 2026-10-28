@@ -1,8 +1,6 @@
-import os
 from flask import Flask,jsonify,request,session
 from .config import Config
 from .extensions import db,migrate
-from .models import User
 from .api import api_bp,stock_bp
 from .api.auth_routes import auth_bp,current_user
 from .api.maintenance_routes import maintenance_bp
@@ -20,16 +18,14 @@ from .api.connection_routes import connections_bp
 from .api.product_routes import product_bp
 from .api.catalog_routes import catalog_bp
 from .api.license_catalog_record_routes import license_catalog_record_bp
+from .api.network_routes import network_bp
 def create_app(config_class=Config):
  app=Flask(__name__);app.config.from_object(config_class);db.init_app(app);migrate.init_app(app,db,compare_type=True)
- for bp in (api_bp,stock_bp,auth_bp,maintenance_bp,requests_bp,personnel_bp,knowledge_bp,attachments_bp,scrap_bp,reports_bp,settings_bp,logs_bp,license_owner_bp,data_bp,connections_bp,product_bp,catalog_bp,license_catalog_record_bp):app.register_blueprint(bp,url_prefix="/api")
+ for bp in (api_bp,stock_bp,auth_bp,maintenance_bp,requests_bp,personnel_bp,knowledge_bp,attachments_bp,scrap_bp,reports_bp,settings_bp,logs_bp,license_owner_bp,data_bp,connections_bp,product_bp,catalog_bp,license_catalog_record_bp,network_bp):app.register_blueprint(bp,url_prefix="/api")
  @app.before_request
  def require_api_authentication():
-  if not request.path.startswith('/api/') or request.path in {'/api/auth/login','/api/health/db'} or request.method=='OPTIONS':return None
+  if not request.path.startswith('/api/') or request.path in {'/api/auth/login','/api/auth/ad-login','/api/auth/ad-status','/api/health/db','/api/settings/branding'} or request.method=='OPTIONS':return None
   user=current_user()
-  if user is None and os.getenv('AUTH_DISABLED','false').lower()=='true':
-   user=User.query.filter_by(username=os.getenv('ADMIN_USERNAME','admin'),active=True).first()
-   if user:session['user_id']=user.id
   if user is None:return jsonify({'error':'authentication_required'}),401
   method=request.method.upper();path=request.path;permission=None
   if path.startswith('/api/inventory') and method in {'POST','PUT','PATCH','DELETE'}:permission='inventory.manage'
@@ -38,6 +34,7 @@ def create_app(config_class=Config):
   elif path.startswith('/api/license-catalog') and method in {'POST','PUT','PATCH','DELETE'}:permission='licenses.manage'
   elif path.startswith('/api/stock') and method in {'POST','PUT','PATCH','DELETE'}:permission='stock.manage'
   elif path.startswith('/api/maintenance') and method in {'POST','PUT','PATCH','DELETE'}:permission='maintenance.manage'
+  elif path.startswith('/api/network-ports') and method in {'POST','PUT','PATCH','DELETE'}:permission='settings.manage'
   elif path.startswith('/api/requests') and method in {'POST','PUT','PATCH','DELETE'}:permission='requests.manage'
   elif path.startswith('/api/personnel') and method in {'POST','PUT','PATCH','DELETE'}:permission='people.manage'
   elif path.startswith('/api/knowledge') and method in {'POST','PUT','PATCH','DELETE'}:permission='knowledge.manage'
@@ -48,9 +45,14 @@ def create_app(config_class=Config):
   if permission and not user.has_permission(permission):return jsonify({'error':'forbidden','permission':permission}),403
  @app.get('/health')
  def health():return jsonify({'status':'ok','service':'itmanager-api'})
+ @app.get('/api/health')
+ def api_health():return jsonify({'status':'ok','service':'itmanager-api'})
  @app.get('/api/health/db')
  def db_health():
   from sqlalchemy import text
   try:db.session.execute(text('SELECT 1'));return jsonify({'status':'ok','database':'postgresql'})
-  except Exception as exc:db.session.rollback();return jsonify({'status':'error','database':'postgresql','detail':str(exc)}),503
+  except Exception as exc:
+   db.session.rollback();app.logger.warning('Database health check failed (%s)',type(exc).__name__);return jsonify({'status':'error','database':'postgresql','message':'Database health check failed'}),503
+ from .backup_service import start_backup_scheduler
+ start_backup_scheduler(app)
  return app
