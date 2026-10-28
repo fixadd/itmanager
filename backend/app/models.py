@@ -70,4 +70,4 @@ class NetworkPort(TimestampMixin,db.Model):
     switch_port=db.Column(db.String(120))
     mounting_location=db.Column(db.String(200))
     note=db.Column(db.Text)
-    __table_args__=(db.UniqueConstraint("cabinet_name","row_number",name="uq_network_port_cabinet_row"),)
+    __table_args__=(db.UniqueConstraint("cabinet_name","row_number","switch_port",name="uq_network_port_cabinet_row_switch"),)
