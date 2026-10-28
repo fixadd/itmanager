@@ -5,7 +5,7 @@ const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const msg=e=>{const m=e?.message||String(e||'');const map={name_exists:'Bu isim zaten tanımlı.',model_exists:'Bu model zaten tanımlı.',model_exists_for_brand:'Bu marka için aynı model zaten var.',invalid_product_type:'Geçersiz donanım tipi.',invalid_brand_or_product_type:'Marka ve donanım tipi ilişkisi geçersiz.',brand_not_linked_to_product_type:'Marka seçilen donanım tipine bağlı değil.'};return map[m]||m};
 let scope='inventory',catalog=null,globals={factories:[],departments:[]},licenseCatalog=[];
 
-async function load(s){scope=s;catalog=await req('/settings/product-catalog?scope='+encodeURIComponent(scope));await loadGlobals();render();}
+async function load(s){scope=s;if(scope==='systems'){catalog=null;await loadGlobals();render();return;}catalog=await req('/settings/product-catalog?scope='+encodeURIComponent(scope));await loadGlobals();render();}
 async function loadGlobals(){
  const [f,d]=await Promise.all([req('/settings/factories'),req('/settings/departments')]);
  globals={factories:(f.items||[]).filter(x=>x.active),departments:(d.items||[]).filter(x=>x.active)};
@@ -68,7 +68,7 @@ async function cleanupInactiveMasters(){
  }catch(e){toast(msg(e))}
 }
 
-function tabs(){return `<div class="master-tabs nav nav-pills mb-4"><button class="nav-link ${scope==='inventory'?'active':''}" data-catalog-scope="inventory"><i class="ti ti-devices me-1"></i>Envanter Takip</button><button class="nav-link ${scope==='stock'?'active':''}" data-catalog-scope="stock"><i class="ti ti-package me-1"></i>Stok Takip</button><button class="nav-link ${scope==='license'?'active':''}" data-catalog-scope="license"><i class="ti ti-license me-1"></i>Lisans Takip</button></div>`}
+function tabs(){return `<div class="master-tabs nav nav-pills mb-4"><button class="nav-link ${scope==='inventory'?'active':''}" data-catalog-scope="inventory"><i class="ti ti-devices me-1"></i>Envanter Takip</button><button class="nav-link ${scope==='stock'?'active':''}" data-catalog-scope="stock"><i class="ti ti-package me-1"></i>Stok Takip</button><button class="nav-link ${scope==='license'?'active':''}" data-catalog-scope="license"><i class="ti ti-license me-1"></i>Lisans Takip</button><button class="nav-link ${scope==='systems'?'active':''}" data-catalog-scope="systems"><i class="ti ti-shield-lock me-1"></i>Sistem Tanımları</button></div>`}
 function tableRows(items,type){
  const typeMap=Object.fromEntries((catalog?.hardware_types||[]).map(x=>[String(x.id),x.name]));
  const brandMap=Object.fromEntries((catalog?.brands||[]).map(x=>[String(x.id),x.name]));
@@ -112,6 +112,25 @@ async function createCatalog(kind,fd){
   toast('Tanım eklendi');await load(scope);
  }catch(e){toast(msg(e));if(created)await load(scope);}
 }
+async function renderSystems(){
+ const area=document.getElementById('catalogArea');if(!area)return;
+ try{
+  const data=await req('/settings/access-systems');
+  const systems=data.items||[];
+  area.innerHTML=`<div class="card border-0 shadow-sm"><div class="card-body p-4"><div class="d-flex justify-content-between align-items-start gap-3 mb-4"><div><h4 class="mb-1">Sistem Tanımları</h4><div class="text-secondary small">Personel detayında erişim takibinde kullanacağınız VPN, ERP, e-posta gibi sistemleri burada tanımlayın.</div></div><span class="master-count">${systems.filter(x=>x.active).length} aktif</span></div><form id="addAccessSystemForm" class="input-group mb-3"><input name="name" class="form-control" placeholder="Örn. VPN, ERP, Kurumsal E-posta" maxlength="160" required><button class="btn btn-primary"><i class="ti ti-plus me-1"></i>Sistem Ekle</button></form><div id="accessSystemList" class="master-list">${systems.length?systems.map(x=>`<div class="master-row"><div class="d-flex align-items-center gap-2"><span class="master-icon"><i class="ti ti-shield-lock"></i></span><div><div class="fw-semibold">${esc(x.name)}</div><div class="small text-secondary">${x.active?'Aktif tanım':'Pasif tanım'}</div></div></div><div class="d-flex gap-1"><button class="btn btn-sm btn-ghost-primary" data-access-system-edit="${x.id}" data-name="${esc(x.name)}" title="Düzenle"><i class="ti ti-edit"></i></button><button class="btn btn-sm ${x.active?'btn-ghost-danger':'btn-ghost-primary'}" data-access-system-toggle="${x.id}" data-active="${x.active?'1':'0'}" data-name="${esc(x.name)}" title="${x.active?'Pasife al':'Yeniden etkinleştir'}"><i class="ti ${x.active?'ti-ban':'ti-check'}"></i></button></div></div>`).join(''):'<div class="empty-master">Henüz sistem tanımlanmamış. Yukarıdan ilk sistemi ekleyebilirsiniz.</div>'}</div></div></div>`;
+  area.querySelector('#addAccessSystemForm').onsubmit=async e=>{e.preventDefault();const form=e.currentTarget;try{await req('/settings/access-systems',{method:'POST',body:JSON.stringify({name:form.name.value.trim()})});toast('Sistem tanımı eklendi');await renderSystems()}catch(err){toast(msg(err))}};
+ }catch(err){area.innerHTML='<div class="alert alert-danger">Sistem tanımları yüklenemedi: '+esc(msg(err))+'</div>'}
+}
+async function editAccessSystem(id,name){
+ const out=await editBox('Sistem Tanımını Düzenle',[{key:'name',label:'Sistem Adı',value:name,required:true}]);if(!out)return;
+ try{await req('/settings/access-systems/'+id,{method:'PATCH',body:JSON.stringify(out)});toast('Sistem tanımı güncellendi');await renderSystems()}catch(err){toast(msg(err))}
+}
+async function toggleAccessSystem(id,name,active){
+ const action=active?'pasife alınsın':'yeniden etkinleştirilsin';
+ if(active&&!(await confirmBox('Sistem Tanımını Pasife Al',`“${name}” yeni personel atamalarında kullanılmasın mı? Mevcut personel kayıtları korunur.`,'Pasife Al')))return;
+ try{await req('/settings/access-systems/'+id,{method:'PATCH',body:JSON.stringify({active:!active})});toast(active?'Sistem tanımı pasife alındı':'Sistem tanımı etkinleştirildi');await renderSystems()}catch(err){toast(msg(err))}
+}
+
 async function renderLicense(){
  await loadLicenses();const area=document.getElementById('catalogArea');if(!area)return;
  const names=licenseCatalog;
@@ -121,7 +140,7 @@ async function renderLicense(){
  paginateMasterList('#licenseNameList','Lisans Adları');
  paginateMasterList('#licenseModelList','Lisans Modelleri');
 }
-function render(){const root=document.getElementById('pageContent');if(!root)return;root.innerHTML=shell()+globalSection()+tabs()+'<div id="catalogArea"></div>';if(scope==='license')renderLicense();else renderCatalog();bindGlobals();paginateMasterList('.master-global-card .col-lg-6:nth-child(1) .master-list','Fabrikalar');paginateMasterList('.master-global-card .col-lg-6:nth-child(2) .master-list','Departmanlar');}
+function render(){const root=document.getElementById('pageContent');if(!root)return;root.innerHTML=shell()+globalSection()+tabs()+'<div id="catalogArea"></div>';if(scope==='license')renderLicense();else if(scope==='systems')renderSystems();else renderCatalog();bindGlobals();paginateMasterList('.master-global-card .col-lg-6:nth-child(1) .master-list','Fabrikalar');paginateMasterList('.master-global-card .col-lg-6:nth-child(2) .master-list','Departmanlar');}
 function bindGlobals(){
  const f=document.getElementById('phFactoryAddForm'),d=document.getElementById('phDepartmentAddForm');
  if(f)f.onsubmit=async e=>{e.preventDefault();try{await req('/settings/factories',{method:'POST',body:JSON.stringify({name:e.currentTarget.name.value.trim()})});toast('Fabrika eklendi');await loadGlobals();render();}catch(err){toast(msg(err))}};
@@ -144,7 +163,7 @@ async function deleteLicenseModel(id,name){if(!(await confirmBox('Lisans Modelin
 
 document.addEventListener('click',e=>{
  const cleanup=e.target.closest('#cleanupInactiveMasters');if(cleanup){cleanupInactiveMasters();return;}
- const tab=e.target.closest('[data-catalog-scope]');if(tab){e.preventDefault();e.stopImmediatePropagation();const s=tab.dataset.catalogScope;if(s==='license'){scope='license';catalog=null;render();}else load(s).catch(err=>toast(msg(err)));return;}
+ const tab=e.target.closest('[data-catalog-scope]');if(tab){e.preventDefault();e.stopImmediatePropagation();const s=tab.dataset.catalogScope;if(s==='license'){scope='license';catalog=null;render();}else load(s).catch(err=>toast(msg(err)));return;}const accessEdit=e.target.closest('[data-access-system-edit]');if(accessEdit){editAccessSystem(Number(accessEdit.dataset.accessSystemEdit),accessEdit.dataset.name);return;}const accessToggle=e.target.closest('[data-access-system-toggle]');if(accessToggle){toggleAccessSystem(Number(accessToggle.dataset.accessSystemToggle),accessToggle.dataset.name,accessToggle.dataset.active==='1');return;}
  const ge=e.target.closest('[data-global-edit]');if(ge){editGlobal(ge.dataset.globalEdit,Number(ge.dataset.id),ge.dataset.name);return;}
  const gd=e.target.closest('[data-global-delete]');if(gd){deleteGlobal(gd.dataset.globalDelete,Number(gd.dataset.id),gd.dataset.name);return;}
  const me=e.target.closest('[data-master-edit]');if(me){editMaster(me.dataset.masterEdit,Number(me.dataset.id)).catch(err=>toast(msg(err)));return;}
