@@ -127,6 +127,7 @@ def update_port(port_id):
             NetworkPort.id != row.id,
             NetworkPort.cabinet_name == values["cabinet_name"],
             NetworkPort.row_number == values["row_number"],
+            NetworkPort.switch_port == values["switch_port"],
         ).first()
         if duplicate:
             return jsonify({"error": "Bu kabinet için bu sıra numarası zaten kayıtlı"}), 409
