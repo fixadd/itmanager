@@ -100,7 +100,7 @@ def list_ports():
 def create_port():
     try:
         values = _payload(request.get_json(silent=True) or {})
-        if NetworkPort.query.filter_by(cabinet_name=values["cabinet_name"], row_number=values["row_number"]).first():
+        if NetworkPort.query.filter_by(cabinet_name=values["cabinet_name"], row_number=values["row_number"], switch_port=values["switch_port"]).first():
             return jsonify({"error": "Bu kabinet için bu sıra numarası zaten kayıtlı"}), 409
         row = NetworkPort(**values)
         db.session.add(row)
@@ -191,7 +191,7 @@ def import_ods():
                     row_number = None
                 if not row_number or row_number < 1:
                     continue
-                existing = NetworkPort.query.filter_by(cabinet_name=cabinet, row_number=row_number).first()
+                existing = NetworkPort.query.filter_by(cabinet_name=cabinet, row_number=row_number, switch_port=switch_port or None).first()
                 values_to_save = {
                     "cabinet_name": cabinet,
                     "row_number": row_number,
